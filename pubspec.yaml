@@ -1,0 +1,87 @@
+name: flutter_id_card
+description: "School ID Card Management System - offline-first data entry, photo capture and print-accurate card generation."
+publish_to: 'none'
+
+# version+build. Android versionCode comes from the build number (the part after '+').
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # --- State management -------------------------------------------------
+  flutter_riverpod: 3.0.0
+
+  # --- Local persistence (offline-first) --------------------------------
+  drift: ^2.34.3
+  drift_flutter: ^0.3.1
+  sqlite3_flutter_libs: ^0.6.0+eol
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  shared_preferences: ^2.5.5
+
+  # --- Backend ----------------------------------------------------------
+  firebase_core: ^4.14.0
+  firebase_auth: ^6.6.0
+  cloud_firestore: ^6.9.0
+  firebase_storage: ^13.5.0
+  firebase_messaging: ^16.6.0
+
+  # --- Print pipeline ---------------------------------------------------
+  # `pdf` lets us specify page geometry in real millimetres, which is the
+  # only way to guarantee a card comes off the printer at its true size.
+  pdf: ^3.13.0
+  printing: ^5.15.0
+
+  # --- Photo capture & processing ---------------------------------------
+  camera: ^0.12.0+2
+  image_picker: ^1.2.3
+  image_cropper: ^12.2.1
+  image: ^4.9.2
+  google_mlkit_selfie_segmentation: ^0.12.1
+  google_mlkit_face_detection: ^0.15.1
+  permission_handler: ^13.0.1
+
+  # --- Misc -------------------------------------------------------------
+  go_router: ^18.0.0
+  intl: ^0.20.3
+  uuid: ^4.6.0
+  collection: ^1.19.1
+  connectivity_plus: ^7.3.1
+  open_filex: ^4.7.0
+  file_picker: ^12.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.16.0
+  drift_dev: ^2.34.5
+  mocktail: ^1.0.5
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/templates/
+    - assets/images/
+
+  fonts:
+    # Bundled deliberately: the print path must produce identical metrics on
+    # every device and on the print server. Relying on the system font would
+    # let text reflow between phones and shift the printed layout.
+    #
+    # LICENSING: Arial is a Monotype font bundled with Windows and is NOT
+    # redistributable in a shipped app. Before release, replace these two files
+    # with Liberation Sans (SIL OFL, metric-compatible with Arial, so the
+    # layout will not shift) or buy an Arial embedding licence.
+    - family: Arial
+      fonts:
+        - asset: assets/fonts/Arial-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Arial-Bold.ttf
+          weight: 700

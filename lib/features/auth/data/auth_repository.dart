@@ -1,0 +1,318 @@
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Domain part of the synthetic email addresses used for school logins.
+///
+/// Firebase Auth only authenticates email/password pairs, but the spec calls
+/// for operators to sign in with a *school name*. We bridge that by deriving a
+/// deterministic address from the school code: `stjohns` -> the address below.
+/// The admin panel creates the Auth user with exactly this address when a
+/// school is added, so the two always agree and no unauthenticated Firestore
+/// read is needed to resolve a school name to an email.
+///
+/// Change this to the organisation's own domain before rollout.
+const String kSchoolAuthDomain = 'schools.idcardx.app';
+
+/// Firestore collection holding role assignments, keyed by Auth UID.
+const String kUsersCollection = 'users';
+
+class AuthRepository {
+  AuthRepository({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+  })  : _authOverride = auth,
+        _firestoreOverride = firestore;
+
+  final FirebaseAuth? _authOverride;
+  final FirebaseFirestore? _firestoreOverride;
+
+  static const String _sessionCacheKey = 'cached_session_user';
+  static const String _knownSchoolsKey = 'known_school_codes';
+
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
+  FirebaseFirestore get _db => _firestoreOverride ?? FirebaseFirestore.instance;
+
+  bool get isBackendAvailable => FirebaseBootstrap.instance.isReady;
+
+  /// Turns a typed school code into the address Firebase Auth expects.
+  /// An input that already looks like an email is passed through untouched, so
+  /// the organisation can migrate to real addresses without a code change.
+  static String schoolCodeToEmail(String schoolCode) {
+    final String cleaned = schoolCode.trim().toLowerCase();
+    if (cleaned.contains('@')) return cleaned;
+    // Auth rejects addresses with spaces or most punctuation.
+    final String slug = cleaned.replaceAll(RegExp(r'[^a-z0-9._-]'), '');
+    return '$slug@$kSchoolAuthDomain';
+  }
+
+  // ------------------------------------------------------------------
+  // Sign in
+  // ------------------------------------------------------------------
+
+  Future<SessionUser> signInAsSchool({
+    required String schoolCode,
+    required String password,
+  }) async {
+    if (schoolCode.trim().isEmpty) {
+      throw const AuthFailure('Enter your school name or code');
+    }
+    final SessionUser user = await _signIn(
+      email: schoolCodeToEmail(schoolCode),
+      password: password,
+      expectedRole: UserRole.school,
+    );
+    await _rememberSchoolCode(schoolCode.trim());
+    return user;
+  }
+
+  Future<SessionUser> signInAsAdmin({
+    required String email,
+    required String password,
+  }) {
+    if (email.trim().isEmpty) {
+      throw const AuthFailure('Enter your admin email');
+    }
+    return _signIn(
+      email: email.trim().toLowerCase(),
+      password: password,
+      expectedRole: UserRole.admin,
+    );
+  }
+
+  Future<SessionUser> _signIn({
+    required String email,
+    required String password,
+    required UserRole expectedRole,
+  }) async {
+    if (!isBackendAvailable) {
+      throw const AuthFailure(
+        'Cannot reach the server. Check that Firebase is configured '
+        '(google-services.json) and that you have a connection.',
+      );
+    }
+    if (password.isEmpty) {
+      throw const AuthFailure('Enter your password');
+    }
+
+    final UserCredential credential;
+    try {
+      credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure(_describeAuthError(e, expectedRole));
+    }
+
+    final User? fbUser = credential.user;
+    if (fbUser == null) {
+      throw const AuthFailure('Sign-in failed. Try again.');
+    }
+
+    final SessionUser session = await _loadProfile(fbUser);
+
+    if (session.role != expectedRole) {
+      await _auth.signOut();
+      throw AuthFailure(
+        expectedRole == UserRole.admin
+            ? 'This account is not an admin account.'
+            : 'This is an admin account - use the Admin tab to sign in.',
+      );
+    }
+    if (expectedRole == UserRole.school && !session.canEnterData) {
+      await _auth.signOut();
+      throw const AuthFailure(
+        'This account has no school assigned. Ask your administrator to set '
+        'schoolId on the user record.',
+      );
+    }
+
+    await _cacheSession(session);
+    unawaited_(_touchLastLogin(session.uid));
+    return session;
+  }
+
+  /// Reads the role document. Primary lookup is by UID, which is what the
+  /// security rules key off. The email fallback exists because Firestore
+  /// documents created by hand in the console get an auto-ID instead of the
+  /// UID - it keeps those working while the data is migrated.
+  Future<SessionUser> _loadProfile(User fbUser) async {
+    final String email = fbUser.email ?? '';
+
+    Map<String, Object?>? data;
+    try {
+      final DocumentSnapshot<Map<String, Object?>> byUid =
+          await _db.collection(kUsersCollection).doc(fbUser.uid).get();
+      if (byUid.exists) {
+        data = byUid.data();
+      } else if (email.isNotEmpty) {
+        final QuerySnapshot<Map<String, Object?>> byEmail = await _db
+            .collection(kUsersCollection)
+            .where('email', isEqualTo: email)
+            .limit(1)
+            .get();
+        if (byEmail.docs.isNotEmpty) {
+          data = byEmail.docs.first.data();
+        }
+      }
+    } on FirebaseException catch (e) {
+      throw AuthFailure('Could not read your account profile: ${e.message}');
+    }
+
+    if (data == null) {
+      await _auth.signOut();
+      throw const AuthFailure(
+        'No profile found for this account. Ask your administrator to create '
+        'a users record with a role.',
+      );
+    }
+
+    if (data['active'] == false) {
+      await _auth.signOut();
+      throw const AuthFailure('This account has been deactivated.');
+    }
+
+    return SessionUser(
+      uid: fbUser.uid,
+      email: email,
+      role: UserRole.fromWire(data['role'] as String?),
+      schoolId: data['schoolId'] as String?,
+      displayName: (data['displayName'] as String?) ?? '',
+    );
+  }
+
+  /// Best-effort: a failure here must never block a login.
+  Future<void> _touchLastLogin(String uid) async {
+    try {
+      await _db.collection(kUsersCollection).doc(uid).set(
+        <String, Object?>{'lastLoginDate': FieldValue.serverTimestamp()},
+        SetOptions(merge: true),
+      );
+    } on Object {
+      // Intentionally ignored - see doc comment.
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Session restore & sign out
+  // ------------------------------------------------------------------
+
+  /// Restores a session on app start.
+  ///
+  /// Firebase Auth persists credentials on device, so `currentUser` is
+  /// populated even with no network. We prefer the locally cached profile in
+  /// that case rather than blocking the splash screen on a Firestore read that
+  /// may never complete.
+  Future<SessionUser?> restoreSession() async {
+    if (!isBackendAvailable) return null;
+
+    final User? fbUser = _auth.currentUser;
+    if (fbUser == null) return null;
+
+    final SessionUser? cached = await _readCachedSession();
+    if (cached != null && cached.uid == fbUser.uid) {
+      // Refresh in the background so a role change lands on the next frame
+      // without making the operator wait for it now.
+      unawaited_(_refreshCachedProfile(fbUser));
+      return cached;
+    }
+
+    try {
+      final SessionUser fresh = await _loadProfile(fbUser);
+      await _cacheSession(fresh);
+      return fresh;
+    } on AuthFailure {
+      return null;
+    }
+  }
+
+  Future<void> _refreshCachedProfile(User fbUser) async {
+    try {
+      await _cacheSession(await _loadProfile(fbUser));
+    } on Object {
+      // Offline or transient - the cached session stays valid.
+    }
+  }
+
+  Future<void> signOut() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sessionCacheKey);
+    if (isBackendAvailable) {
+      await _auth.signOut();
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Local caches
+  // ------------------------------------------------------------------
+
+  Future<void> _cacheSession(SessionUser user) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sessionCacheKey, jsonEncode(user.toJson()));
+  }
+
+  Future<SessionUser?> _readCachedSession() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? raw = prefs.getString(_sessionCacheKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is! Map<String, Object?>) return null;
+      return SessionUser.fromJson(decoded);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Powers the school-name dropdown on the login screen. Only codes that have
+  /// successfully signed in on this device are remembered, so it never leaks
+  /// the organisation's full school list to an unauthenticated user.
+  Future<List<String>> knownSchoolCodes() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_knownSchoolsKey) ?? const <String>[];
+  }
+
+  Future<void> _rememberSchoolCode(String code) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<String> existing = prefs.getStringList(_knownSchoolsKey) ?? <String>[];
+    final List<String> next = <String>[
+      code,
+      ...existing.where((String c) => c.toLowerCase() != code.toLowerCase()),
+    ].take(10).toList();
+    await prefs.setStringList(_knownSchoolsKey, next);
+  }
+
+  // ------------------------------------------------------------------
+
+  String _describeAuthError(FirebaseAuthException e, UserRole role) {
+    final String subject = role == UserRole.admin ? 'admin email' : 'school code';
+    return switch (e.code) {
+      'invalid-email' => 'That $subject is not valid.',
+      'user-disabled' => 'This account has been disabled.',
+      // Firebase deliberately collapses "no such user" and "wrong password"
+      // into invalid-credential to avoid confirming which accounts exist.
+      'user-not-found' ||
+      'wrong-password' ||
+      'invalid-credential' =>
+        'Wrong $subject or password.',
+      'too-many-requests' =>
+        'Too many failed attempts. Wait a few minutes and try again.',
+      'network-request-failed' =>
+        'No connection. You can still work offline - saved entries will sync later.',
+      _ => e.message ?? 'Sign-in failed (${e.code}).',
+    };
+  }
+}
+
+/// Fire-and-forget helper. Named with a trailing underscore so it is obviously
+/// not `package:async`'s `unawaited`, which the lint set would also accept -
+/// this one additionally swallows errors, which is the behaviour we want for
+/// telemetry-style writes.
+void unawaited_(Future<void> future) {
+  future.ignore();
+}

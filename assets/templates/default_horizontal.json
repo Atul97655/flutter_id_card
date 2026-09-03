@@ -1,0 +1,86 @@
+{
+  "id": "default_horizontal",
+  "name": "Default Horizontal",
+  "cardSizeId": "h86x54",
+  "background": "@white",
+  "_comment": [
+    "All units are millimetres from the top-left of the trimmed 86 x 54 mm card.",
+    "The 38.1 mm photo is 71% of a 54 mm card height, so a horizontal card cannot",
+    "carry a deep masthead. Layout is therefore two columns below a slim header,",
+    "matching the reference designs that put the photo left and the LABEL : VALUE",
+    "rows right:",
+    "  header      0.0 -> 11.0  full width",
+    "  photo      12.5 -> 50.6  left column  (38.1 mm - FIXED)",
+    "  name       12.5 -> 18.0  right column",
+    "  fields     18.5 -> 49.5  right column (31.0 mm - roomy, unlike the vertical)"
+  ],
+  "elements": [
+    {
+      "type": "rect",
+      "x": 0, "y": 0, "w": 86, "h": 11,
+      "fill": "@header"
+    },
+    {
+      "type": "logo",
+      "x": 1.6, "y": 1.0, "w": 9, "h": 9
+    },
+    {
+      "type": "text",
+      "x": 12, "y": 0.9, "w": 59, "h": 5.6,
+      "value": "{schoolName}",
+      "size": 9,
+      "bold": true,
+      "color": "@white",
+      "align": "left",
+      "maxLines": 1
+    },
+    {
+      "type": "text",
+      "x": 12, "y": 6.4, "w": 59, "h": 3.8,
+      "value": "{addressLine}",
+      "size": 4.5,
+      "color": "@white",
+      "align": "left",
+      "maxLines": 1
+    },
+    {
+      "type": "text",
+      "x": 72, "y": 1.6, "w": 12.4, "h": 7.6,
+      "value": "{contactLine}",
+      "size": 4.5,
+      "color": "@white",
+      "align": "right",
+      "maxLines": 2
+    },
+
+    {
+      "type": "photo",
+      "x": 4, "y": 12.5, "w": 30.48, "h": 38.1,
+      "borderWidth": 0.4,
+      "borderColor": "@header"
+    },
+
+    {
+      "type": "nameBanner",
+      "x": 37, "y": 12.5, "w": 46, "h": 5.5,
+      "size": 8,
+      "color": "@primary",
+      "align": "left"
+    },
+
+    {
+      "type": "fields",
+      "x": 37, "y": 18.5, "w": 46, "h": 31,
+      "labelWidth": 15,
+      "rowGap": 0.9,
+      "showLabels": true,
+      "exclude": ["name"]
+    },
+
+    {
+      "type": "rect",
+      "x": 0, "y": 52.6, "w": 86, "h": 1.4,
+      "fill": "@header"
+    }
+  ]
+}

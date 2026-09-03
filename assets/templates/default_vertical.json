@@ -1,0 +1,87 @@
+{
+  "id": "default_vertical",
+  "name": "Default Vertical",
+  "cardSizeId": "v54x86",
+  "background": "@white",
+  "_comment": [
+    "All units are millimetres from the top-left of the trimmed 54 x 86 mm card.",
+    "Vertical budget, which is the binding constraint on this layout:",
+    "  header      0.0 -> 15.0   (15.0 mm)",
+    "  photo      17.5 -> 55.6   (38.1 mm - FIXED, this is 1.5 in and cannot shrink)",
+    "  name       56.5 -> 61.0   ( 4.5 mm)",
+    "  fields     61.5 -> 80.5   (19.0 mm - flowed, shrinks to fit enabled rows)",
+    "  footer     81.0 -> 86.0   ( 5.0 mm)",
+    "The photo is the immovable object here: 38.1 mm of an 86 mm card is already",
+    "44% of the height, which is why the header is a compact band rather than the",
+    "deep masthead some of the reference designs use."
+  ],
+  "elements": [
+    {
+      "type": "rect",
+      "x": 0, "y": 0, "w": 54, "h": 15,
+      "fill": "@header"
+    },
+    {
+      "type": "logo",
+      "x": 2.0, "y": 1.8, "w": 11.4, "h": 11.4
+    },
+    {
+      "type": "text",
+      "x": 14.5, "y": 1.6, "w": 37.5, "h": 6.4,
+      "value": "{schoolName}",
+      "size": 8.5,
+      "bold": true,
+      "color": "@white",
+      "align": "center",
+      "maxLines": 2
+    },
+    {
+      "type": "text",
+      "x": 14.5, "y": 8.4, "w": 37.5, "h": 5.4,
+      "value": "{addressLine}",
+      "size": 4.5,
+      "color": "@white",
+      "align": "center",
+      "maxLines": 2
+    },
+
+    {
+      "type": "photo",
+      "x": 11.76, "y": 17.5, "w": 30.48, "h": 38.1,
+      "borderWidth": 0.4,
+      "borderColor": "@header"
+    },
+
+    {
+      "type": "nameBanner",
+      "x": 3.0, "y": 56.5, "w": 48, "h": 4.5,
+      "size": 8,
+      "color": "@primary",
+      "align": "center"
+    },
+
+    {
+      "type": "fields",
+      "x": 3.5, "y": 61.5, "w": 47, "h": 19,
+      "labelWidth": 15,
+      "rowGap": 0.6,
+      "showLabels": true,
+      "exclude": ["name"]
+    },
+
+    {
+      "type": "rect",
+      "x": 0, "y": 81, "w": 54, "h": 5,
+      "fill": "@header"
+    },
+    {
+      "type": "text",
+      "x": 3, "y": 81.9, "w": 48, "h": 3.4,
+      "value": "{contactLine}",
+      "size": 4.5,
+      "color": "@white",
+      "align": "center",
+      "maxLines": 1
+    }
+  ]
+}

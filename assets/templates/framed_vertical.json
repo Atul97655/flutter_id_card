@@ -1,0 +1,102 @@
+{
+  "id": "framed_vertical",
+  "name": "Framed Classic (Vertical)",
+  "cardSizeId": "v54x86",
+  "background": "@divAccent",
+  "_comment": [
+    "Modelled on the Pratibha Vikas and Jacob School references: a coloured",
+    "ground with a white body inset inside it, a centred photo in a grey frame,",
+    "the name centred beneath, and a signature line at the foot.",
+    "",
+    "Same border trick as the horizontal side-panel template - the colour is the",
+    "card background and the white body is inset, so the frame cannot break at",
+    "the trim.",
+    "",
+    "Vertical budget (54 x 86 mm):",
+    "  masthead     0.0 -> 15.5  on the coloured ground",
+    "  white body  15.5 -> 81.5",
+    "  photo       17.6 -> 55.7  (38.1 mm - FIXED, centred)",
+    "  name        56.6 -> 61.0",
+    "  fields      61.8 -> 76.0",
+    "  sign line   77.0 -> 80.6"
+  ],
+  "elements": [
+    {
+      "type": "logo",
+      "x": 2.0, "y": 2.0, "w": 11, "h": 11
+    },
+    {
+      "type": "text",
+      "x": 14, "y": 1.6, "w": 38, "h": 7.4,
+      "value": "{schoolName}",
+      "size": 8,
+      "bold": true,
+      "color": "@white",
+      "align": "center",
+      "maxLines": 2
+    },
+    {
+      "type": "text",
+      "x": 3, "y": 9.4, "w": 48, "h": 5.6,
+      "value": "{addressLine}",
+      "size": 4.3,
+      "color": "@white",
+      "align": "center",
+      "maxLines": 2
+    },
+
+    {
+      "type": "rect",
+      "x": 1.8, "y": 15.5, "w": 50.4, "h": 66,
+      "fill": "@white",
+      "radius": 2.2
+    },
+
+    {
+      "type": "photo",
+      "x": 11.76, "y": 17.6, "w": 30.48, "h": 38.1,
+      "borderWidth": 0.5,
+      "borderColor": "#9E9E9E"
+    },
+
+    {
+      "type": "nameBanner",
+      "x": 3.5, "y": 56.6, "w": 47, "h": 4.4,
+      "size": 8,
+      "color": "@primary",
+      "align": "center"
+    },
+    {
+      "type": "fields",
+      "x": 4.5, "y": 61.8, "w": 45, "h": 14.2,
+      "labelWidth": 14,
+      "rowGap": 0.5,
+      "showLabels": true,
+      "exclude": ["name"]
+    },
+
+    {
+      "type": "rect",
+      "x": 30, "y": 77.6, "w": 18, "h": 0.25,
+      "fill": "#9E9E9E"
+    },
+    {
+      "type": "text",
+      "x": 28, "y": 77.9, "w": 22, "h": 3.0,
+      "value": "Principal Sign",
+      "size": 4.2,
+      "color": "@secondary",
+      "align": "center"
+    },
+
+    {
+      "type": "text",
+      "x": 3, "y": 82.0, "w": 48, "h": 3.4,
+      "value": "{contactLine}",
+      "size": 4.2,
+      "color": "@white",
+      "align": "center",
+      "maxLines": 1
+    }
+  ]
+}

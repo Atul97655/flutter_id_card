@@ -1,0 +1,107 @@
+{
+  "id": "div_badge_vertical",
+  "name": "Division Badge (Vertical)",
+  "cardSizeId": "v54x86",
+  "background": "@white",
+  "_comment": [
+    "Modelled on the Sacred Heart Convent reference set, where the same card is",
+    "issued in one colour per division so a teacher can spot a wrong card across",
+    "a room. Every coloured band here uses @divAccent, which resolves to the",
+    "student's division colour when the school has configured them and falls back",
+    "to the school header colour when it has not.",
+    "",
+    "Vertical budget (54 x 86 mm):",
+    "  header       0.0 -> 17.0",
+    "  photo panel 17.0 -> 58.0   dark panel, photo centred inside it",
+    "  accent bar  58.0 -> 61.5",
+    "  DIV badge   61.0 -> 66.5   overlaps the bar, as in the reference",
+    "  fields      67.5 -> 82.0",
+    "  footer      83.0 -> 86.0"
+  ],
+  "elements": [
+    {
+      "type": "rect",
+      "x": 0, "y": 0, "w": 54, "h": 17,
+      "fill": "@divAccent"
+    },
+    {
+      "type": "logo",
+      "x": 42.5, "y": 1.2, "w": 10, "h": 10
+    },
+    {
+      "type": "text",
+      "x": 2.5, "y": 2.6, "w": 39, "h": 7,
+      "value": "{schoolName}",
+      "size": 8,
+      "bold": true,
+      "color": "@white",
+      "align": "left",
+      "maxLines": 2
+    },
+    {
+      "type": "text",
+      "x": 2.5, "y": 10.4, "w": 46, "h": 5.6,
+      "value": "{addressLine}",
+      "size": 4.4,
+      "color": "@white",
+      "align": "left",
+      "maxLines": 2
+    },
+
+    {
+      "type": "rect",
+      "x": 0, "y": 17, "w": 54, "h": 41,
+      "fill": "#2E1A55"
+    },
+    {
+      "type": "photo",
+      "x": 11.76, "y": 18.4, "w": 30.48, "h": 38.1,
+      "borderWidth": 0.35,
+      "borderColor": "@white"
+    },
+
+    {
+      "type": "rect",
+      "x": 0, "y": 58, "w": 54, "h": 3.5,
+      "fill": "@divAccent"
+    },
+    {
+      "type": "rect",
+      "x": 14, "y": 60.4, "w": 26, "h": 6.2,
+      "fill": "#2E1A55",
+      "radius": 3.1
+    },
+    {
+      "type": "text",
+      "x": 14, "y": 60.4, "w": 26, "h": 6.2,
+      "value": "DIV-{division}",
+      "size": 7.5,
+      "bold": true,
+      "color": "@white",
+      "align": "center",
+      "requires": "division"
+    },
+
+    {
+      "type": "nameBanner",
+      "x": 3, "y": 67.4, "w": 48, "h": 4.4,
+      "size": 8,
+      "color": "@primary",
+      "align": "center"
+    },
+    {
+      "type": "fields",
+      "x": 3.5, "y": 72.2, "w": 47, "h": 10.4,
+      "labelWidth": 14,
+      "rowGap": 0.5,
+      "showLabels": true,
+      "exclude": ["name", "division"]
+    },
+
+    {
+      "type": "rect",
+      "x": 0, "y": 83, "w": 54, "h": 3,
+      "fill": "@divAccent"
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "id": "side_panel_horizontal",
+  "name": "Side Panel (Horizontal)",
+  "cardSizeId": "h86x54",
+  "background": "@divAccent",
+  "_comment": [
+    "Modelled on the St John Samaritan and Tapasya references: a full-bleed",
+    "coloured ground with a white body panel inset inside it, masthead across",
+    "the top, photo left, LABEL : VALUE rows right.",
+    "",
+    "The coloured ground IS the card background, so the inset white panel reads",
+    "as a border on all four sides. That is cheaper and more reliable in print",
+    "than stroking a frame, and it survives a slightly off trim without showing",
+    "a broken outline.",
+    "",
+    "The 38.1 mm photo is 71% of a 54 mm card height and cannot shrink, so the",
+    "masthead is capped at 12 mm. That is the whole reason this layout is two",
+    "columns rather than the stacked arrangement the vertical templates use:",
+    "  masthead     0.0 -> 12.0  on the coloured ground",
+    "  white body  12.0 -> 52.6",
+    "  photo       13.2 -> 51.3  (38.1 mm - FIXED)",
+    "  fields      19.2 -> 50.7  right column, 31.5 mm - roomy"
+  ],
+  "elements": [
+    {
+      "type": "logo",
+      "x": 1.5, "y": 1.0, "w": 10, "h": 10
+    },
+    {
+      "type": "text",
+      "x": 13, "y": 0.9, "w": 52, "h": 5.6,
+      "value": "{schoolName}",
+      "size": 8.5,
+      "bold": true,
+      "color": "@white",
+      "align": "left",
+      "maxLines": 1
+    },
+    {
+      "type": "text",
+      "x": 13, "y": 6.7, "w": 52, "h": 3.6,
+      "value": "{addressLine}",
+      "size": 4.2,
+      "color": "@white",
+      "align": "left",
+      "maxLines": 1
+    },
+    {
+      "type": "text",
+      "x": 66.5, "y": 1.6, "w": 17.5, "h": 8.4,
+      "value": "{contactLine}",
+      "size": 4.2,
+      "color": "@white",
+      "align": "right",
+      "maxLines": 2
+    },
+
+    {
+      "type": "rect",
+      "x": 1.6, "y": 12.0, "w": 82.8, "h": 40.6,
+      "fill": "@white",
+      "radius": 1.6
+    },
+
+    {
+      "type": "photo",
+      "x": 4.0, "y": 13.2, "w": 30.48, "h": 38.1,
+      "borderWidth": 0.35,
+      "borderColor": "@divAccent"
+    },
+
+    {
+      "type": "nameBanner",
+      "x": 37, "y": 13.6, "w": 45, "h": 5.0,
+      "size": 8,
+      "color": "@primary",
+      "align": "left"
+    },
+    {
+      "type": "fields",
+      "x": 37, "y": 19.2, "w": 45, "h": 31.5,
+      "labelWidth": 14.5,
+      "rowGap": 0.8,
+      "showLabels": true,
+      "exclude": ["name"]
+    }
+  ]
+}

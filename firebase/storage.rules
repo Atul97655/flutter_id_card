@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Firebase Storage rules for student photos and school logos.
+//
+// Deploy with:  firebase deploy --only storage
+//
+// Paths:
+//   schools/{schoolId}/photos/{entryId}.png   student photo
+//   schools/{schoolId}/logo.png               school logo
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return isSignedIn() && userDoc().get('active', true) == true;
+    }
+
+    function isAdmin() {
+      return isActive() && userDoc().role == 'Admin';
+    }
+
+    function belongsToSchool(schoolId) {
+      return isActive() && userDoc().get('schoolId', '') == schoolId;
+    }
+
+    // A processed card photo is 360 x 450 px - a few hundred KB at most.
+    // The cap stops a mis-wired client from uploading a raw 12 MP capture and
+    // costing the organisation storage and bandwidth.
+    function isReasonablePhoto() {
+      return request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /schools/{schoolId}/photos/{fileName} {
+      allow read: if isAdmin() || belongsToSchool(schoolId);
+      allow write: if (isAdmin() || belongsToSchool(schoolId)) && isReasonablePhoto();
+      allow delete: if isAdmin();
+    }
+
+    match /schools/{schoolId}/{fileName} {
+      allow read: if isAdmin() || belongsToSchool(schoolId);
+      // Branding assets are admin-controlled.
+      allow write, delete: if isAdmin() && isReasonablePhoto();
+    }
+
+    // Chat attachments (Phase 5). Membership is checked in Firestore; Storage
+    // rules cannot read an array cheaply, so this is deliberately coarse and
+    // relies on unguessable paths plus an authenticated, active account.
+    match /chats/{chatId}/{fileName} {
+      allow read: if isActive();
+      allow write: if isActive() && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
+    // Everything else is denied.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

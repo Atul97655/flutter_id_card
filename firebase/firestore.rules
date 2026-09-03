@@ -1,0 +1,149 @@
+rules_version = '2';
+
+// Firestore security rules for the School ID Card System.
+//
+// The client-side role check in the app is a UI convenience only. THESE rules
+// are what actually protect the data - anyone can talk to Firestore with a
+// stolen ID token and a curl command.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+//
+// Data model these rules assume:
+//   users/{uid}                      role: "Admin" | "School", schoolId, active
+//   schools/{schoolId}               name, cardSizeId, enabledFields, colours...
+//   schools/{schoolId}/entries/{id}  one student record
+//   chats/{chatId}                   Phase 5 messaging
+//   chats/{chatId}/messages/{id}
+//
+// NOTE: the users document MUST be keyed by the Firebase Auth UID. A document
+// with an auto-generated ID cannot be found by these rules, and every request
+// from that account will be denied.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- helpers -----------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function userExists() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // A deactivated account keeps its Auth credentials but loses all access,
+    // so an admin can cut someone off without deleting their history.
+    function isActive() {
+      return userExists() && userDoc().get('active', true) == true;
+    }
+
+    function isAdmin() {
+      return isActive() && userDoc().role == 'Admin';
+    }
+
+    function operatorSchoolId() {
+      return userDoc().get('schoolId', '');
+    }
+
+    function belongsToSchool(schoolId) {
+      return isActive() && operatorSchoolId() == schoolId;
+    }
+
+    // --- users -------------------------------------------------------
+
+    match /users/{uid} {
+      // You can read your own profile; admins can read anyone's.
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+
+      // Only admins create or delete accounts. Critically, this stops an
+      // operator from writing role: "Admin" onto their own document.
+      allow create, delete: if isAdmin();
+
+      // Admins may update anything. A user may update only their own
+      // lastLoginDate - nothing else, and specifically not role or schoolId.
+      allow update: if isAdmin()
+        || (
+          request.auth.uid == uid
+          && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(['lastLoginDate'])
+        );
+    }
+
+    // --- schools -----------------------------------------------------
+
+    match /schools/{schoolId} {
+      // An operator reads only their own school's settings; admins read all.
+      allow read: if isAdmin() || belongsToSchool(schoolId);
+
+      // Card size, field toggles and branding are admin-controlled. An
+      // operator must not be able to switch a required field off.
+      allow create, update, delete: if isAdmin();
+
+      // --- student entries -------------------------------------------
+
+      match /entries/{entryId} {
+        allow read: if isAdmin() || belongsToSchool(schoolId);
+
+        // Operators submit and correct entries for their own school only.
+        // schoolId in the payload is pinned to the path so a record cannot be
+        // filed under a school the operator does not belong to.
+        allow create: if (isAdmin() || belongsToSchool(schoolId))
+          && request.resource.data.schoolId == schoolId
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0;
+
+        allow update: if (isAdmin() || belongsToSchool(schoolId))
+          && request.resource.data.schoolId == schoolId;
+
+        // Deletion is admin-only: an operator deleting a synced record would
+        // silently remove a student from the print run.
+        allow delete: if isAdmin();
+      }
+    }
+
+    // --- messaging (Phase 5) -----------------------------------------
+
+    match /chats/{chatId} {
+      // Membership is stored on the chat document as an array of UIDs.
+      allow read: if isActive()
+        && (isAdmin() || request.auth.uid in resource.data.get('members', []));
+
+      // Only admins open a conversation, which keeps the chat list bounded.
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        function isChatMember() {
+          return isAdmin()
+            || request.auth.uid in
+               get(/databases/$(database)/documents/chats/$(chatId))
+                 .data.get('members', []);
+        }
+
+        allow read: if isActive() && isChatMember();
+
+        // senderId is pinned to the caller so nobody can post as someone else.
+        allow create: if isActive()
+          && isChatMember()
+          && request.resource.data.senderId == request.auth.uid;
+
+        // Messages are immutable except for read receipts.
+        allow update: if isActive()
+          && isChatMember()
+          && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(['readBy']);
+
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Anything not matched above is denied. Do not add a catch-all.
+  }
+}
