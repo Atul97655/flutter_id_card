@@ -19,9 +19,11 @@ void main() {
   late File logoFile;
 
   setUpAll(() {
-    outDir = Directory('C:\\Users\\ATUL\\Music\\ALL ID CARD DESIGN\\Generated_Cards')
-      ..createSync(recursive: true);
-    
+    // Written under build/, like sample_card_generation_test.dart, rather than
+    // into a real user folder - a test run must not leave files scattered
+    // outside the repo, and must produce the same result on any machine.
+    outDir = Directory('build/generated_school_cards')..createSync(recursive: true);
+
     // Generate synthetic images
     final img.Image canvas = img.Image(width: 360, height: 450);
     img.fill(canvas, color: img.ColorRgb8(255, 255, 255));
@@ -31,15 +33,15 @@ void main() {
     img.fillCircle(canvas, x: 180, y: 135, radius: 97, color: img.ColorRgb8(58, 44, 38));
     img.fillRect(canvas, x1: 83, y1: 117, x2: 277, y2: 162, color: img.ColorRgb8(58, 44, 38));
     img.fillCircle(canvas, x: 180, y: 180, radius: 84, color: img.ColorRgb8(212, 182, 160));
-    
-    photoFile = File('C:\\Users\\ATUL\\Music\\ALL ID CARD DESIGN\\Generated_Cards\\temp_photo.png')
+
+    photoFile = File('${outDir.path}/temp_photo.png')
       ..writeAsBytesSync(img.encodePng(canvas));
 
     final img.Image logoCanvas = img.Image(width: 240, height: 240);
     img.fill(logoCanvas, color: img.ColorRgb8(255, 255, 255));
     img.fillCircle(logoCanvas, x: 120, y: 120, radius: 100, color: img.ColorRgb8(26, 61, 124));
     img.fillCircle(logoCanvas, x: 120, y: 120, radius: 80, color: img.ColorRgb8(255, 255, 255));
-    logoFile = File('C:\\Users\\ATUL\\Music\\ALL ID CARD DESIGN\\Generated_Cards\\temp_logo.png')
+    logoFile = File('${outDir.path}/temp_logo.png')
       ..writeAsBytesSync(img.encodePng(logoCanvas));
   });
 
@@ -50,7 +52,7 @@ void main() {
     } catch (_) {}
   });
 
-  test('generates all school ID cards from Music folder', () async {
+  test('generates a sample card for every reference school design', () async {
     final IdCardRenderer renderer = await IdCardRenderer.load();
 
     final StudentEntry entry = StudentEntry(
@@ -222,12 +224,20 @@ void main() {
       }
     ];
 
-    for (final school in schools) {
+    // Two entries share the school name "ST. JOHN SAMARITAN SCHOOL" (different
+    // towns), so the filename cannot be built from the name alone - that would
+    // make the second write silently overwrite the first one's PDF on disk.
+    // Track names already used and suffix a collision, the same pattern
+    // ImpositionService.buildSingleCards uses for the same class of problem.
+    final Set<String> usedFilenames = <String>{};
+    int generatedCount = 0;
+
+    for (final Map<String, String> school in schools) {
       final String name = school['name']!;
       final String address = school['address']!;
       final String templateId = school['template']!;
       final String orientation = school['orientation']!;
-      
+
       final CardSize size = orientation == 'horizontal' ? CardSize.h86x54 : CardSize.v54x86;
       final CardTemplate template = await _template('assets/templates/$templateId.json');
 
@@ -240,7 +250,15 @@ void main() {
         enabledFieldKeys: SchoolConfig.allFieldKeys,
       );
 
-      final String filename = '${name.replaceAll(' ', '_')}_${orientation}.pdf';
+      final String baseName = '${name.replaceAll(' ', '_')}_$orientation';
+      String filename = '$baseName.pdf';
+      int suffix = 2;
+      while (usedFilenames.contains(filename.toLowerCase())) {
+        filename = '${baseName}_$suffix.pdf';
+        suffix++;
+      }
+      usedFilenames.add(filename.toLowerCase());
+
       final Uint8List pdfBytes = await renderer.buildSingleCardPdf(
         entry: entry,
         config: config,
@@ -249,7 +267,7 @@ void main() {
       );
 
       await File('${outDir.path}/$filename').writeAsBytes(pdfBytes);
-      print('Generated: $filename');
+      generatedCount++;
     }
 
     // Sacred Heart Convent division cards
@@ -276,7 +294,7 @@ void main() {
     final CardTemplate divTemplate = await _template('assets/templates/div_badge_vertical.json');
 
     for (final String division in divisionPalette.keys) {
-      final String filename = 'SACRED_HEART_CONVENT_DIV_${division}.pdf';
+      final String filename = 'SACRED_HEART_CONVENT_DIV_$division.pdf';
       final Uint8List pdfBytes = await renderer.buildSingleCardPdf(
         entry: entry.copyWith(division: division),
         config: conventConfig,
@@ -285,10 +303,19 @@ void main() {
       );
 
       await File('${outDir.path}/$filename').writeAsBytes(pdfBytes);
-      print('Generated: $filename');
+      generatedCount++;
     }
 
-    print('Successfully generated all cards inside ${outDir.path}');
+    // 25 schools + 6 division cards. Asserted rather than printed, so a
+    // silently-dropped card (e.g. the overwrite bug this file used to have)
+    // fails the test instead of scrolling past in console output.
+    expect(generatedCount, schools.length + divisionPalette.length);
+    final int pdfFilesOnDisk = outDir
+        .listSync()
+        .whereType<File>()
+        .where((File f) => f.path.endsWith('.pdf'))
+        .length;
+    expect(pdfFilesOnDisk, generatedCount);
   });
 }
 
