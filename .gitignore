@@ -55,3 +55,6 @@ android/key.properties
 *.jks
 firebase-debug.log
 firestore-debug.log
+
+# Claude Code's own local session/config directory - not part of the app.
+.claude/
