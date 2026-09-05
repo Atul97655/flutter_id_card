@@ -90,15 +90,30 @@ service cloud.firestore {
       match /entries/{entryId} {
         allow read: if isAdmin() || belongsToSchool(schoolId);
 
-        // Operators submit and correct entries for their own school only.
-        // schoolId in the payload is pinned to the path so a record cannot be
-        // filed under a school the operator does not belong to.
+        // The review decision is the admin's alone. An operator approving
+        // their own submission would make the whole review step decorative,
+        // so these four fields are off-limits to them.
+        function reviewFieldsUnchanged() {
+          return !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny(['approvalStatus', 'rejectionReason',
+                     'reviewedBy', 'reviewedAt']);
+        }
+
+        // A new entry must start unreviewed. Without this an operator could
+        // create a record already marked approved and skip review entirely.
         allow create: if (isAdmin() || belongsToSchool(schoolId))
           && request.resource.data.schoolId == schoolId
           && request.resource.data.name is string
-          && request.resource.data.name.size() > 0;
+          && request.resource.data.name.size() > 0
+          && (isAdmin()
+              || !('approvalStatus' in request.resource.data)
+              || request.resource.data.approvalStatus == 'pending');
 
-        allow update: if (isAdmin() || belongsToSchool(schoolId))
+        // Admins may change anything, including the review decision.
+        // Operators may correct the student's details but never the review.
+        allow update: if (isAdmin()
+                          || (belongsToSchool(schoolId) && reviewFieldsUnchanged()))
           && request.resource.data.schoolId == schoolId;
 
         // Deletion is admin-only: an operator deleting a synced record would

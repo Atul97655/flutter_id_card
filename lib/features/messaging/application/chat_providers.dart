@@ -1,0 +1,44 @@
+import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
+import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/features/messaging/data/chat_repository.dart';
+import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
+import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final Provider<ChatRepository> chatRepositoryProvider =
+    Provider<ChatRepository>((Ref ref) => ChatRepository());
+
+/// Conversations for the signed-in user.
+///
+/// Emits an empty list rather than an error when Firebase is unavailable or
+/// nobody is signed in, so the screen shows its empty state instead of a red
+/// error box for what is a perfectly normal situation.
+final StreamProvider<List<Chat>> myChatsProvider =
+    StreamProvider<List<Chat>>((Ref ref) {
+  final SessionUser? session = ref.watch(currentSessionProvider);
+
+  if (session == null ||
+      session.isOfflineTestSession ||
+      !FirebaseBootstrap.instance.isReady) {
+    return Stream<List<Chat>>.value(const <Chat>[]);
+  }
+
+  return ref.watch(chatRepositoryProvider).watchChatsFor(session.uid);
+});
+
+/// Live messages for one conversation.
+final messagesProvider =
+    StreamProvider.family<List<ChatMessage>, String>((Ref ref, String chatId) {
+  if (!FirebaseBootstrap.instance.isReady) {
+    return Stream<List<ChatMessage>>.value(const <ChatMessage>[]);
+  }
+  return ref.watch(chatRepositoryProvider).watchMessages(chatId);
+});
+
+/// Total unread conversations, for the badge on the home screen.
+final Provider<int> unreadChatCountProvider = Provider<int>((Ref ref) {
+  final SessionUser? session = ref.watch(currentSessionProvider);
+  final List<Chat> chats = ref.watch(myChatsProvider).value ?? const <Chat>[];
+  if (session == null) return 0;
+  return chats.where((Chat c) => c.isUnreadFor(session.uid)).length;
+});

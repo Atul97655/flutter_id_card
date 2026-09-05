@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_id_card/shared/providers/sync_providers.dart';
 import 'package:flutter_id_card/shared/router/app_router.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,11 @@ class IdCardApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final GoRouter router = ref.watch(routerProvider);
+
+    // Keeps the background sync worker running in step with the session.
+    // Watched here, at the root, so it stays alive across every screen rather
+    // than starting and stopping as the operator navigates.
+    ref.watch(syncLifecycleProvider);
 
     return MaterialApp.router(
       title: 'ID Card System',

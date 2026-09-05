@@ -50,6 +50,9 @@ class ImpositionService {
     bool cropMarks = true,
     String namePrefix = 'sheet',
   }) async {
+    entries = _printableOnly(entries);
+    if (entries.isEmpty) return <GeneratedPdf>[];
+
     final ImpositionGrid grid = ImpositionGrid.compute(
       sheet: sheet,
       cardSize: cardSize,
@@ -163,6 +166,8 @@ class ImpositionService {
     double bleedMm = 0,
     bool cropMarks = false,
   }) async {
+    entries = _printableOnly(entries);
+
     final List<GeneratedPdf> output = <GeneratedPdf>[];
     final Set<String> usedNames = <String>{};
 
@@ -203,6 +208,16 @@ class ImpositionService {
 
     return output;
   }
+
+  /// The approval gate, enforced here rather than trusted to callers.
+  ///
+  /// This is the last point before bytes reach a printer, so it is the right
+  /// place to guarantee the invariant: an entry that no admin has approved
+  /// must never appear on a sheet, no matter which screen asked. Callers still
+  /// filter for their own UI (to show accurate counts), but a mistake there
+  /// cannot produce an unapproved printed card.
+  static List<StudentEntry> _printableOnly(List<StudentEntry> entries) =>
+      entries.where((StudentEntry e) => e.isPrintable).toList();
 
   static String _pad(int n) => n.toString().padLeft(3, '0');
 

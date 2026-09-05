@@ -1,3 +1,4 @@
+import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:intl/intl.dart';
@@ -25,6 +26,10 @@ class StudentEntry {
     this.syncStatus = SyncStatus.pending,
     this.syncAttempts = 0,
     this.syncError,
+    this.approvalStatus = ApprovalStatus.pending,
+    this.rejectionReason,
+    this.reviewedBy,
+    this.reviewedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -51,8 +56,24 @@ class StudentEntry {
   final int syncAttempts;
   final String? syncError;
 
+  /// The admin's review decision. Independent of [syncStatus] - see
+  /// [ApprovalStatus] for why the two are kept apart.
+  final ApprovalStatus approvalStatus;
+
+  /// Set only when [approvalStatus] is rejected, so the operator is told the
+  /// specific problem instead of just "rejected".
+  final String? rejectionReason;
+
+  /// Audit trail for the review decision.
+  final String? reviewedBy;
+  final DateTime? reviewedAt;
+
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// The gate the print pipeline checks. An entry must have been reviewed and
+  /// approved before it can be placed on a sheet.
+  bool get isPrintable => approvalStatus.isPrintable;
 
   /// Display/print format. The spec fixes this as DD-MM-YYYY; it is used by
   /// both the card renderer and the entry list, so it lives here.
@@ -111,6 +132,11 @@ class StudentEntry {
     int? syncAttempts,
     String? syncError,
     bool clearSyncError = false,
+    ApprovalStatus? approvalStatus,
+    String? rejectionReason,
+    bool clearRejectionReason = false,
+    String? reviewedBy,
+    DateTime? reviewedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -130,6 +156,11 @@ class StudentEntry {
       syncStatus: syncStatus ?? this.syncStatus,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: clearSyncError ? null : (syncError ?? this.syncError),
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      rejectionReason:
+          clearRejectionReason ? null : (rejectionReason ?? this.rejectionReason),
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -149,6 +180,10 @@ class StudentEntry {
         'mobile': mobile,
         'address': address,
         'photoUrl': remotePhotoUrl,
+        'approvalStatus': approvalStatus.name,
+        'rejectionReason': rejectionReason,
+        'reviewedBy': reviewedBy,
+        'reviewedAt': reviewedAt?.toUtc().toIso8601String(),
         'createdAt': createdAt.toUtc().toIso8601String(),
         'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
@@ -167,6 +202,10 @@ class StudentEntry {
       address: (map['address'] as String?) ?? '',
       remotePhotoUrl: map['photoUrl'] as String?,
       syncStatus: SyncStatus.synced,
+      approvalStatus: ApprovalStatus.fromName(map['approvalStatus'] as String?),
+      rejectionReason: map['rejectionReason'] as String?,
+      reviewedBy: map['reviewedBy'] as String?,
+      reviewedAt: _parseDate(map['reviewedAt'] as String?),
       createdAt: _parseDate(map['createdAt'] as String?) ?? DateTime.now(),
       updatedAt: _parseDate(map['updatedAt'] as String?) ?? DateTime.now(),
     );

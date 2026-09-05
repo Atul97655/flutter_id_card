@@ -175,6 +175,51 @@ class $StudentEntriesTable extends StudentEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _approvalStatusMeta = const VerificationMeta(
+    'approvalStatus',
+  );
+  @override
+  late final GeneratedColumn<String> approvalStatus = GeneratedColumn<String>(
+    'approval_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _rejectionReasonMeta = const VerificationMeta(
+    'rejectionReason',
+  );
+  @override
+  late final GeneratedColumn<String> rejectionReason = GeneratedColumn<String>(
+    'rejection_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reviewedByMeta = const VerificationMeta(
+    'reviewedBy',
+  );
+  @override
+  late final GeneratedColumn<String> reviewedBy = GeneratedColumn<String>(
+    'reviewed_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reviewedAtMeta = const VerificationMeta(
+    'reviewedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> reviewedAt = GeneratedColumn<DateTime>(
+    'reviewed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -214,6 +259,10 @@ class $StudentEntriesTable extends StudentEntries
     syncStatus,
     syncAttempts,
     syncError,
+    approvalStatus,
+    rejectionReason,
+    reviewedBy,
+    reviewedAt,
     createdAt,
     updatedAt,
   ];
@@ -332,6 +381,36 @@ class $StudentEntriesTable extends StudentEntries
         syncError.isAcceptableOrUnknown(data['sync_error']!, _syncErrorMeta),
       );
     }
+    if (data.containsKey('approval_status')) {
+      context.handle(
+        _approvalStatusMeta,
+        approvalStatus.isAcceptableOrUnknown(
+          data['approval_status']!,
+          _approvalStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rejection_reason')) {
+      context.handle(
+        _rejectionReasonMeta,
+        rejectionReason.isAcceptableOrUnknown(
+          data['rejection_reason']!,
+          _rejectionReasonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reviewed_by')) {
+      context.handle(
+        _reviewedByMeta,
+        reviewedBy.isAcceptableOrUnknown(data['reviewed_by']!, _reviewedByMeta),
+      );
+    }
+    if (data.containsKey('reviewed_at')) {
+      context.handle(
+        _reviewedAtMeta,
+        reviewedAt.isAcceptableOrUnknown(data['reviewed_at']!, _reviewedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -417,6 +496,22 @@ class $StudentEntriesTable extends StudentEntries
         DriftSqlType.string,
         data['${effectivePrefix}sync_error'],
       ),
+      approvalStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}approval_status'],
+      )!,
+      rejectionReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rejection_reason'],
+      ),
+      reviewedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reviewed_by'],
+      ),
+      reviewedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reviewed_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -453,6 +548,19 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
   final String syncStatus;
   final int syncAttempts;
   final String? syncError;
+
+  /// Stores the `ApprovalStatus` enum name - the admin's review decision,
+  /// independent of whether the row has uploaded yet.
+  final String approvalStatus;
+
+  /// Why an admin rejected it. Null unless approvalStatus == 'rejected'.
+  final String? rejectionReason;
+
+  /// Auth UID of the admin who approved or rejected, and when. Kept as an
+  /// audit trail - "who let this print?" is the first question asked when a
+  /// wrong card reaches a school.
+  final String? reviewedBy;
+  final DateTime? reviewedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   const StudentEntryRow({
@@ -471,6 +579,10 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     required this.syncStatus,
     required this.syncAttempts,
     this.syncError,
+    required this.approvalStatus,
+    this.rejectionReason,
+    this.reviewedBy,
+    this.reviewedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -500,6 +612,16 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     if (!nullToAbsent || syncError != null) {
       map['sync_error'] = Variable<String>(syncError);
     }
+    map['approval_status'] = Variable<String>(approvalStatus);
+    if (!nullToAbsent || rejectionReason != null) {
+      map['rejection_reason'] = Variable<String>(rejectionReason);
+    }
+    if (!nullToAbsent || reviewedBy != null) {
+      map['reviewed_by'] = Variable<String>(reviewedBy);
+    }
+    if (!nullToAbsent || reviewedAt != null) {
+      map['reviewed_at'] = Variable<DateTime>(reviewedAt);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -528,6 +650,16 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       syncError: syncError == null && nullToAbsent
           ? const Value.absent()
           : Value(syncError),
+      approvalStatus: Value(approvalStatus),
+      rejectionReason: rejectionReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rejectionReason),
+      reviewedBy: reviewedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reviewedBy),
+      reviewedAt: reviewedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reviewedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -554,6 +686,10 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
       syncAttempts: serializer.fromJson<int>(json['syncAttempts']),
       syncError: serializer.fromJson<String?>(json['syncError']),
+      approvalStatus: serializer.fromJson<String>(json['approvalStatus']),
+      rejectionReason: serializer.fromJson<String?>(json['rejectionReason']),
+      reviewedBy: serializer.fromJson<String?>(json['reviewedBy']),
+      reviewedAt: serializer.fromJson<DateTime?>(json['reviewedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -577,6 +713,10 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       'syncStatus': serializer.toJson<String>(syncStatus),
       'syncAttempts': serializer.toJson<int>(syncAttempts),
       'syncError': serializer.toJson<String?>(syncError),
+      'approvalStatus': serializer.toJson<String>(approvalStatus),
+      'rejectionReason': serializer.toJson<String?>(rejectionReason),
+      'reviewedBy': serializer.toJson<String?>(reviewedBy),
+      'reviewedAt': serializer.toJson<DateTime?>(reviewedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -598,6 +738,10 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     String? syncStatus,
     int? syncAttempts,
     Value<String?> syncError = const Value.absent(),
+    String? approvalStatus,
+    Value<String?> rejectionReason = const Value.absent(),
+    Value<String?> reviewedBy = const Value.absent(),
+    Value<DateTime?> reviewedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => StudentEntryRow(
@@ -620,6 +764,12 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     syncStatus: syncStatus ?? this.syncStatus,
     syncAttempts: syncAttempts ?? this.syncAttempts,
     syncError: syncError.present ? syncError.value : this.syncError,
+    approvalStatus: approvalStatus ?? this.approvalStatus,
+    rejectionReason: rejectionReason.present
+        ? rejectionReason.value
+        : this.rejectionReason,
+    reviewedBy: reviewedBy.present ? reviewedBy.value : this.reviewedBy,
+    reviewedAt: reviewedAt.present ? reviewedAt.value : this.reviewedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -654,6 +804,18 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           ? data.syncAttempts.value
           : this.syncAttempts,
       syncError: data.syncError.present ? data.syncError.value : this.syncError,
+      approvalStatus: data.approvalStatus.present
+          ? data.approvalStatus.value
+          : this.approvalStatus,
+      rejectionReason: data.rejectionReason.present
+          ? data.rejectionReason.value
+          : this.rejectionReason,
+      reviewedBy: data.reviewedBy.present
+          ? data.reviewedBy.value
+          : this.reviewedBy,
+      reviewedAt: data.reviewedAt.present
+          ? data.reviewedAt.value
+          : this.reviewedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -677,6 +839,10 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           ..write('syncStatus: $syncStatus, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
+          ..write('approvalStatus: $approvalStatus, ')
+          ..write('rejectionReason: $rejectionReason, ')
+          ..write('reviewedBy: $reviewedBy, ')
+          ..write('reviewedAt: $reviewedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -684,7 +850,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     schoolId,
     name,
@@ -700,9 +866,13 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     syncStatus,
     syncAttempts,
     syncError,
+    approvalStatus,
+    rejectionReason,
+    reviewedBy,
+    reviewedAt,
     createdAt,
     updatedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -722,6 +892,10 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           other.syncStatus == this.syncStatus &&
           other.syncAttempts == this.syncAttempts &&
           other.syncError == this.syncError &&
+          other.approvalStatus == this.approvalStatus &&
+          other.rejectionReason == this.rejectionReason &&
+          other.reviewedBy == this.reviewedBy &&
+          other.reviewedAt == this.reviewedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -742,6 +916,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
   final Value<String> syncStatus;
   final Value<int> syncAttempts;
   final Value<String?> syncError;
+  final Value<String> approvalStatus;
+  final Value<String?> rejectionReason;
+  final Value<String?> reviewedBy;
+  final Value<DateTime?> reviewedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -761,6 +939,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.syncStatus = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.approvalStatus = const Value.absent(),
+    this.rejectionReason = const Value.absent(),
+    this.reviewedBy = const Value.absent(),
+    this.reviewedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -781,6 +963,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.syncStatus = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.approvalStatus = const Value.absent(),
+    this.rejectionReason = const Value.absent(),
+    this.reviewedBy = const Value.absent(),
+    this.reviewedAt = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -804,6 +990,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Expression<String>? syncStatus,
     Expression<int>? syncAttempts,
     Expression<String>? syncError,
+    Expression<String>? approvalStatus,
+    Expression<String>? rejectionReason,
+    Expression<String>? reviewedBy,
+    Expression<DateTime>? reviewedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -824,6 +1014,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       if (syncStatus != null) 'sync_status': syncStatus,
       if (syncAttempts != null) 'sync_attempts': syncAttempts,
       if (syncError != null) 'sync_error': syncError,
+      if (approvalStatus != null) 'approval_status': approvalStatus,
+      if (rejectionReason != null) 'rejection_reason': rejectionReason,
+      if (reviewedBy != null) 'reviewed_by': reviewedBy,
+      if (reviewedAt != null) 'reviewed_at': reviewedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -846,6 +1040,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Value<String>? syncStatus,
     Value<int>? syncAttempts,
     Value<String?>? syncError,
+    Value<String>? approvalStatus,
+    Value<String?>? rejectionReason,
+    Value<String?>? reviewedBy,
+    Value<DateTime?>? reviewedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -866,6 +1064,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       syncStatus: syncStatus ?? this.syncStatus,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: syncError ?? this.syncError,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -920,6 +1122,18 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     if (syncError.present) {
       map['sync_error'] = Variable<String>(syncError.value);
     }
+    if (approvalStatus.present) {
+      map['approval_status'] = Variable<String>(approvalStatus.value);
+    }
+    if (rejectionReason.present) {
+      map['rejection_reason'] = Variable<String>(rejectionReason.value);
+    }
+    if (reviewedBy.present) {
+      map['reviewed_by'] = Variable<String>(reviewedBy.value);
+    }
+    if (reviewedAt.present) {
+      map['reviewed_at'] = Variable<DateTime>(reviewedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -950,6 +1164,10 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
           ..write('syncStatus: $syncStatus, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
+          ..write('approvalStatus: $approvalStatus, ')
+          ..write('rejectionReason: $rejectionReason, ')
+          ..write('reviewedBy: $reviewedBy, ')
+          ..write('reviewedAt: $reviewedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -1883,6 +2101,10 @@ typedef $$StudentEntriesTableCreateCompanionBuilder =
       Value<String> syncStatus,
       Value<int> syncAttempts,
       Value<String?> syncError,
+      Value<String> approvalStatus,
+      Value<String?> rejectionReason,
+      Value<String?> reviewedBy,
+      Value<DateTime?> reviewedAt,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -1904,6 +2126,10 @@ typedef $$StudentEntriesTableUpdateCompanionBuilder =
       Value<String> syncStatus,
       Value<int> syncAttempts,
       Value<String?> syncError,
+      Value<String> approvalStatus,
+      Value<String?> rejectionReason,
+      Value<String?> reviewedBy,
+      Value<DateTime?> reviewedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -1990,6 +2216,26 @@ class $$StudentEntriesTableFilterComposer
 
   ColumnFilters<String> get syncError => $composableBuilder(
     column: $table.syncError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get approvalStatus => $composableBuilder(
+    column: $table.approvalStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rejectionReason => $composableBuilder(
+    column: $table.rejectionReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reviewedBy => $composableBuilder(
+    column: $table.reviewedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reviewedAt => $composableBuilder(
+    column: $table.reviewedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2088,6 +2334,26 @@ class $$StudentEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get approvalStatus => $composableBuilder(
+    column: $table.approvalStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rejectionReason => $composableBuilder(
+    column: $table.rejectionReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reviewedBy => $composableBuilder(
+    column: $table.reviewedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reviewedAt => $composableBuilder(
+    column: $table.reviewedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -2167,6 +2433,26 @@ class $$StudentEntriesTableAnnotationComposer
   GeneratedColumn<String> get syncError =>
       $composableBuilder(column: $table.syncError, builder: (column) => column);
 
+  GeneratedColumn<String> get approvalStatus => $composableBuilder(
+    column: $table.approvalStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rejectionReason => $composableBuilder(
+    column: $table.rejectionReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reviewedBy => $composableBuilder(
+    column: $table.reviewedBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get reviewedAt => $composableBuilder(
+    column: $table.reviewedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -2226,6 +2512,10 @@ class $$StudentEntriesTableTableManager
                 Value<String> syncStatus = const Value.absent(),
                 Value<int> syncAttempts = const Value.absent(),
                 Value<String?> syncError = const Value.absent(),
+                Value<String> approvalStatus = const Value.absent(),
+                Value<String?> rejectionReason = const Value.absent(),
+                Value<String?> reviewedBy = const Value.absent(),
+                Value<DateTime?> reviewedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -2245,6 +2535,10 @@ class $$StudentEntriesTableTableManager
                 syncStatus: syncStatus,
                 syncAttempts: syncAttempts,
                 syncError: syncError,
+                approvalStatus: approvalStatus,
+                rejectionReason: rejectionReason,
+                reviewedBy: reviewedBy,
+                reviewedAt: reviewedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -2266,6 +2560,10 @@ class $$StudentEntriesTableTableManager
                 Value<String> syncStatus = const Value.absent(),
                 Value<int> syncAttempts = const Value.absent(),
                 Value<String?> syncError = const Value.absent(),
+                Value<String> approvalStatus = const Value.absent(),
+                Value<String?> rejectionReason = const Value.absent(),
+                Value<String?> reviewedBy = const Value.absent(),
+                Value<DateTime?> reviewedAt = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -2285,6 +2583,10 @@ class $$StudentEntriesTableTableManager
                 syncStatus: syncStatus,
                 syncAttempts: syncAttempts,
                 syncError: syncError,
+                approvalStatus: approvalStatus,
+                rejectionReason: rejectionReason,
+                reviewedBy: reviewedBy,
+                reviewedAt: reviewedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
