@@ -14,6 +14,13 @@ final FutureProvider<IdCardRenderer> idCardRendererProvider =
 final Provider<TemplateRepository> templateRepositoryProvider =
     Provider<TemplateRepository>((Ref ref) => TemplateRepository());
 
+/// Every template that ships in the app bundle, for the admin's template
+/// picker.
+final FutureProvider<List<CardTemplate>> bundledTemplatesProvider =
+    FutureProvider<List<CardTemplate>>((Ref ref) {
+  return ref.watch(templateRepositoryProvider).loadAllBundled();
+});
+
 final FutureProvider<ImpositionService> impositionServiceProvider =
     FutureProvider<ImpositionService>((Ref ref) async {
   final IdCardRenderer renderer = await ref.watch(idCardRendererProvider.future);

@@ -1,5 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_id_card/features/admin/presentation/admin_dashboard_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/print_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/school_detail_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/school_settings_screen.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/auth/presentation/login_screen.dart';
@@ -9,8 +13,9 @@ import 'package:flutter_id_card/features/data_entry/presentation/data_entry_scre
 import 'package:flutter_id_card/features/data_entry/presentation/home_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/saved_entries_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/sync_status_screen.dart';
+import 'package:flutter_id_card/features/messaging/presentation/chat_list_screen.dart';
+import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart';
-import 'package:flutter_id_card/shared/widgets/coming_soon_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -104,24 +109,51 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       ),
       GoRoute(
         path: '/messages',
-        builder: (BuildContext c, GoRouterState s) => const ComingSoonScreen(
-          title: 'Messages',
-          phase: 'Phase 5',
-          description:
-              'In-app chat and broadcasts between the admin office and schools, '
-              'with attachments, read receipts and push notifications.',
-        ),
+        builder: (BuildContext c, GoRouterState s) => const ChatListScreen(),
+        routes: <RouteBase>[
+          GoRoute(
+            path: ':chatId',
+            builder: (BuildContext c, GoRouterState s) => ChatScreen(
+              chatId: s.pathParameters['chatId'] ?? '',
+            ),
+          ),
+        ],
       ),
+
+      // --- admin (role-gated by the redirect above) ---------------------
       GoRoute(
         path: '/admin',
-        builder: (BuildContext c, GoRouterState s) => const ComingSoonScreen(
-          title: 'Admin Panel',
-          phase: 'Phase 4',
-          description:
-              'School list, submissions with filters, per-school field toggles '
-              'and card size, plus the 12x18 / A4 / single-card imposition and '
-              'print output.',
-        ),
+        builder: (BuildContext c, GoRouterState s) => const AdminDashboardScreen(),
+        routes: <RouteBase>[
+          GoRoute(
+            // Literal 'new' is declared before the ':schoolId' pattern so it is
+            // matched as the create route rather than as a school whose id
+            // happens to be "new".
+            path: 'schools/new',
+            builder: (BuildContext c, GoRouterState s) =>
+                const SchoolSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'schools/:schoolId',
+            builder: (BuildContext c, GoRouterState s) => SchoolDetailScreen(
+              schoolId: s.pathParameters['schoolId'] ?? '',
+            ),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'settings',
+                builder: (BuildContext c, GoRouterState s) => SchoolSettingsScreen(
+                  schoolId: s.pathParameters['schoolId'],
+                ),
+              ),
+              GoRoute(
+                path: 'print',
+                builder: (BuildContext c, GoRouterState s) => PrintScreen(
+                  schoolId: s.pathParameters['schoolId'] ?? '',
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
     errorBuilder: (BuildContext context, GoRouterState state) => Scaffold(

@@ -33,6 +33,19 @@ class StudentEntries extends Table {
   IntColumn get syncAttempts => integer().withDefault(const Constant(0))();
   TextColumn get syncError => text().nullable()();
 
+  /// Stores the `ApprovalStatus` enum name - the admin's review decision,
+  /// independent of whether the row has uploaded yet.
+  TextColumn get approvalStatus => text().withDefault(const Constant('pending'))();
+
+  /// Why an admin rejected it. Null unless approvalStatus == 'rejected'.
+  TextColumn get rejectionReason => text().nullable()();
+
+  /// Auth UID of the admin who approved or rejected, and when. Kept as an
+  /// audit trail - "who let this print?" is the first question asked when a
+  /// wrong card reaches a school.
+  TextColumn get reviewedBy => text().nullable()();
+  DateTimeColumn get reviewedAt => dateTime().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -83,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -100,6 +113,30 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(
               schoolConfigs,
               schoolConfigs.divisionColors as GeneratedColumn<Object>,
+            );
+          }
+
+          // v2 -> v3: the admin approval workflow. All four columns are
+          // additive with safe defaults, so entries captured before this
+          // release land in the review queue rather than silently counting as
+          // approved - the conservative direction for something that gates
+          // printing.
+          if (from < 3) {
+            await m.addColumn(
+              studentEntries,
+              studentEntries.approvalStatus as GeneratedColumn<Object>,
+            );
+            await m.addColumn(
+              studentEntries,
+              studentEntries.rejectionReason as GeneratedColumn<Object>,
+            );
+            await m.addColumn(
+              studentEntries,
+              studentEntries.reviewedBy as GeneratedColumn<Object>,
+            );
+            await m.addColumn(
+              studentEntries,
+              studentEntries.reviewedAt as GeneratedColumn<Object>,
             );
           }
         },

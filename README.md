@@ -17,10 +17,31 @@ at the boundary with the `pdf` package. Screen pixels never enter it.
 | 1 | Models, Drift local DB, dynamic form, uppercase + validation, auth, home, saved entries, sync status | **Done** |
 | 2 | Camera capture, 4:5 guide overlay, on-device background removal, face-centred crop, brightness/contrast/saturation, 360×450 export | **Done** |
 | 3 | `IdCardRenderer`, 5 JSON layout templates, per-division colours, true-size preview, single-card PDF at exact mm | **Done** |
-| 4 | Firebase sync worker, admin dashboard, per-school settings UI, imposition sheets, folder output, printing | **Partial** — imposition math, sheet/single PDF generation and folder export are built and tested; the admin **UI** and the background sync worker are not |
-| 5 | In-app messaging | **Not started** — Firestore rules for it are written |
+| 4 | Firebase sync worker, admin dashboard, per-school settings UI, imposition sheets, folder output, printing | **Done** |
+| 5 | In-app messaging — chat list, conversation, attachments, read receipts, broadcasts | **Done** |
+| — | Admin approval workflow (approve / reject-with-reason / bulk approve), gating the print path | **Done** |
 
-`flutter analyze` → 0 issues. `flutter test` → 148 passing. Debug APK builds.
+`flutter analyze` → 0 issues. `flutter test` → 175 passing. Debug APK builds.
+
+### Known gaps
+
+Real work that is deliberately **not** done, so nobody discovers it late:
+
+- **Push notifications.** `firebase_messaging` is a dependency and the Firestore
+  rules cover chat, but no FCM token registration or Cloud Function exists —
+  messages arrive only while the app is open. Delivering them in the background
+  needs a Cloud Function on the Blaze plan.
+- **Class/Div are free text, not dropdowns.** The roadmap asks for dropdowns;
+  that needs a per-school list of valid classes and divisions in the admin
+  panel, which does not exist yet.
+- **No draft autosave.** Typed-but-unsaved form data is lost if Android kills
+  the app mid-entry.
+- **Chat is online-only** — see "Why chat is not offline-first" below.
+- **Operator UIDs are not linked to chats automatically.** An admin starting a
+  conversation seeds membership with themselves; the operator's UID has to be
+  added before they can see it.
+- **No app icon** (still the Flutter default) and no signed release build.
+- **ML Kit background removal is still unverified against real captures.**
 
 ---
 
@@ -133,10 +154,10 @@ lib/
     data_entry/      dynamic form, saved entries, sync status
     photo_capture/   camera, segmentation, crop geometry, adjustments
     card_render/     IdCardRenderer, templates, preview, imposition
-    admin/           imposition math, folder export  (UI pending)
-    messaging/       Phase 5
+    admin/           dashboard, submissions/review, school settings, print
+    messaging/       chat list, conversation, attachments
   shared/
-    models/  print/  services/  utils/  widgets/  theme/  router/
+    models/  print/  providers/  services/  utils/  widgets/  theme/  router/
 assets/
   templates/         JSON card layouts
   fonts/             bundled Arial
@@ -153,6 +174,53 @@ sheet had been printed.
 
 **Offline-first.** Every entry is committed to local SQLite before any network
 call. An operator can work a full day with no signal and lose nothing.
+
+### The sync worker
+
+`shared/services/firebase/sync_service.dart`. Runs while a real (non-debug)
+session is active, started and stopped by `syncLifecycleProvider` in step with
+the session — there is nothing to sync before login, and a debug offline
+session must never push test data into the production project.
+
+Each pass pulls the school's settings document down (so admin-side field
+toggles reach the operator) then pushes queued entries up: photo to Storage
+first, then the Firestore document. Design points worth knowing:
+
+- **Idempotent.** The entry's own id is the Firestore document id, so replaying
+  an interrupted run overwrites rather than creating a duplicate student — a
+  duplicate would only be discovered at the printer.
+- **Bounded retries.** Exponential backoff per row, capped, then parked as
+  failed after 8 attempts so a permanently broken row (say a photo the OS
+  deleted) stops burning quota. Manual retry from the Sync Status screen resets
+  the counter.
+- **Reconnect-triggered.** Coming back online drains the queue immediately
+  rather than waiting out the poll interval.
+- **Never throws into the UI.** Row failures are recorded on the row; pass
+  failures become state, not exceptions.
+
+### Why chat is *not* offline-first
+
+The ID-card side mirrors everything into SQLite; messaging deliberately does
+not, and reads Firestore directly. Card data must survive a day with no signal
+because re-capturing it means physically revisiting the school. A chat message
+that fails to send can be retyped in seconds. Building a second offline outbox
+for that would double the sync machinery to maintain for a fraction of the
+benefit. Firestore's own cache still covers short dropouts.
+
+### The approval gate
+
+Only entries an admin has **approved** can be printed. That invariant is
+enforced inside `ImpositionService`, at the last point before bytes reach a
+printer — not in the calling screens. Screens still filter for accurate counts,
+but a mistake there cannot produce an unapproved printed card. `ApprovalStatus`
+is separate from `SyncStatus` because they answer different questions
+("reached the server?" vs "signed off?") and an entry is routinely one without
+the other.
+
+The Firestore rules enforce the same thing server-side: an operator may correct
+a student's details but cannot touch `approvalStatus`, `rejectionReason`,
+`reviewedBy` or `reviewedAt`, and cannot create an entry that is already
+approved.
 
 ---
 

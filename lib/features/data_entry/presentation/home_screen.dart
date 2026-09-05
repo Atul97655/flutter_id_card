@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
+import 'package:flutter_id_card/features/messaging/application/chat_providers.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
@@ -24,6 +25,7 @@ class HomeScreen extends ConsumerWidget {
     final AsyncValue<Map<SyncStatus, int>> counts = ref.watch(syncCountsProvider);
     final AsyncValue<List<StudentEntry>> entries = ref.watch(entriesProvider);
 
+    final int unreadChats = ref.watch(unreadChatCountProvider);
     final int pending = counts.value?[SyncStatus.pending] ?? 0;
     final int failed = counts.value?[SyncStatus.failed] ?? 0;
     final int total = entries.value?.length ?? 0;
@@ -77,7 +79,10 @@ class HomeScreen extends ConsumerWidget {
             _MenuCard(
               icon: Icons.forum_outlined,
               title: 'Messages',
-              subtitle: 'Announcements and chat with the admin office',
+              subtitle: unreadChats == 0
+                  ? 'Announcements and chat with the admin office'
+                  : '$unreadChats conversation(s) with new messages',
+              badgeCount: unreadChats,
               color: const Color(0xFFAD1457),
               onTap: () => context.push('/messages'),
             ),

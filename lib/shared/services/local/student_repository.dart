@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/services/local/app_database.dart';
@@ -149,6 +150,131 @@ class StudentRepository {
     );
   }
 
+  // ------------------------------------------------------------------
+  // Review (admin approval workflow)
+  // ------------------------------------------------------------------
+
+  /// Records an admin's approval. Also puts the row back in the upload queue so
+  /// the decision itself propagates to Firestore - the approval is data like
+  /// any other and is worthless if it only ever lives on the admin's device.
+  Future<void> approve(String id, {required String reviewerUid}) async {
+    await (_db.update(_db.studentEntries)
+          ..where((StudentEntries t) => t.id.equals(id)))
+        .write(
+      StudentEntriesCompanion(
+        approvalStatus: const Value<String>('approved'),
+        rejectionReason: const Value<String?>(null),
+        reviewedBy: Value<String?>(reviewerUid),
+        reviewedAt: Value<DateTime?>(DateTime.now()),
+        syncStatus: const Value<String>('pending'),
+        syncAttempts: const Value<int>(0),
+      ),
+    );
+  }
+
+  /// Records a rejection with the reason the operator will see.
+  Future<void> reject(
+    String id, {
+    required String reviewerUid,
+    required String reason,
+  }) async {
+    await (_db.update(_db.studentEntries)
+          ..where((StudentEntries t) => t.id.equals(id)))
+        .write(
+      StudentEntriesCompanion(
+        approvalStatus: const Value<String>('rejected'),
+        rejectionReason: Value<String?>(reason),
+        reviewedBy: Value<String?>(reviewerUid),
+        reviewedAt: Value<DateTime?>(DateTime.now()),
+        syncStatus: const Value<String>('pending'),
+        syncAttempts: const Value<int>(0),
+      ),
+    );
+  }
+
+  /// Bulk approve, for an admin clearing a whole class at once. Runs as one
+  /// batch so a hundred-row approval is a single database round trip.
+  Future<void> approveAll(
+    List<String> ids, {
+    required String reviewerUid,
+  }) async {
+    if (ids.isEmpty) return;
+    final DateTime now = DateTime.now();
+    await _db.batch((Batch batch) {
+      batch.update(
+        _db.studentEntries,
+        StudentEntriesCompanion(
+          approvalStatus: const Value<String>('approved'),
+          rejectionReason: const Value<String?>(null),
+          reviewedBy: Value<String?>(reviewerUid),
+          reviewedAt: Value<DateTime?>(now),
+          syncStatus: const Value<String>('pending'),
+          syncAttempts: const Value<int>(0),
+        ),
+        where: (StudentEntries t) => t.id.isIn(ids),
+      );
+    });
+  }
+
+  /// Entries eligible for a print run: approved, and carrying a photo.
+  ///
+  /// Both conditions matter. Approval is the human gate; the photo check stops
+  /// a card with an empty photo box reaching a 25-up sheet, which wastes the
+  /// whole sheet.
+  Future<List<StudentEntry>> printableForSchool(String schoolId) async {
+    final List<StudentEntryRow> rows = await (_db.select(_db.studentEntries)
+          ..where(
+            (StudentEntries t) =>
+                t.schoolId.equals(schoolId) &
+                t.approvalStatus.equals('approved'),
+          )
+          ..orderBy(<OrderClauseGenerator<StudentEntries>>[
+            (StudentEntries t) => OrderingTerm(expression: t.studentClass),
+            (StudentEntries t) => OrderingTerm(expression: t.division),
+            (StudentEntries t) => OrderingTerm(expression: t.name),
+          ]))
+        .get();
+
+    return rows
+        .map(_toDomain)
+        .where((StudentEntry e) => e.hasPhoto)
+        .toList();
+  }
+
+  /// Live review queue for the admin dashboard, newest first.
+  Stream<List<StudentEntry>> watchByApproval(
+    String schoolId,
+    ApprovalStatus status,
+  ) {
+    final SimpleSelectStatement<StudentEntries, StudentEntryRow> query =
+        _db.select(_db.studentEntries)
+          ..where(
+            (StudentEntries t) =>
+                t.schoolId.equals(schoolId) &
+                t.approvalStatus.equals(status.name),
+          )
+          ..orderBy(<OrderClauseGenerator<StudentEntries>>[
+            (StudentEntries t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+          ]);
+    return query.watch().map(
+          (List<StudentEntryRow> rows) => rows.map(_toDomain).toList(),
+        );
+  }
+
+  /// Every entry across all schools - the admin dashboard's global view.
+  Stream<List<StudentEntry>> watchAll() {
+    final SimpleSelectStatement<StudentEntries, StudentEntryRow> query =
+        _db.select(_db.studentEntries)
+          ..orderBy(<OrderClauseGenerator<StudentEntries>>[
+            (StudentEntries t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+          ]);
+    return query.watch().map(
+          (List<StudentEntryRow> rows) => rows.map(_toDomain).toList(),
+        );
+  }
+
   Future<void> _patchSync(String id, StudentEntriesCompanion patch) async {
     await (_db.update(_db.studentEntries)
           ..where((StudentEntries t) => t.id.equals(id)))
@@ -175,6 +301,10 @@ class StudentRepository {
         syncStatus: SyncStatus.fromName(row.syncStatus),
         syncAttempts: row.syncAttempts,
         syncError: row.syncError,
+        approvalStatus: ApprovalStatus.fromName(row.approvalStatus),
+        rejectionReason: row.rejectionReason,
+        reviewedBy: row.reviewedBy,
+        reviewedAt: row.reviewedAt,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       );
@@ -195,6 +325,10 @@ class StudentRepository {
         syncStatus: Value<String>(e.syncStatus.name),
         syncAttempts: Value<int>(e.syncAttempts),
         syncError: Value<String?>(e.syncError),
+        approvalStatus: Value<String>(e.approvalStatus.name),
+        rejectionReason: Value<String?>(e.rejectionReason),
+        reviewedBy: Value<String?>(e.reviewedBy),
+        reviewedAt: Value<DateTime?>(e.reviewedAt),
         createdAt: Value<DateTime>(e.createdAt),
         updatedAt: Value<DateTime>(e.updatedAt),
       );
