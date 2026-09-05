@@ -187,7 +187,14 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
                     .map(
                       (CardTemplate t) => DropdownMenuItem<String>(
                         value: t.id,
-                        child: Text('${t.name}  (${t.authoredSize.label})'),
+                        // Ellipsised rather than clipped: the size suffix makes
+                        // some names longer than the field, and a hard clip
+                        // drops the closing bracket mid-word.
+                        child: Text(
+                          '${t.name} - ${t.authoredSize.label}',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                     )
                     .toList(),
