@@ -269,6 +269,38 @@ class AuthRepository {
     }
   }
 
+  /// Auth UIDs of the operators attached to [schoolId].
+  ///
+  /// Admin-only in practice: the security rules let an admin read any user
+  /// document, but an operator can only read their own, so this query is
+  /// rejected for them. That is the correct shape - one school has no business
+  /// enumerating another's staff.
+  ///
+  /// Used when opening a conversation, so the operator is actually a member
+  /// and can see it. Without this the chat would exist but be invisible to the
+  /// person it is addressed to.
+  Future<List<String>> operatorUidsForSchool(String schoolId) async {
+    if (!isBackendAvailable || schoolId.isEmpty) return const <String>[];
+
+    try {
+      final QuerySnapshot<Map<String, Object?>> snap = await _db
+          .collection(kUsersCollection)
+          .where('schoolId', isEqualTo: schoolId)
+          .get();
+
+      return snap.docs
+          .where((QueryDocumentSnapshot<Map<String, Object?>> d) =>
+              d.data()['active'] != false)
+          .map((QueryDocumentSnapshot<Map<String, Object?>> d) => d.id)
+          .toList();
+    } on FirebaseException {
+      // A failed lookup must not block the admin from opening the chat; they
+      // just get a conversation the operator cannot see yet, which the UI
+      // reports rather than hiding.
+      return const <String>[];
+    }
+  }
+
   /// Powers the school-name dropdown on the login screen. Only codes that have
   /// successfully signed in on this device are remembered, so it never leaks
   /// the organisation's full school list to an unauthenticated user.

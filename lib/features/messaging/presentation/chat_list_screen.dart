@@ -109,17 +109,35 @@ class ChatListScreen extends ConsumerWidget {
 
     if (school == null || !context.mounted) return;
 
-    // The operator's UID is not known here - the admin panel does not read the
-    // users collection by school. Membership is seeded with the admin, and the
-    // operator is added when their account is linked. Until then the chat is
-    // visible to admins only, which is the safe direction.
+    // Look the school's operators up so they are actual members of the chat.
+    // Without this the conversation exists but is invisible to the very person
+    // it is addressed to, because the security rules gate reads on membership.
+    final List<String> operators = await ref
+        .read(authRepositoryProvider)
+        .operatorUidsForSchool(school.id);
+
     final Chat chat = await ref.read(chatRepositoryProvider).createChat(
           title: school.name,
-          members: <String>[admin.uid],
+          members: <String>{admin.uid, ...operators}.toList(),
           schoolId: school.id,
         );
 
-    if (context.mounted) unawaited(context.push('/messages/${chat.id}'));
+    if (!context.mounted) return;
+
+    // Say so plainly rather than letting the admin type into a void.
+    if (operators.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No operator account is linked to ${school.name} yet, so nobody '
+            'will see this conversation until one signs in.',
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+
+    unawaited(context.push('/messages/${chat.id}'));
   }
 }
 
