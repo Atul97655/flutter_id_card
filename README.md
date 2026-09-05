@@ -21,7 +21,7 @@ at the boundary with the `pdf` package. Screen pixels never enter it.
 | 5 | In-app messaging — chat list, conversation, attachments, read receipts, broadcasts | **Done** |
 | — | Admin approval workflow (approve / reject-with-reason / bulk approve), gating the print path | **Done** |
 
-`flutter analyze` → 0 issues. `flutter test` → 175 passing. Debug APK builds.
+`flutter analyze` → 0 issues. `flutter test` → 191 passing. Debug APK builds.
 
 ### Known gaps
 
@@ -30,18 +30,26 @@ Real work that is deliberately **not** done, so nobody discovers it late:
 - **Push notifications.** `firebase_messaging` is a dependency and the Firestore
   rules cover chat, but no FCM token registration or Cloud Function exists —
   messages arrive only while the app is open. Delivering them in the background
-  needs a Cloud Function on the Blaze plan.
+  needs a Cloud Function, which needs the Blaze (paid) plan.
 - **Class/Div are free text, not dropdowns.** The roadmap asks for dropdowns;
   that needs a per-school list of valid classes and divisions in the admin
   panel, which does not exist yet.
-- **No draft autosave.** Typed-but-unsaved form data is lost if Android kills
-  the app mid-entry.
 - **Chat is online-only** — see "Why chat is not offline-first" below.
-- **Operator UIDs are not linked to chats automatically.** An admin starting a
-  conversation seeds membership with themselves; the operator's UID has to be
-  added before they can see it.
 - **No app icon** (still the Flutter default) and no signed release build.
 - **ML Kit background removal is still unverified against real captures.**
+
+### Draft autosave
+
+The form autosaves to `SharedPreferences` on a short debounce, and immediately
+after a photo is captured — a photo is the costliest thing to lose, because it
+means finding the student again. On reopening a blank form, a recovered draft
+is offered once; drafts are scoped to the school and expire after 12 hours, so
+one operator's half-typed student never surfaces under another school's login
+or a day later.
+
+It is deliberately **not** in the Drift database: a draft is scratch state, not
+a record. Putting it in the entries table would surface half-typed rows in
+Saved Entries and the sync queue, which is worse than losing them.
 
 ---
 

@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
+import 'package:flutter_id_card/features/data_entry/data/draft_store.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/widgets/dynamic_form_field.dart';
+import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart'
+    show photoFileExists;
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
@@ -46,6 +50,14 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
   /// Preserved across an edit so re-saving does not reset the sync history.
   StudentEntry? _existing;
 
+  static const DraftStore _drafts = DraftStore();
+
+  /// Coalesces autosave writes. Every keystroke firing a SharedPreferences
+  /// write would be pointless IO; a short debounce still guarantees the draft
+  /// is on disk well before the OS can kill a backgrounded app.
+  Timer? _autosaveTimer;
+  bool _draftChecked = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,16 +65,105 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       _controllers[field] = TextEditingController()
         ..addListener(() {
           if (!_dirty) _dirty = true;
+          _scheduleAutosave();
         });
     }
   }
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
     for (final TextEditingController c in _controllers.values) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  // ------------------------------------------------------------------
+  // Draft autosave
+  // ------------------------------------------------------------------
+
+  void _scheduleAutosave() {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(const Duration(milliseconds: 800), _writeDraft);
+  }
+
+  Future<void> _writeDraft() async {
+    final String? schoolId = ref.read(activeSchoolIdProvider);
+    if (schoolId == null || schoolId.isEmpty) return;
+
+    await _drafts.save(
+      EntryDraft(
+        schoolId: schoolId,
+        entryId: widget.entryId,
+        name: _ctrl(StudentField.name).text,
+        fatherName: _ctrl(StudentField.fatherName).text,
+        studentClass: _ctrl(StudentField.studentClass).text,
+        division: _ctrl(StudentField.division).text,
+        bloodGroup: _ctrl(StudentField.bloodGroup).text,
+        dobIso: _dob?.toIso8601String(),
+        mobile: _ctrl(StudentField.mobile).text,
+        address: _ctrl(StudentField.address).text,
+        photoPath: _photoPath,
+        savedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Offers a recovered draft once, on a fresh (non-edit) form.
+  Future<void> _offerDraftRestore() async {
+    if (_draftChecked || widget.entryId != null) return;
+    _draftChecked = true;
+
+    final String? schoolId = ref.read(activeSchoolIdProvider);
+    if (schoolId == null || schoolId.isEmpty) return;
+
+    final EntryDraft? draft = await _drafts.load(schoolId);
+    if (draft == null || !mounted) return;
+
+    final bool? restore = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('Unfinished entry found'),
+        content: Text(
+          draft.name.trim().isEmpty
+              ? 'You had an entry in progress. Restore it?'
+              : 'You had an entry for "${draft.name}" in progress. Restore it?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (restore != true) {
+      await _drafts.clear();
+      return;
+    }
+
+    setState(() {
+      _ctrl(StudentField.name).text = draft.name;
+      _ctrl(StudentField.fatherName).text = draft.fatherName;
+      _ctrl(StudentField.studentClass).text = draft.studentClass;
+      _ctrl(StudentField.division).text = draft.division;
+      _ctrl(StudentField.bloodGroup).text = draft.bloodGroup;
+      _ctrl(StudentField.mobile).text = draft.mobile;
+      _ctrl(StudentField.address).text = draft.address;
+      _dob = draft.dobIso == null ? null : DateTime.tryParse(draft.dobIso!);
+      // Only restore the photo if the file is still on disk - the OS may have
+      // cleared it, and a dangling path renders as a broken tile.
+      _photoPath = photoFileExists(draft.photoPath) ? draft.photoPath : null;
+      _dirty = true;
+    });
   }
 
   TextEditingController _ctrl(StudentField f) => _controllers[f]!;
@@ -110,6 +211,9 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       _photoPath = path;
       _dirty = true;
     });
+    // A captured photo is the most expensive thing to lose - it means finding
+    // the student again - so persist it immediately rather than on a debounce.
+    unawaited(_writeDraft());
   }
 
   Future<void> _save(SchoolConfig config) async {
@@ -156,6 +260,12 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
 
     try {
       await ref.read(studentRepositoryProvider).save(entry);
+
+      // The draft has served its purpose - the entry is committed. Leaving it
+      // would prompt the operator to "restore" work they already saved.
+      _autosaveTimer?.cancel();
+      await _drafts.clear();
+
       if (!mounted) return;
       _dirty = false;
       context.pushReplacement('/preview/${entry.id}');
@@ -203,6 +313,13 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final AsyncValue<SchoolConfig> configAsync = ref.watch(schoolConfigProvider);
+
+    // Offer a recovered draft on the first frame of a fresh form.
+    if (!_draftChecked && widget.entryId == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_offerDraftRestore());
+      });
+    }
 
     // Load the record being edited exactly once, after the entries stream has
     // produced data.
@@ -281,10 +398,15 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
               field: fields[i],
               controller: _ctrl(fields[i]),
               selectedDate: _dob,
-              onDateChanged: (DateTime? d) => setState(() {
-                _dob = d;
-                _dirty = true;
-              }),
+              onDateChanged: (DateTime? d) {
+                setState(() {
+                  _dob = d;
+                  _dirty = true;
+                });
+                // DOB does not go through a text controller, so autosave has
+                // to be triggered explicitly here.
+                _scheduleAutosave();
+              },
               autofocus: i == 0 && widget.entryId == null,
             ),
             const SizedBox(height: 14),

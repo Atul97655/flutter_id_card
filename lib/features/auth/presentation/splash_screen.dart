@@ -55,7 +55,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     _navigated = true;
     final SessionUser? user = auth.value;
-    context.go(user == null ? '/login' : '/home');
+    // Admins go straight to their own panel. Landing them on the operator
+    // home screen - which shows a school they do not belong to and a data-entry
+    // flow they will never use - made a restored admin session look broken.
+    context.go(
+      switch (user) {
+        null => '/login',
+        final SessionUser u when u.isAdmin => '/admin',
+        _ => '/home',
+      },
+    );
   }
 
   @override
