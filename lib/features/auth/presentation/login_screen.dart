@@ -253,9 +253,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _startOfflineSession() async {
     await ref
         .read(authControllerProvider.notifier)
-        .startOfflineTestSession(schoolId: 'demo-school');
+        .startOfflineTestSession(
+          schoolId: 'demo-school',
+          asAdmin: _isAdminTab,
+        );
     if (!mounted) return;
-    context.go('/home');
+    context.go(_isAdminTab ? '/admin' : '/home');
   }
 
   String _messageFor(Object? error) {

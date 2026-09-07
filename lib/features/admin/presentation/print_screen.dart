@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/admin/application/admin_providers.dart';
 import 'package:flutter_id_card/features/admin/data/export_service.dart';
 import 'package:flutter_id_card/features/admin/domain/imposition.dart';
+import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/card_render/application/card_render_providers.dart';
 import 'package:flutter_id_card/features/card_render/application/imposition_service.dart';
 import 'package:flutter_id_card/features/card_render/data/template_repository.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/print/print_units.dart';
+import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -215,6 +217,30 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
             pdfs: pdfs,
           );
 
+      final String actor = ref.read(currentSessionProvider)?.uid ?? 'admin';
+      final String batchId =
+          await ref.read(printBatchRepositoryProvider).create(
+                schoolId: widget.schoolId,
+                cardCount: entries.length,
+                sheetType: sheet == SheetSpec.sheet12x18 ? '12x18' : 'a4',
+                sheetCount: result.fileCount,
+                generatedBy: actor,
+              );
+      await ref.read(auditRepositoryProvider).log(
+            action: 'print_batch',
+            entityType: 'print_batch',
+            entityId: batchId,
+            actorUid: actor,
+            details: <String, Object?>{
+              'schoolId': widget.schoolId,
+              'schoolName': prepared.config.name,
+              'sheetType': sheet.name,
+              'cardCount': entries.length,
+              'sheetCount': result.fileCount,
+              'subfolder': subfolder,
+            },
+          );
+
       if (!mounted) return;
       setState(() {
         _lastResult = result;
@@ -254,6 +280,29 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
             schoolName: prepared.config.name,
             subfolder: ExportService.singleCardsDir,
             pdfs: pdfs,
+          );
+
+      final String actor = ref.read(currentSessionProvider)?.uid ?? 'admin';
+      final String batchId =
+          await ref.read(printBatchRepositoryProvider).create(
+                schoolId: widget.schoolId,
+                cardCount: entries.length,
+                sheetType: 'single',
+                sheetCount: result.fileCount,
+                generatedBy: actor,
+              );
+      await ref.read(auditRepositoryProvider).log(
+            action: 'print_batch',
+            entityType: 'print_batch',
+            entityId: batchId,
+            actorUid: actor,
+            details: <String, Object?>{
+              'schoolId': widget.schoolId,
+              'schoolName': prepared.config.name,
+              'sheetType': 'single',
+              'cardCount': entries.length,
+              'fileCount': result.fileCount,
+            },
           );
 
       if (!mounted) return;

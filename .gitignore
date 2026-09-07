@@ -58,3 +58,8 @@ firestore-debug.log
 
 # Claude Code's own local session/config directory - not part of the app.
 .claude/
+
+# Temporary emulator screenshots and scratch files
+emulator_*.png
+/scratch/
+

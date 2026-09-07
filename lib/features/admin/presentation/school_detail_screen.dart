@@ -7,10 +7,23 @@ import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
+enum StudentSortMode {
+  nameAsc('Name (A-Z)'),
+  nameDesc('Name (Z-A)'),
+  classAsc('Class & Div'),
+  dateDesc('Newest first'),
+  dateAsc('Oldest first');
+
+  const StudentSortMode(this.label);
+  final String label;
+}
 
 /// One school's submissions, with the review queue and bulk actions.
 ///
@@ -32,6 +45,9 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
   ApprovalStatus? _statusFilter = ApprovalStatus.pending;
   String? _classFilter;
   String? _divFilter;
+  StudentSortMode _sortMode = StudentSortMode.dateDesc;
+  int _currentPage = 0;
+  static const int _pageSize = 20;
 
   /// Ids selected for a bulk action. Kept in the screen rather than a provider
   /// because a selection is transient UI state - navigating away should clear
@@ -46,7 +62,7 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
 
   List<StudentEntry> _applyFilters(List<StudentEntry> all) {
     final String needle = _search.text.trim().toUpperCase();
-    return all.where((StudentEntry e) {
+    final List<StudentEntry> filtered = all.where((StudentEntry e) {
       if (_statusFilter != null && e.approvalStatus != _statusFilter) return false;
       if (_classFilter != null && e.studentClass != _classFilter) return false;
       if (_divFilter != null && e.division != _divFilter) return false;
@@ -56,6 +72,27 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
           e.division.contains(needle) ||
           e.mobile.contains(needle);
     }).toList();
+
+    filtered.sort((StudentEntry a, StudentEntry b) {
+      switch (_sortMode) {
+        case StudentSortMode.nameAsc:
+          return a.name.compareTo(b.name);
+        case StudentSortMode.nameDesc:
+          return b.name.compareTo(a.name);
+        case StudentSortMode.classAsc:
+          final int classCmp = a.studentClass.compareTo(b.studentClass);
+          if (classCmp != 0) return classCmp;
+          final int divCmp = a.division.compareTo(b.division);
+          if (divCmp != 0) return divCmp;
+          return a.name.compareTo(b.name);
+        case StudentSortMode.dateDesc:
+          return b.createdAt.compareTo(a.createdAt);
+        case StudentSortMode.dateAsc:
+          return a.createdAt.compareTo(b.createdAt);
+      }
+    });
+
+    return filtered;
   }
 
   @override
@@ -69,12 +106,29 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     final List<StudentEntry> all = entriesAsync.value ?? const <StudentEntry>[];
     final List<StudentEntry> filtered = _applyFilters(all);
 
+    final int totalPages =
+        (filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil());
+    final int safePage = _currentPage.clamp(0, totalPages - 1);
+    final List<StudentEntry> paged =
+        filtered.skip(safePage * _pageSize).take(_pageSize).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(school?.name ?? 'School'),
         actions: <Widget>[
           IconButton(
-            tooltip: 'Print & export',
+            tooltip: 'Print history',
+            icon: const Icon(Icons.history_outlined),
+            onPressed: () => _showPrintHistory(context),
+          ),
+          IconButton(
+            tooltip: 'Export CSV & Reports',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: () =>
+                context.push('/admin/schools/${widget.schoolId}/export'),
+          ),
+          IconButton(
+            tooltip: 'Print cards',
             icon: const Icon(Icons.local_printshop_outlined),
             onPressed: () => context.push('/admin/schools/${widget.schoolId}/print'),
           ),
@@ -98,11 +152,11 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
                   ? _EmptyState(hasAny: all.isNotEmpty, filter: _statusFilter)
                   : ListView.separated(
                       padding: const EdgeInsets.all(AppTheme.gutter),
-                      itemCount: filtered.length,
+                      itemCount: paged.length,
                       separatorBuilder: (BuildContext _, int _) =>
                           const SizedBox(height: 10),
                       itemBuilder: (BuildContext context, int i) {
-                        final StudentEntry entry = filtered[i];
+                        final StudentEntry entry = paged[i];
                         return _SubmissionTile(
                           entry: entry,
                           selected: _selected.contains(entry.id),
@@ -121,6 +175,8 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
                     ),
             ),
           ),
+          if (totalPages > 1)
+            _paginationBar(safePage, totalPages, filtered.length),
         ],
       ),
       bottomNavigationBar: _selected.isEmpty ? null : _bulkBar(filtered),
@@ -188,9 +244,30 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
                     label: 'Div',
                     value: _divFilter,
                     options: divisions,
-                    onChanged: (String? v) => setState(() => _divFilter = v),
+                    onChanged: (String? v) => setState(() {
+                      _divFilter = v;
+                      _currentPage = 0;
+                    }),
                   ),
                 ],
+                const SizedBox(width: 6),
+                _dropdownChip(
+                  label: 'Sort',
+                  value: _sortMode.label,
+                  options: StudentSortMode.values
+                      .map((StudentSortMode m) => m.label)
+                      .toList(),
+                  onChanged: (String? v) {
+                    if (v != null) {
+                      final StudentSortMode mode = StudentSortMode.values
+                          .firstWhere((StudentSortMode m) => m.label == v);
+                      setState(() {
+                        _sortMode = mode;
+                        _currentPage = 0;
+                      });
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -235,6 +312,53 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     );
   }
 
+  Widget _paginationBar(int currentPage, int totalPages, int totalItems) {
+    final ThemeData theme = Theme.of(context);
+    final int startItem = currentPage * _pageSize + 1;
+    final int endItem = ((currentPage + 1) * _pageSize).clamp(0, totalItems);
+
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppTheme.gutter, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Text(
+            'Showing $startItem–$endItem of $totalItems',
+            style: theme.textTheme.bodySmall,
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Previous page',
+                onPressed: currentPage > 0
+                    ? () => setState(() => _currentPage--)
+                    : null,
+              ),
+              Text(
+                'Page ${currentPage + 1} of $totalPages',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                tooltip: 'Next page',
+                onPressed: currentPage < totalPages - 1
+                    ? () => setState(() => _currentPage++)
+                    : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _bulkBar(List<StudentEntry> visible) {
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(AppTheme.gutter, 0, AppTheme.gutter, 12),
@@ -245,6 +369,16 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
           TextButton(
             onPressed: () => setState(_selected.clear),
             child: const Text('Clear'),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+            ),
+            onPressed: () => _promptBulkReject(_selected.toList()),
+            icon: const Icon(Icons.close, size: 18),
+            label: Text('Reject ${_selected.length}'),
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
@@ -268,6 +402,17 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     if (uid == null || ids.isEmpty) return;
 
     await ref.read(studentRepositoryProvider).approveAll(ids, reviewerUid: uid);
+    await ref.read(auditRepositoryProvider).log(
+          action: ids.length == 1 ? 'approve' : 'bulk_approve',
+          entityType: 'student',
+          entityId: ids.length == 1 ? ids.first : widget.schoolId,
+          actorUid: uid,
+          details: <String, Object?>{
+            'schoolId': widget.schoolId,
+            'count': ids.length,
+            'studentIds': ids,
+          },
+        );
     if (!mounted) return;
 
     setState(_selected.clear);
@@ -338,11 +483,173 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     await ref
         .read(studentRepositoryProvider)
         .reject(entry.id, reviewerUid: uid, reason: given);
+    await ref.read(auditRepositoryProvider).log(
+          action: 'reject',
+          entityType: 'student',
+          entityId: entry.id,
+          actorUid: uid,
+          details: <String, Object?>{
+            'schoolId': widget.schoolId,
+            'studentName': entry.name,
+            'reason': given,
+          },
+        );
 
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text('Rejected ${entry.name}')));
+  }
+
+  Future<void> _promptBulkReject(List<String> ids) async {
+    final TextEditingController reason = TextEditingController();
+
+    final String? given = await showDialog<String>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: Text('Reject ${ids.length} entries?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Enter a mandatory rejection reason. The operator will see this for all selected students.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: reason,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason *',
+                hintText: 'e.g. Please re-enter details with correct class photo',
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: StatusColors.failed),
+            onPressed: () {
+              final String text = reason.text.trim();
+              if (text.isEmpty) return;
+              Navigator.of(ctx).pop(text);
+            },
+            child: const Text('Reject All'),
+          ),
+        ],
+      ),
+    );
+
+    reason.dispose();
+
+    final String? uid = _reviewerUid;
+    if (given == null || uid == null || ids.isEmpty) return;
+
+    await ref
+        .read(studentRepositoryProvider)
+        .rejectAll(ids, reviewerUid: uid, reason: given);
+    await ref.read(auditRepositoryProvider).log(
+          action: 'bulk_reject',
+          entityType: 'student',
+          entityId: widget.schoolId,
+          actorUid: uid,
+          details: <String, Object?>{
+            'schoolId': widget.schoolId,
+            'count': ids.length,
+            'studentIds': ids,
+            'reason': given,
+          },
+        );
+
+    if (!mounted) return;
+    setState(_selected.clear);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Rejected ${ids.length} entries'),
+          backgroundColor: StatusColors.failed,
+        ),
+      );
+  }
+
+  void _showPrintHistory(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext ctx) => Consumer(
+        builder: (BuildContext context, WidgetRef ref, _) {
+          final List<PrintBatch> batches = ref
+                  .watch(printBatchesForSchoolProvider(widget.schoolId))
+                  .value ??
+              const <PrintBatch>[];
+          final DateFormat fmt = DateFormat('dd MMM yyyy, HH:mm');
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.5,
+            minChildSize: 0.3,
+            maxChildSize: 0.85,
+            expand: false,
+            builder: (BuildContext context, ScrollController scrollController) =>
+                Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(Icons.print_outlined),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Print Run History',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: batches.isEmpty
+                      ? const Center(
+                          child: Text('No print batches yet for this school'),
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: batches.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 6),
+                          itemBuilder: (BuildContext context, int i) {
+                            final PrintBatch b = batches[i];
+                            return Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.receipt_long),
+                                title: Text(
+                                    '${b.cardCount} cards · ${b.sheetTypeLabel}'),
+                                subtitle: Text(
+                                    '${b.sheetCount} sheet(s) · ${fmt.format(b.createdAt)}'),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -389,7 +696,12 @@ class _SubmissionTile extends StatelessWidget {
                       width: 48,
                       height: 60,
                       child: hasThumb
-                          ? Image.file(File(path), fit: BoxFit.cover)
+                          ? Image.file(
+                              File(path),
+                              fit: BoxFit.cover,
+                              cacheWidth: 160,
+                              cacheHeight: 200,
+                            )
                           : Container(
                               color: theme.colorScheme.surfaceContainerHighest,
                               child: Icon(

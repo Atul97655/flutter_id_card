@@ -61,6 +61,8 @@ class SchoolConfigs extends Table {
   TextColumn get contactLine => text().withDefault(const Constant(''))();
   TextColumn get logoUrl => text().nullable()();
   TextColumn get localLogoPath => text().nullable()();
+  TextColumn get principalSignatureUrl => text().nullable()();
+  TextColumn get localPrincipalSignaturePath => text().nullable()();
 
   TextColumn get cardSizeId => text().withDefault(const Constant('v54x86'))();
   TextColumn get templateId => text().withDefault(const Constant('default_vertical'))();
@@ -88,7 +90,54 @@ class SchoolConfigs extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
-@DriftDatabase(tables: <Type>[StudentEntries, SchoolConfigs])
+/// Immutable audit trail. Every meaningful admin action (approve, reject,
+/// export, print) is recorded here so "who did what and when?" has an answer.
+@DataClassName('AuditLogRow')
+class AuditLogs extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Machine-readable verb: 'approve', 'reject', 'export_csv',
+  /// 'print_batch', 'create_school', 'update_school', 'sync_pass'.
+  TextColumn get action => text()();
+
+  /// What kind of entity was affected: 'student', 'school', 'print_batch'.
+  TextColumn get entityType => text()();
+
+  /// The id of the affected entity (student id, school id, batch id).
+  TextColumn get entityId => text()();
+
+  /// Auth UID of the admin who performed the action.
+  TextColumn get actorUid => text()();
+
+  /// Free-form JSON blob with extra context. Kept as text so the table stays
+  /// flat and a new detail field never requires a migration.
+  TextColumn get details => text().withDefault(const Constant(''))();
+
+  DateTimeColumn get createdAt => dateTime()();
+}
+
+/// One print run. Ties a point-in-time snapshot of "N cards on M sheets" to
+/// the admin who pressed "Generate" and the school it was for, so an audit
+/// trail exists for every batch of cards that reaches a cutter.
+@DataClassName('PrintBatchRow')
+class PrintBatches extends Table {
+  TextColumn get id => text()();
+  TextColumn get schoolId => text()();
+  IntColumn get cardCount => integer()();
+
+  /// '12x18', 'a4', or 'single'.
+  TextColumn get sheetType => text()();
+  IntColumn get sheetCount => integer()();
+
+  /// Auth UID of the admin who triggered the print run.
+  TextColumn get generatedBy => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@DriftDatabase(tables: <Type>[StudentEntries, SchoolConfigs, AuditLogs, PrintBatches])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
@@ -96,7 +145,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -138,6 +187,24 @@ class AppDatabase extends _$AppDatabase {
               studentEntries,
               studentEntries.reviewedAt as GeneratedColumn<Object>,
             );
+          }
+
+          // v3 -> v4: principal signature storage.
+          if (from < 4) {
+            await m.addColumn(
+              schoolConfigs,
+              schoolConfigs.principalSignatureUrl as GeneratedColumn<Object>,
+            );
+            await m.addColumn(
+              schoolConfigs,
+              schoolConfigs.localPrincipalSignaturePath as GeneratedColumn<Object>,
+            );
+          }
+
+          // v4 -> v5: audit trail and print batch tracking.
+          if (from < 5) {
+            await m.createTable(auditLogs);
+            await m.createTable(printBatches);
           }
         },
         beforeOpen: (OpeningDetails details) async {

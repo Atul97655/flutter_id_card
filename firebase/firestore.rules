@@ -100,12 +100,26 @@ service cloud.firestore {
                      'reviewedBy', 'reviewedAt']);
         }
 
+        function isUppercaseOrEmpty(val) {
+          return val == null || (val is string && !val.matches('.*[a-z].*'));
+        }
+
+        function hasValidTextCapitalization() {
+          return (!('name' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.name))
+              && (!('fatherName' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.fatherName))
+              && (!('studentClass' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.studentClass))
+              && (!('division' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.division))
+              && (!('address' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.address));
+        }
+
         // A new entry must start unreviewed. Without this an operator could
         // create a record already marked approved and skip review entirely.
+        // Also strictly validates that all ID-card text fields are UPPERCASE.
         allow create: if (isAdmin() || belongsToSchool(schoolId))
           && request.resource.data.schoolId == schoolId
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
+          && hasValidTextCapitalization()
           && (isAdmin()
               || !('approvalStatus' in request.resource.data)
               || request.resource.data.approvalStatus == 'pending');
@@ -114,7 +128,8 @@ service cloud.firestore {
         // Operators may correct the student's details but never the review.
         allow update: if (isAdmin()
                           || (belongsToSchool(schoolId) && reviewFieldsUnchanged()))
-          && request.resource.data.schoolId == schoolId;
+          && request.resource.data.schoolId == schoolId
+          && hasValidTextCapitalization();
 
         // Deletion is admin-only: an operator deleting a synced record would
         // silently remove a student from the print run.

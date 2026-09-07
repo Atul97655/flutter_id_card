@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/admin/application/admin_providers.dart';
 import 'package:flutter_id_card/features/card_render/application/card_render_providers.dart';
@@ -10,6 +12,9 @@ import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 /// Per-school configuration: identity, card size, template, field toggles and
 /// colours.
@@ -19,7 +24,7 @@ import 'package:go_router/go_router.dart';
 /// card would be worse than making the admin press a button.
 ///
 /// [schoolId] is null when creating a new school.
-class SchoolSettingsScreen extends ConsumerStatefulWidget {
+class SchoolSettingsScreen extends ConsumerWidget {
   const SchoolSettingsScreen({super.key, this.schoolId});
 
   final String? schoolId;
@@ -27,10 +32,54 @@ class SchoolSettingsScreen extends ConsumerStatefulWidget {
   bool get isNew => schoolId == null;
 
   @override
-  ConsumerState<SchoolSettingsScreen> createState() => _SchoolSettingsScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (isNew) {
+      return const _SchoolSettingsForm(existing: null);
+    }
+
+    final AsyncValue<SchoolConfig?> schoolAsync =
+        ref.watch(schoolByIdProvider(schoolId!));
+
+    return schoolAsync.when(
+      loading: () => Scaffold(
+        appBar: AppBar(
+          title: const Text('School Settings'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (Object e, StackTrace s) => Scaffold(
+        appBar: AppBar(
+          title: const Text('School Settings'),
+        ),
+        body: Center(child: Text('Error: $e')),
+      ),
+      data: (SchoolConfig? school) {
+        if (school == null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('School Settings'),
+            ),
+            body: const Center(child: Text('School not found')),
+          );
+        }
+        return _SchoolSettingsForm(existing: school);
+      },
+    );
+  }
 }
 
-class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
+class _SchoolSettingsForm extends ConsumerStatefulWidget {
+  const _SchoolSettingsForm({required this.existing});
+
+  final SchoolConfig? existing;
+
+  bool get isNew => existing == null;
+
+  @override
+  ConsumerState<_SchoolSettingsForm> createState() => _SchoolSettingsFormState();
+}
+
+class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _id = TextEditingController();
   final TextEditingController _name = TextEditingController();
@@ -45,8 +94,35 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
   int _header = SchoolConfig.kDefaultHeaderHex;
   Map<String, int> _divisionColors = <String, int>{};
 
-  bool _loaded = false;
+  String? _localLogoPath;
+  String? _logoUrl;
+  String? _localSignaturePath;
+  String? _signatureUrl;
+
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final SchoolConfig? config = widget.existing;
+    if (config != null) {
+      _id.text = config.id;
+      _name.text = config.name;
+      _address.text = config.addressLine;
+      _contact.text = config.contactLine;
+      _cardSizeId = config.cardSizeId;
+      _templateId = config.templateId;
+      _enabled = Set<String>.of(config.enabledFieldKeys);
+      _primary = config.primaryColorHex;
+      _secondary = config.secondaryColorHex;
+      _header = config.headerColorHex;
+      _divisionColors = Map<String, int>.of(config.divisionColors);
+      _localLogoPath = config.localLogoPath;
+      _logoUrl = config.logoUrl;
+      _localSignaturePath = config.localPrincipalSignaturePath;
+      _signatureUrl = config.principalSignatureUrl;
+    }
+  }
 
   @override
   void dispose() {
@@ -57,33 +133,39 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
     super.dispose();
   }
 
-  void _hydrate(SchoolConfig config) {
-    _id.text = config.id;
-    _name.text = config.name;
-    _address.text = config.addressLine;
-    _contact.text = config.contactLine;
-    _cardSizeId = config.cardSizeId;
-    _templateId = config.templateId;
-    _enabled = Set<String>.of(config.enabledFieldKeys);
-    _primary = config.primaryColorHex;
-    _secondary = config.secondaryColorHex;
-    _header = config.headerColorHex;
-    _divisionColors = Map<String, int>.of(config.divisionColors);
+  Future<void> _pickAsset({required bool isLogo}) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 95,
+    );
+    if (file == null) return;
+
+    final Directory dir = await getApplicationDocumentsDirectory();
+    final String schoolId =
+        widget.existing?.id ?? (_id.text.trim().isEmpty ? 'new_school' : _id.text.trim());
+    final String folder = '${dir.path}/school_assets';
+    await Directory(folder).create(recursive: true);
+
+    final String ext = p.extension(file.path).isEmpty ? '.png' : p.extension(file.path);
+    final String dest = '$folder/${schoolId}_${isLogo ? "logo" : "signature"}$ext';
+
+    await File(file.path).copy(dest);
+
+    if (!mounted) return;
+    setState(() {
+      if (isLogo) {
+        _localLogoPath = dest;
+      } else {
+        _localSignaturePath = dest;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isNew && !_loaded) {
-      final SchoolConfig? existing =
-          ref.watch(schoolByIdProvider(widget.schoolId!)).value;
-      if (existing != null) {
-        _loaded = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() => _hydrate(existing));
-        });
-      }
-    }
-
     final AsyncValue<List<CardTemplate>> templates =
         ref.watch(bundledTemplatesProvider);
 
@@ -151,8 +233,35 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
             ),
 
             const SizedBox(height: AppTheme.gutter * 1.5),
+            _section('Assets & Signature'),
+            _assetCard(
+              title: 'School Logo',
+              subtitle: 'Printed in the header band of vertical and horizontal cards.',
+              filePath: _localLogoPath,
+              isSignature: false,
+              onUpload: () => _pickAsset(isLogo: true),
+              onRemove: () => setState(() {
+                _localLogoPath = null;
+                _logoUrl = null;
+              }),
+            ),
+            const SizedBox(height: 10),
+            _assetCard(
+              title: 'Principal Signature',
+              subtitle: 'Rendered directly above the "Principal Sign" line on framed cards.',
+              filePath: _localSignaturePath,
+              isSignature: true,
+              onUpload: () => _pickAsset(isLogo: false),
+              onRemove: () => setState(() {
+                _localSignaturePath = null;
+                _signatureUrl = null;
+              }),
+            ),
+
+            const SizedBox(height: AppTheme.gutter * 1.5),
             _section('Card'),
             DropdownButtonFormField<String>(
+              key: ValueKey<String>(_cardSizeId),
               initialValue: _cardSizeId,
               isExpanded: true,
               decoration: const InputDecoration(
@@ -175,6 +284,7 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
               loading: () => const LinearProgressIndicator(),
               error: (Object e, StackTrace s) => Text('Templates unavailable: $e'),
               data: (List<CardTemplate> list) => DropdownButtonFormField<String>(
+                key: ValueKey<String>(_templateId),
                 initialValue: list.any((CardTemplate t) => t.id == _templateId)
                     ? _templateId
                     : list.firstOrNull?.id,
@@ -298,6 +408,91 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
         ),
       );
 
+  Widget _assetCard({
+    required String title,
+    required String subtitle,
+    required String? filePath,
+    required bool isSignature,
+    required VoidCallback onUpload,
+    required VoidCallback onRemove,
+  }) {
+    final bool hasFile = filePath != null && File(filePath).existsSync();
+    final ThemeData theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: hasFile
+                  ? Image.file(File(filePath), fit: BoxFit.contain)
+                  : Icon(
+                      isSignature ? Icons.draw_outlined : Icons.school_outlined,
+                      color: theme.colorScheme.onSurfaceVariant,
+                      size: 28,
+                    ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: <Widget>[
+                      OutlinedButton.icon(
+                        onPressed: onUpload,
+                        icon: Icon(hasFile ? Icons.swap_horiz : Icons.upload, size: 16),
+                        label: Text(hasFile ? 'Change' : 'Upload', style: const TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                      if (hasFile) ...<Widget>[
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: onRemove,
+                          icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                          label: const Text('Remove', style: TextStyle(fontSize: 12, color: Colors.red)),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _colorRow(String label, int value, ValueChanged<int> onChanged) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -399,7 +594,7 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
     setState(() => _saving = true);
     try {
       final SchoolConfig config = SchoolConfig(
-        id: widget.isNew ? _id.text.trim() : widget.schoolId!,
+        id: widget.isNew ? _id.text.trim() : widget.existing!.id,
         name: _name.text.trim(),
         addressLine: _address.text.trim(),
         contactLine: _contact.text.trim(),
@@ -410,6 +605,10 @@ class _SchoolSettingsScreenState extends ConsumerState<SchoolSettingsScreen> {
         secondaryColorHex: _secondary,
         headerColorHex: _header,
         divisionColors: _divisionColors,
+        logoUrl: _logoUrl,
+        localLogoPath: _localLogoPath,
+        principalSignatureUrl: _signatureUrl,
+        localPrincipalSignaturePath: _localSignaturePath,
         updatedAt: DateTime.now(),
       );
 
@@ -507,6 +706,10 @@ class _DivisionColourEditor extends StatelessWidget {
                   onPressed: () => _addDivision(context),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add division'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 if (colors.isEmpty)

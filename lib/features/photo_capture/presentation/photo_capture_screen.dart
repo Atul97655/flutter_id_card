@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/features/photo_capture/data/photo_processor.dart';
@@ -14,6 +14,7 @@ import 'package:flutter_id_card/shared/print/print_units.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -50,6 +51,23 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
   PhotoAdjustments _adjustments = PhotoAdjustments.neutral;
   String? _error;
 
+  FaceDetector? _liveFaceDetector;
+  FaceDetector get _liveDetector => _liveFaceDetector ??= FaceDetector(
+        options: FaceDetectorOptions(
+          performanceMode: FaceDetectorMode.fast,
+          enableLandmarks: false,
+          enableClassification: false,
+          enableTracking: false,
+          minFaceSize: 0.15,
+        ),
+      );
+
+  bool _isDetecting = false;
+  DateTime _lastDetectionTime = DateTime.now();
+  String _liveStatusMessage = '1.2 x 1.5 in  -  keep the eyes on the line';
+  Color _liveBorderColor = Colors.white;
+  Color _liveStatusColor = Colors.white;
+
   /// Guards against overlapping reprocess runs while a slider is dragged.
   bool _processing = false;
   bool _reprocessQueued = false;
@@ -64,7 +82,11 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (_camera?.value.isStreamingImages ?? false) {
+      unawaited(_camera?.stopImageStream());
+    }
     _camera?.dispose();
+    unawaited(_liveFaceDetector?.close());
     unawaited(_processor.dispose());
     super.dispose();
   }
@@ -77,6 +99,9 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
     if (controller == null || !controller.value.isInitialized) return;
 
     if (state == AppLifecycleState.inactive) {
+      if (controller.value.isStreamingImages) {
+        unawaited(controller.stopImageStream());
+      }
       controller.dispose();
       _camera = null;
     } else if (state == AppLifecycleState.resumed && _stage == _Stage.camera) {
@@ -136,6 +161,7 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
   }
 
   Future<void> _openCamera(int index) async {
+    await _stopLiveStream();
     await _camera?.dispose();
 
     final CameraController controller = CameraController(
@@ -159,6 +185,106 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
       _stage = _Stage.camera;
       _error = null;
     });
+
+    unawaited(_startLiveFaceDetection());
+  }
+
+  Future<void> _stopLiveStream() async {
+    final CameraController? controller = _camera;
+    if (controller != null && controller.value.isStreamingImages) {
+      try {
+        await controller.stopImageStream();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _startLiveFaceDetection() async {
+    final CameraController? controller = _camera;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (controller.value.isStreamingImages) return;
+
+    try {
+      await controller.startImageStream((CameraImage image) {
+        final DateTime now = DateTime.now();
+        if (_isDetecting ||
+            now.difference(_lastDetectionTime).inMilliseconds < 350) {
+          return;
+        }
+        _processLiveFrame(image);
+      });
+    } catch (_) {
+      // If image stream is unsupported on this device/platform, fail gracefully
+      // and keep the static guide overlay.
+    }
+  }
+
+  Future<void> _processLiveFrame(CameraImage image) async {
+    if (_isDetecting || !mounted || _stage != _Stage.camera) return;
+    _isDetecting = true;
+    _lastDetectionTime = DateTime.now();
+
+    try {
+      if (_cameraIndex >= _cameras.length) return;
+      final CameraDescription camera = _cameras[_cameraIndex];
+      final InputImage? input = _buildInputImage(image, camera);
+      if (input == null) return;
+
+      final List<Face> faces = await _liveDetector.processImage(input);
+      if (!mounted || _stage != _Stage.camera) return;
+
+      setState(() {
+        if (faces.isEmpty) {
+          _liveStatusMessage = 'Position face inside the box';
+          _liveBorderColor = Colors.white70;
+          _liveStatusColor = Colors.white70;
+        } else if (faces.length == 1) {
+          _liveStatusMessage = 'Face detected • Hold steady';
+          _liveBorderColor = Colors.greenAccent;
+          _liveStatusColor = Colors.greenAccent;
+        } else {
+          _liveStatusMessage = '${faces.length} faces detected • Only 1 student allowed';
+          _liveBorderColor = Colors.orangeAccent;
+          _liveStatusColor = Colors.orangeAccent;
+        }
+      });
+    } catch (_) {
+      // Ignore individual live frame parsing errors
+    } finally {
+      _isDetecting = false;
+    }
+  }
+
+  InputImage? _buildInputImage(CameraImage image, CameraDescription camera) {
+    final InputImageRotation? rotation =
+        InputImageRotationValue.fromRawValue(camera.sensorOrientation);
+    if (rotation == null) return null;
+
+    final int? rawFormat = image.format.raw is int ? image.format.raw as int : null;
+    final InputImageFormat? format = rawFormat != null
+        ? InputImageFormatValue.fromRawValue(rawFormat)
+        : null;
+    if (format == null) return null;
+
+    if (image.planes.isEmpty) return null;
+
+    final Uint8List allBytes = Uint8List(
+      image.planes.fold(0, (count, plane) => count + plane.bytes.length),
+    );
+    int offset = 0;
+    for (final Plane plane in image.planes) {
+      allBytes.setRange(offset, offset + plane.bytes.length, plane.bytes);
+      offset += plane.bytes.length;
+    }
+
+    return InputImage.fromBytes(
+      bytes: allBytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: image.planes[0].bytesPerRow,
+      ),
+    );
   }
 
   // ------------------------------------------------------------------
@@ -171,26 +297,46 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
     if (controller.value.isTakingPicture) return;
 
     try {
+      await _stopLiveStream();
       final XFile shot = await controller.takePicture();
       await _useSource(shot.path);
     } on CameraException catch (e) {
       _showError('Capture failed: ${e.description ?? e.code}');
+      if (mounted && _stage == _Stage.camera) {
+        unawaited(_startLiveFaceDetection());
+      }
     }
   }
 
   Future<void> _pickFromGallery() async {
     try {
+      await _stopLiveStream();
       final XFile? picked = await _picker.pickImage(
         source: ImageSource.gallery,
         // Do not let the picker downscale: the pipeline needs the resolution
         // for the crop, and it does its own resampling at the end.
         imageQuality: 100,
       );
-      if (picked == null) return;
+      if (picked == null) {
+        if (mounted && _stage == _Stage.camera) {
+          unawaited(_startLiveFaceDetection());
+        }
+        return;
+      }
       await _useSource(picked.path);
     } on Object catch (e) {
       _showError('Could not open the gallery: $e');
     }
+  }
+
+  Future<void> _editExistingPhoto() async {
+    if (widget.existingPath == null) return;
+    await _stopLiveStream();
+    final String? raw = _storage.rawPathFor(widget.existingPath);
+    final String source = (raw != null && File(raw).existsSync())
+        ? raw
+        : widget.existingPath!;
+    await _useSource(source);
   }
 
   Future<void> _useSource(String path) async {
@@ -263,9 +409,16 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
     if (processed == null) return;
 
     try {
-      final String path = await _storage.save(processed.pngBytes);
+      final String path = await _storage.save(
+        processed.pngBytes,
+        sourceRawPath: _sourcePath,
+      );
       if (!mounted) return;
-      context.pop(path);
+      if (context.canPop()) {
+        context.pop(path);
+      } else {
+        Navigator.of(context).pop(path);
+      }
     } on Object catch (e) {
       _showError('Could not save the photo: $e');
     }
@@ -277,9 +430,16 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
       _result = null;
       _adjustments = _adjustments.reset();
       _error = null;
+      _liveStatusMessage = '1.2 x 1.5 in  -  keep the eyes on the line';
+      _liveBorderColor = Colors.white;
+      _liveStatusColor = Colors.white;
       _stage = _camera == null ? _Stage.permission : _Stage.camera;
     });
-    if (_camera == null) unawaited(_start());
+    if (_camera == null) {
+      unawaited(_start());
+    } else {
+      unawaited(_startLiveFaceDetection());
+    }
   }
 
   void _showError(String message) {
@@ -303,6 +463,19 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text(_stage == _Stage.review ? 'Edit Photo' : 'Student Photo'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
+          onPressed: () {
+            if (_stage == _Stage.review && _camera != null) {
+              _retake();
+            } else if (context.canPop()) {
+              context.pop();
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
         actions: <Widget>[
           if (_stage == _Stage.camera && _cameras.length > 1)
             IconButton(
@@ -312,12 +485,25 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
             ),
         ],
       ),
-      body: switch (_stage) {
-        _Stage.permission => _permissionView(),
-        _Stage.camera => _cameraView(),
-        _Stage.processing => _processingView(),
-        _Stage.review => _reviewView(),
-      },
+      body: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, dynamic result) {
+          if (didPop) return;
+          if (_stage == _Stage.review && _camera != null) {
+            _retake();
+          } else if (context.canPop()) {
+            context.pop();
+          } else {
+            Navigator.of(context).pop();
+          }
+        },
+        child: switch (_stage) {
+          _Stage.permission => _permissionView(),
+          _Stage.camera => _cameraView(),
+          _Stage.processing => _processingView(),
+          _Stage.review => _reviewView(),
+        },
+      ),
     );
   }
 
@@ -379,7 +565,11 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
                   child: CameraPreview(controller),
                 ),
               ),
-              const CropGuideOverlay(),
+              CropGuideOverlay(
+                borderColor: _liveBorderColor,
+                statusMessage: _liveStatusMessage,
+                statusColor: _liveStatusColor,
+              ),
             ],
           ),
         ),
@@ -398,6 +588,14 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
                   onPressed: _pickFromGallery,
                   icon: const Icon(Icons.photo_library_outlined),
                 ),
+                if (widget.existingPath != null)
+                  IconButton(
+                    iconSize: 28,
+                    color: Colors.amberAccent,
+                    tooltip: 'Re-edit existing photo',
+                    onPressed: _editExistingPhoto,
+                    icon: const Icon(Icons.auto_fix_high),
+                  ),
                 GestureDetector(
                   onTap: _capture,
                   child: Container(
@@ -405,7 +603,7 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
                     height: 72,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
+                      border: Border.all(color: _liveBorderColor, width: 4),
                     ),
                     child: Container(
                       margin: const EdgeInsets.all(6),
@@ -423,7 +621,7 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
                       : IconButton(
                           iconSize: 28,
                           color: Colors.white,
-                          tooltip: 'Keep the current photo',
+                          tooltip: 'Keep current photo and return',
                           onPressed: () => context.pop(widget.existingPath),
                           icon: const Icon(Icons.check_circle_outline),
                         ),
@@ -529,32 +727,69 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
     final bool ok = processed.meetsPrintResolution;
     final Color color = ok ? StatusColors.synced : StatusColors.pending;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(ok ? Icons.check_circle : Icons.warning_amber_rounded,
-              size: 15, color: color),
-          const SizedBox(width: 6),
-          Text(
-            ok
-                ? 'Print ready - ${PhotoSpec.widthPx} x ${PhotoSpec.heightPx} px '
-                    'at ${PrintUnits.printDpi.round()} DPI'
-                : 'Low resolution - ${processed.sourceDpi.round()} DPI',
-            style: TextStyle(
-              color: color,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
+    return Column(
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                ok ? Icons.check_circle : Icons.warning_amber_rounded,
+                size: 15,
+                color: color,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                ok
+                    ? 'Print ready - ${PhotoSpec.widthPx} x ${PhotoSpec.heightPx} px '
+                        'at ${PrintUnits.printDpi.round()} DPI'
+                    : 'Low resolution - ${processed.sourceDpi.round()} DPI',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (processed.isLowLight) ...<Widget>[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(
+                  Icons.wb_sunny_outlined,
+                  size: 14,
+                  color: Colors.orangeAccent,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Low Lighting Detected (${processed.averageLuminance.round()}/255)',
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 

@@ -7,6 +7,7 @@ import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/offline_banner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -43,13 +44,17 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(AppTheme.gutter),
+        child: Column(
           children: <Widget>[
-            _SchoolHeader(
-              config: config,
-              isOfflineTest: session?.isOfflineTestSession ?? false,
-            ),
+            const OfflineBanner(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(AppTheme.gutter),
+                children: <Widget>[
+                  _SchoolHeader(
+                    config: config,
+                    isOfflineTest: session?.isOfflineTestSession ?? false,
+                  ),
             const SizedBox(height: AppTheme.gutter),
             _MenuCard(
               icon: Icons.badge_outlined,
@@ -97,7 +102,10 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ],
+  ),
+),
+);
   }
 
   static String _syncSubtitle(int pending, int failed) {

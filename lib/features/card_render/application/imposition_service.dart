@@ -73,6 +73,8 @@ class ImpositionService {
       if (bytes != null) photoCache[e.id] = bytes;
     }
     final Uint8List? logoBytes = await _readFile(config.localLogoPath);
+    final Uint8List? signatureBytes =
+        await _readFile(config.localPrincipalSignaturePath);
 
     final List<GeneratedPdf> output = <GeneratedPdf>[];
     final int sheetCount = grid.sheetsFor(entries.length);
@@ -124,6 +126,7 @@ class ImpositionService {
                     size: cardSize,
                     photoBytes: photoCache[entry.id],
                     logoBytes: logoBytes,
+                    signatureBytes: signatureBytes,
                   ),
                 ),
               );

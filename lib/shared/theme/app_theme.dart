@@ -32,7 +32,8 @@ final class AppTheme {
         foregroundColor: scheme.onPrimary,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
+          color: scheme.onPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
@@ -80,7 +81,7 @@ final class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(minTapTarget),
+          minimumSize: const Size(64, minTapTarget),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

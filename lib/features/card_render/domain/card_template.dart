@@ -174,6 +174,7 @@ sealed class CardElement {
           borderColor: ColorRef.parse(json['borderColor'], fallback: ColorRef.transparent),
         ),
       'logo' => LogoElement(xMm: x, yMm: y, widthMm: w, heightMm: h),
+      'signature' => SignatureElement(xMm: x, yMm: y, widthMm: w, heightMm: h),
       'fields' => FieldBlockElement(
           xMm: x,
           yMm: y,
@@ -297,6 +298,15 @@ class PhotoElement extends CardElement {
 
 class LogoElement extends CardElement {
   const LogoElement({
+    required super.xMm,
+    required super.yMm,
+    required super.widthMm,
+    required super.heightMm,
+  });
+}
+
+class SignatureElement extends CardElement {
+  const SignatureElement({
     required super.xMm,
     required super.yMm,
     required super.widthMm,

@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/admin/presentation/admin_dashboard_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/admin_users_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/audit_log_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/export_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/print_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/reports_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/school_detail_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/school_settings_screen.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
@@ -126,6 +130,11 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         builder: (BuildContext c, GoRouterState s) => const AdminDashboardScreen(),
         routes: <RouteBase>[
           GoRoute(
+            path: 'users',
+            builder: (BuildContext c, GoRouterState s) =>
+                const AdminUsersScreen(),
+          ),
+          GoRoute(
             // Literal 'new' is declared before the ':schoolId' pattern so it is
             // matched as the create route rather than as a school whose id
             // happens to be "new".
@@ -151,7 +160,29 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                   schoolId: s.pathParameters['schoolId'] ?? '',
                 ),
               ),
+              GoRoute(
+                path: 'export',
+                builder: (BuildContext c, GoRouterState s) => ExportScreen(
+                  schoolId: s.pathParameters['schoolId'] ?? '',
+                ),
+              ),
             ],
+          ),
+          GoRoute(
+            path: 'audit',
+            builder: (BuildContext c, GoRouterState s) =>
+                const AuditLogScreen(),
+          ),
+          GoRoute(
+            path: 'reports',
+            builder: (BuildContext c, GoRouterState s) =>
+                const ReportsScreen(),
+          ),
+          GoRoute(
+            path: 'export/:schoolId',
+            builder: (BuildContext c, GoRouterState s) => ExportScreen(
+              schoolId: s.pathParameters['schoolId'] ?? '',
+            ),
           ),
         ],
       ),

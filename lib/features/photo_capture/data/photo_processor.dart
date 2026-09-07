@@ -20,6 +20,8 @@ class ProcessedPhoto {
     required this.backgroundRemoved,
     required this.sourceDpi,
     required this.warnings,
+    this.averageLuminance = 128.0,
+    this.isLowLight = false,
   });
 
   final Uint8List pngBytes;
@@ -33,6 +35,8 @@ class ProcessedPhoto {
   final double sourceDpi;
 
   final List<String> warnings;
+  final double averageLuminance;
+  final bool isLowLight;
 
   bool get meetsPrintResolution => sourceDpi >= PrintUnits.printDpi - 1;
 }
@@ -149,6 +153,13 @@ class PhotoProcessor {
       );
     }
 
+    if (response.isLowLight) {
+      warnings.add(
+        'Low light detected (brightness ${response.averageLuminance.round()}/255). '
+        'The photo may look dark or noisy when printed. Retake with better lighting or increase brightness.',
+      );
+    }
+
     return ProcessedPhoto(
       pngBytes: response.pngBytes!,
       width: PhotoSpec.widthPx,
@@ -157,6 +168,8 @@ class PhotoProcessor {
       backgroundRemoved: mask != null,
       sourceDpi: response.sourceDpi,
       warnings: warnings,
+      averageLuminance: response.averageLuminance,
+      isLowLight: response.isLowLight,
     );
   }
 
@@ -281,13 +294,23 @@ class _ProcessRequest {
 }
 
 class _ProcessResponse {
-  const _ProcessResponse.success(this.pngBytes, this.sourceDpi) : error = null;
+  const _ProcessResponse.success(
+    this.pngBytes,
+    this.sourceDpi, {
+    this.averageLuminance = 128.0,
+    this.isLowLight = false,
+  }) : error = null;
+
   const _ProcessResponse.failure(this.error)
       : pngBytes = null,
-        sourceDpi = 0;
+        sourceDpi = 0,
+        averageLuminance = 0,
+        isLowLight = false;
 
   final Uint8List? pngBytes;
   final double sourceDpi;
+  final double averageLuminance;
+  final bool isLowLight;
   final String? error;
 }
 
@@ -381,9 +404,29 @@ _ProcessResponse _runPipeline(_ProcessRequest req) {
       interpolation: img.Interpolation.cubic,
     );
 
+    // Sample luminance across the crop before user manual adjustments
+    // Rec. 601 luma formula: Y = 0.299*R + 0.587*G + 0.114*B
+    double totalLuma = 0;
+    int sampledPixels = 0;
+    const int step = 4;
+    for (int y = 0; y < out.height; y += step) {
+      for (int x = 0; x < out.width; x += step) {
+        final img.Pixel p = out.getPixel(x, y);
+        totalLuma += 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
+        sampledPixels++;
+      }
+    }
+    final double avgLuma = sampledPixels > 0 ? totalLuma / sampledPixels : 128.0;
+    final bool isLowLight = avgLuma < 60.0;
+
     out = _applyAdjustments(out, req.brightness, req.contrast, req.saturation);
 
-    return _ProcessResponse.success(img.encodePng(out), sourceDpi);
+    return _ProcessResponse.success(
+      img.encodePng(out),
+      sourceDpi,
+      averageLuminance: avgLuma,
+      isLowLight: isLowLight,
+    );
   } on Object catch (e) {
     return _ProcessResponse.failure('Could not process the photo: $e');
   }

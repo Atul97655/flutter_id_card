@@ -150,6 +150,25 @@ class StudentRepository {
     );
   }
 
+  /// Resets entries stuck in 'syncing' for more than [olderThan] (default 10 min)
+  /// back to 'pending'.
+  Future<int> resetStaleSyncing({
+    Duration olderThan = const Duration(minutes: 10),
+  }) async {
+    final DateTime threshold = DateTime.now().subtract(olderThan);
+    return (_db.update(_db.studentEntries)
+          ..where(
+            (StudentEntries t) =>
+                t.syncStatus.equals('syncing') &
+                t.updatedAt.isSmallerThanValue(threshold),
+          ))
+        .write(
+      const StudentEntriesCompanion(
+        syncStatus: Value<String>('pending'),
+      ),
+    );
+  }
+
   // ------------------------------------------------------------------
   // Review (admin approval workflow)
   // ------------------------------------------------------------------
@@ -214,6 +233,58 @@ class StudentRepository {
         where: (StudentEntries t) => t.id.isIn(ids),
       );
     });
+  }
+
+  /// Bulk reject with mandatory rejection reason.
+  Future<void> rejectAll(
+    List<String> ids, {
+    required String reviewerUid,
+    required String reason,
+  }) async {
+    if (ids.isEmpty) return;
+    final DateTime now = DateTime.now();
+    await _db.batch((Batch batch) {
+      batch.update(
+        _db.studentEntries,
+        StudentEntriesCompanion(
+          approvalStatus: const Value<String>('rejected'),
+          rejectionReason: Value<String?>(reason),
+          reviewedBy: Value<String?>(reviewerUid),
+          reviewedAt: Value<DateTime?>(now),
+          syncStatus: const Value<String>('pending'),
+          syncAttempts: const Value<int>(0),
+        ),
+        where: (StudentEntries t) => t.id.isIn(ids),
+      );
+    });
+  }
+
+  /// Checks if any existing student has the same name and class in the given school.
+  Future<List<StudentEntry>> findPotentialDuplicates({
+    required String schoolId,
+    required String name,
+    required String studentClass,
+    DateTime? dob,
+    String? excludeId,
+  }) async {
+    final List<StudentEntry> schoolStudents = await listBySchool(schoolId);
+    final String cleanName = name.trim().toUpperCase();
+    final String cleanClass = studentClass.trim().toUpperCase();
+
+    return schoolStudents.where((StudentEntry e) {
+      if (excludeId != null && e.id == excludeId) return false;
+      if (e.name.trim().toUpperCase() != cleanName) return false;
+      if (cleanClass.isNotEmpty &&
+          e.studentClass.trim().toUpperCase() != cleanClass) {
+        return false;
+      }
+      if (dob != null && e.dob != null) {
+        return e.dob!.year == dob.year &&
+            e.dob!.month == dob.month &&
+            e.dob!.day == dob.day;
+      }
+      return true;
+    }).toList();
   }
 
   /// Entries eligible for a print run: approved, and carrying a photo.

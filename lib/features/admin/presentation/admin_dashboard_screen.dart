@@ -28,6 +28,21 @@ class AdminDashboardScreen extends ConsumerWidget {
         title: const Text('Admin Panel'),
         actions: <Widget>[
           IconButton(
+            tooltip: 'Reports & Analytics',
+            icon: const Icon(Icons.analytics_outlined),
+            onPressed: () => context.push('/admin/reports'),
+          ),
+          IconButton(
+            tooltip: 'Audit Log',
+            icon: const Icon(Icons.history_edu_outlined),
+            onPressed: () => context.push('/admin/audit'),
+          ),
+          IconButton(
+            tooltip: 'User Management',
+            icon: const Icon(Icons.manage_accounts_outlined),
+            onPressed: () => context.push('/admin/users'),
+          ),
+          IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
             onPressed: () => _signOut(context, ref),
@@ -38,6 +53,48 @@ class AdminDashboardScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
           _StatGrid(stats: stats),
+          const SizedBox(height: 10),
+          Card(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: ListTile(
+              leading: Icon(Icons.analytics_outlined,
+                  color: Theme.of(context).colorScheme.primary),
+              title: const Text('Reports & Analytics',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                  'Cross-school breakdown, approval rates, monthly trends & CSV exports'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/admin/reports'),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Card(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: ListTile(
+              leading: Icon(Icons.people_alt_outlined,
+                  color: Theme.of(context).colorScheme.primary),
+              title: const Text('Operator & School Accounts',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                  'Create school operator credentials and toggle active access'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/admin/users'),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Card(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: ListTile(
+              leading: Icon(Icons.receipt_long_outlined,
+                  color: Theme.of(context).colorScheme.secondary),
+              title: const Text('Audit Log & Activity Trail',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                  'Chronological history of approvals, rejections, exports & prints'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/admin/audit'),
+            ),
+          ),
           const SizedBox(height: AppTheme.gutter * 1.5),
           Row(
             children: <Widget>[

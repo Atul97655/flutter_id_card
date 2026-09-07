@@ -1,14 +1,21 @@
+import 'package:flutter_id_card/features/admin/data/csv_export_service.dart';
 import 'package:flutter_id_card/features/admin/data/export_service.dart';
+import 'package:flutter_id_card/features/admin/data/reports_service.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/services/local/audit_repository.dart';
+import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
 import 'package:flutter_id_card/shared/services/local/school_repository.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final Provider<ExportService> exportServiceProvider =
     Provider<ExportService>((Ref ref) => ExportService());
+
+final Provider<CsvExportService> csvExportServiceProvider =
+    Provider<CsvExportService>((Ref ref) => CsvExportService());
 
 /// Every school the admin can manage.
 final StreamProvider<List<SchoolConfig>> allSchoolsProvider =
@@ -94,4 +101,62 @@ final Provider<AsyncValue<AdminStats>> adminStatsProvider =
       printable: printable,
     );
   });
+});
+
+// ------------------------------------------------------------------
+// Phase 4: Audit & Print Batch providers
+// ------------------------------------------------------------------
+
+/// Recent audit log entries, newest first.
+final StreamProvider<List<AuditEntry>> recentAuditLogsProvider =
+    StreamProvider<List<AuditEntry>>((Ref ref) {
+  final AuditRepository repo = ref.watch(auditRepositoryProvider);
+  return repo.watchRecent();
+});
+
+/// Audit entries filtered by action verbs (for the chip filter UI).
+final auditLogsByActionsProvider =
+    StreamProvider.family<List<AuditEntry>, List<String>>(
+  (Ref ref, List<String> actions) {
+    final AuditRepository repo = ref.watch(auditRepositoryProvider);
+    return repo.watchByActions(actions);
+  },
+);
+
+/// Print batch history for one school.
+final printBatchesForSchoolProvider =
+    StreamProvider.family<List<PrintBatch>, String>(
+  (Ref ref, String schoolId) {
+    final PrintBatchRepository repo = ref.watch(printBatchRepositoryProvider);
+    return repo.watchBySchool(schoolId);
+  },
+);
+
+/// Global print batch history.
+final StreamProvider<List<PrintBatch>> allPrintBatchesProvider =
+    StreamProvider<List<PrintBatch>>((Ref ref) {
+  final PrintBatchRepository repo = ref.watch(printBatchRepositoryProvider);
+  return repo.watchAll();
+});
+
+// ------------------------------------------------------------------
+// Phase 5: Reports & Analytics providers
+// ------------------------------------------------------------------
+
+final Provider<ReportsService> reportsServiceProvider =
+    Provider<ReportsService>((Ref ref) {
+  return ReportsService(
+    students: ref.watch(studentRepositoryProvider),
+    schools: ref.watch(schoolRepositoryProvider),
+    printBatches: ref.watch(printBatchRepositoryProvider),
+  );
+});
+
+final FutureProvider<SystemReport> systemReportProvider =
+    FutureProvider<SystemReport>((Ref ref) async {
+  // Re-run report whenever schools or entries change
+  ref.watch(allSchoolsProvider);
+  ref.watch(allEntriesProvider);
+  final ReportsService service = ref.watch(reportsServiceProvider);
+  return service.generateReport();
 });

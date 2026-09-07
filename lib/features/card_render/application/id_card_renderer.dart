@@ -94,6 +94,7 @@ class IdCardRenderer {
 
     final Uint8List? photo = await _readImage(entry.localPhotoPath);
     final Uint8List? logo = await _readImage(config.localLogoPath);
+    final Uint8List? signature = await _readImage(config.localPrincipalSignaturePath);
 
     final pw.Document doc = pw.Document(
       title: '${entry.exportBaseName} ID Card',
@@ -115,6 +116,7 @@ class IdCardRenderer {
                 size: size,
                 photoBytes: photo,
                 logoBytes: logo,
+                signatureBytes: signature,
               ),
             ),
             if (cropMarks)
@@ -139,6 +141,7 @@ class IdCardRenderer {
     required CardSize size,
     Uint8List? photoBytes,
     Uint8List? logoBytes,
+    Uint8List? signatureBytes,
   }) {
     final CardTemplate template = plan.template;
     // Derived once per card: the header/accent colour depends on this
@@ -168,6 +171,7 @@ class IdCardRenderer {
               size: size,
               photoBytes: photoBytes,
               logoBytes: logoBytes,
+              signatureBytes: signatureBytes,
             ),
         ],
       ),
@@ -185,6 +189,7 @@ class IdCardRenderer {
     required CardSize size,
     Uint8List? photoBytes,
     Uint8List? logoBytes,
+    Uint8List? signatureBytes,
   }) {
     // Templates are authored against one size; rendering at another scales the
     // whole layout proportionally rather than leaving elements floating.
@@ -290,6 +295,15 @@ class IdCardRenderer {
           position(
             e,
             pw.Image(pw.MemoryImage(logoBytes), fit: pw.BoxFit.contain),
+          ),
+        ];
+
+      case final SignatureElement e:
+        if (signatureBytes == null) return const <pw.Widget>[];
+        return <pw.Widget>[
+          position(
+            e,
+            pw.Image(pw.MemoryImage(signatureBytes), fit: pw.BoxFit.contain),
           ),
         ];
 

@@ -197,7 +197,12 @@ class _EntryTile extends StatelessWidget {
                   width: 48,
                   height: 60, // 1.2:1.5
                   child: hasThumb
-                      ? Image.file(File(path), fit: BoxFit.cover)
+                      ? Image.file(
+                          File(path),
+                          fit: BoxFit.cover,
+                          cacheWidth: 160,
+                          cacheHeight: 200,
+                        )
                       : Container(
                           color: theme.colorScheme.surfaceContainerHighest,
                           child: Icon(

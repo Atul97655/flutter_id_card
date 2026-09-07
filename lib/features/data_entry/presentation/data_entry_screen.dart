@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
+import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/features/data_entry/data/draft_store.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/widgets/dynamic_form_field.dart';
@@ -234,6 +235,55 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       return;
     }
 
+    final SessionUser? session = ref.read(currentSessionProvider);
+    if (session != null && session.role != UserRole.admin && session.schoolId != null) {
+      if (session.schoolId != schoolId) {
+        _showError('Unauthorized: operator not permitted to submit for this school');
+        return;
+      }
+    }
+    if (_existing != null && _existing!.schoolId != schoolId) {
+      _showError('Unauthorized: cross-school modification forbidden');
+      return;
+    }
+
+    final String candidateName = _ctrl(StudentField.name).text.trim();
+    final String candidateClass = _ctrl(StudentField.studentClass).text.trim();
+    final List<StudentEntry> duplicates = await ref
+        .read(studentRepositoryProvider)
+        .findPotentialDuplicates(
+          schoolId: schoolId,
+          name: candidateName,
+          studentClass: candidateClass,
+          dob: _dob,
+          excludeId: _existing?.id,
+        );
+
+    if (duplicates.isNotEmpty && mounted) {
+      final bool? proceed = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext ctx) => AlertDialog(
+          icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 36),
+          title: const Text('Potential Duplicate Student'),
+          content: Text(
+            'A student named "$candidateName" is already registered in Class "$candidateClass".\n\n'
+            'Do you want to proceed and save this record anyway?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Review Entry'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Save Anyway'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+    }
+
     setState(() => _saving = true);
 
     final DateTime now = DateTime.now();
@@ -398,6 +448,11 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
               field: fields[i],
               controller: _ctrl(fields[i]),
               selectedDate: _dob,
+              options: fields[i] == StudentField.studentClass
+                  ? config.classes
+                  : (fields[i] == StudentField.division
+                      ? config.divisions
+                      : null),
               onDateChanged: (DateTime? d) {
                 setState(() {
                   _dob = d;
@@ -469,7 +524,12 @@ class _PhotoTile extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: hasPhoto
-                  ? Image.file(File(path!), fit: BoxFit.cover)
+                  ? Image.file(
+                      File(path!),
+                      fit: BoxFit.cover,
+                      cacheWidth: 360,
+                      cacheHeight: 450,
+                    )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[

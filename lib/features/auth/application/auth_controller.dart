@@ -1,4 +1,5 @@
 import 'package:flutter_id_card/features/auth/data/auth_repository.dart';
+import 'package:flutter_id_card/features/auth/domain/managed_user.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
@@ -53,7 +54,10 @@ class AuthController extends AsyncNotifier<SessionUser?> {
   /// (`div_badge_vertical`), the one built around per-division colours - the
   /// most visually distinctive of the five shipped templates. Type a Division
   /// of A/B/C/D/E/F on a new entry to see its accent colour switch live.
-  Future<void> startOfflineTestSession({required String schoolId}) async {
+  Future<void> startOfflineTestSession({
+    required String schoolId,
+    bool asAdmin = false,
+  }) async {
     final SchoolRepository schools = ref.read(schoolRepositoryProvider);
     await schools.save(
       SchoolConfig(
@@ -79,11 +83,11 @@ class AuthController extends AsyncNotifier<SessionUser?> {
 
     state = AsyncValue<SessionUser?>.data(
       SessionUser(
-        uid: 'offline-test',
-        email: 'offline@test.local',
-        role: UserRole.school,
-        schoolId: schoolId,
-        displayName: 'Offline Test',
+        uid: asAdmin ? 'offline-admin-test' : 'offline-test',
+        email: asAdmin ? 'admin@idcardx.app' : 'offline@test.local',
+        role: asAdmin ? UserRole.admin : UserRole.school,
+        schoolId: asAdmin ? null : schoolId,
+        displayName: asAdmin ? 'System Admin (Offline)' : 'Offline Test',
         isOfflineTestSession: true,
       ),
     );
@@ -143,3 +147,10 @@ class ActiveSchoolController extends Notifier<String?> {
     state = schoolId;
   }
 }
+
+/// Stream of all managed users for Admin user management.
+final StreamProvider<List<ManagedUser>> allUsersProvider =
+    StreamProvider<List<ManagedUser>>((Ref ref) {
+  final AuthRepository repo = ref.watch(authRepositoryProvider);
+  return repo.watchUsers();
+});

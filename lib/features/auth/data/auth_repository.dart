@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_id_card/features/auth/domain/managed_user.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 /// Domain part of the synthetic email addresses used for school logins.
 ///
@@ -33,6 +36,16 @@ class AuthRepository {
 
   static const String _sessionCacheKey = 'cached_session_user';
   static const String _knownSchoolsKey = 'known_school_codes';
+  static const String _cachedUsersKey = 'cached_managed_users';
+
+  StreamController<List<ManagedUser>>? _usersController;
+  StreamSubscription<QuerySnapshot<Map<String, Object?>>>? _firestoreUsersSub;
+
+  void dispose() {
+    _firestoreUsersSub?.cancel();
+    _firestoreUsersSub = null;
+    _usersController?.close();
+  }
 
   FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
   FirebaseFirestore get _db => _firestoreOverride ?? FirebaseFirestore.instance;
@@ -317,6 +330,178 @@ class AuthRepository {
       ...existing.where((String c) => c.toLowerCase() != code.toLowerCase()),
     ].take(10).toList();
     await prefs.setStringList(_knownSchoolsKey, next);
+  }
+
+  // ------------------------------------------------------------------
+  // Admin User Management (Accounts & Access Control)
+  // ------------------------------------------------------------------
+
+  Future<List<ManagedUser>> _getOrSeedUsers() async {
+    List<ManagedUser> cached = await _readCachedUsers();
+    if (cached.isEmpty) {
+      final List<ManagedUser> seeds = <ManagedUser>[
+        const ManagedUser(
+          uid: 'admin-seed',
+          email: 'admin@idcardx.app',
+          role: UserRole.admin,
+          displayName: 'System Admin',
+          active: true,
+        ),
+        const ManagedUser(
+          uid: 'school-seed',
+          email: 'shc@schools.idcardx.app',
+          role: UserRole.school,
+          schoolId: 'demo-school',
+          displayName: 'Sacred Heart Convent',
+          active: true,
+        ),
+      ];
+      await _cacheUsers(seeds);
+      cached = seeds;
+    }
+    return cached;
+  }
+
+  /// Watches all registered user accounts.
+  Stream<List<ManagedUser>> watchUsers() {
+    _usersController ??= StreamController<List<ManagedUser>>.broadcast(
+      onListen: () {
+        _getOrSeedUsers().then((List<ManagedUser> u) {
+          if (!(_usersController?.isClosed ?? true)) {
+            _usersController?.add(u);
+          }
+        });
+        if (isBackendAvailable && _firestoreUsersSub == null) {
+          _firestoreUsersSub = _db
+              .collection(kUsersCollection)
+              .snapshots()
+              .listen((QuerySnapshot<Map<String, Object?>> snap) {
+            if (snap.docs.isEmpty) return;
+            final List<ManagedUser> list = snap.docs.map((QueryDocumentSnapshot<Map<String, Object?>> d) {
+              return ManagedUser.fromFirestore(d.id, d.data());
+            }).toList();
+            if (!(_usersController?.isClosed ?? true)) {
+              _usersController?.add(list);
+            }
+            unawaited_(_cacheUsers(list));
+          }, onError: (Object _) {
+            // Swallow offline / stream errors gracefully
+          });
+        }
+      },
+    );
+
+    // Also push current data immediately
+    _getOrSeedUsers().then((List<ManagedUser> u) {
+      if (!(_usersController?.isClosed ?? true)) {
+        _usersController?.add(u);
+      }
+    });
+
+    return _usersController!.stream;
+  }
+
+  Future<void> createUserAccount({
+    required String email,
+    required String password,
+    required UserRole role,
+    required String? schoolId,
+    required String displayName,
+  }) async {
+    if (email.trim().isEmpty) {
+      throw const AuthFailure('Email or school login ID is required');
+    }
+    if (password.trim().length < 6) {
+      throw const AuthFailure('Password must be at least 6 characters');
+    }
+    if (role == UserRole.school && (schoolId == null || schoolId.trim().isEmpty)) {
+      throw const AuthFailure('Select a school for this operator');
+    }
+
+    final String normalizedEmail = schoolCodeToEmail(email);
+    final String uid = const Uuid().v4();
+    final DateTime now = DateTime.now();
+
+    final ManagedUser newUser = ManagedUser(
+      uid: uid,
+      email: normalizedEmail,
+      role: role,
+      schoolId: schoolId,
+      displayName: displayName.trim().isEmpty ? normalizedEmail : displayName.trim(),
+      active: true,
+      createdAt: now,
+    );
+
+    if (isBackendAvailable) {
+      try {
+        await _db
+            .collection(kUsersCollection)
+            .doc(uid)
+            .set(newUser.toFirestoreMap())
+            .timeout(const Duration(seconds: 3));
+      } on Object {
+        // Offline or network timeout - account is preserved locally in cache
+      }
+    }
+
+    // Always update local cache
+    final List<ManagedUser> current = await _readCachedUsers();
+    final List<ManagedUser> updated = <ManagedUser>[
+      newUser,
+      ...current.where((ManagedUser u) => u.email != normalizedEmail),
+    ];
+    await _cacheUsers(updated);
+    if (!(_usersController?.isClosed ?? true)) {
+      _usersController?.add(updated);
+    }
+  }
+
+  Future<void> toggleUserActive(String uid, bool active) async {
+    if (isBackendAvailable) {
+      try {
+        await _db
+            .collection(kUsersCollection)
+            .doc(uid)
+            .update(<String, Object?>{
+              'active': active,
+            })
+            .timeout(const Duration(seconds: 3));
+      } on Object {
+        // Offline or network timeout - status updated in local cache
+      }
+    }
+
+    final List<ManagedUser> current = await _readCachedUsers();
+    final List<ManagedUser> updated = current.map((ManagedUser u) {
+      if (u.uid == uid) return u.copyWith(active: active);
+      return u;
+    }).toList();
+    await _cacheUsers(updated);
+    if (!(_usersController?.isClosed ?? true)) {
+      _usersController?.add(updated);
+    }
+  }
+
+  Future<void> _cacheUsers(List<ManagedUser> users) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String raw = jsonEncode(users.map((ManagedUser u) => u.toJson()).toList());
+    await prefs.setString(_cachedUsersKey, raw);
+  }
+
+  Future<List<ManagedUser>> _readCachedUsers() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? raw = prefs.getString(_cachedUsersKey);
+    if (raw == null || raw.isEmpty) return const <ManagedUser>[];
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is! List<Object?>) return const <ManagedUser>[];
+      return decoded
+          .whereType<Map<String, Object?>>()
+          .map(ManagedUser.fromJson)
+          .toList();
+    } on FormatException {
+      return const <ManagedUser>[];
+    }
   }
 
   // ------------------------------------------------------------------

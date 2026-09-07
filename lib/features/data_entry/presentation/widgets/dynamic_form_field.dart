@@ -17,6 +17,7 @@ class DynamicFormField extends StatelessWidget {
     required this.controller,
     required this.selectedDate,
     required this.onDateChanged,
+    this.options,
     this.autofocus = false,
   });
 
@@ -29,10 +30,14 @@ class DynamicFormField extends StatelessWidget {
 
   final DateTime? selectedDate;
   final ValueChanged<DateTime?> onDateChanged;
+  final List<String>? options;
   final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
+    if (options != null && options!.isNotEmpty && field.kind == FieldKind.text) {
+      return _dropdown(context, options!);
+    }
     return switch (field.kind) {
       FieldKind.text => _text(context),
       FieldKind.multiline => _multiline(context),
@@ -42,6 +47,36 @@ class DynamicFormField extends StatelessWidget {
       // The photo is captured on its own screen, not inline in the form.
       FieldKind.photo => const SizedBox.shrink(),
     };
+  }
+
+  Widget _dropdown(BuildContext context, List<String> items) {
+    final String current = controller.text.trim();
+    final List<String> allItems = <String>[
+      ...items,
+      if (current.isNotEmpty && !items.contains(current)) current,
+    ];
+
+    return DropdownButtonFormField<String>(
+      initialValue: current.isNotEmpty ? current : null,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: field.formLabel,
+        prefixIcon: Icon(_iconFor(field)),
+      ),
+      items: allItems
+          .map(
+            (String val) => DropdownMenuItem<String>(
+              value: val,
+              child: Text(val),
+            ),
+          )
+          .toList(),
+      onChanged: (String? val) {
+        controller.text = val ?? '';
+      },
+      validator: (String? v) =>
+          Validators.forField(field, v, isRequired: true),
+    );
   }
 
   List<TextInputFormatter> get _textFormatters => <TextInputFormatter>[

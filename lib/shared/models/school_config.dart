@@ -24,6 +24,10 @@ class SchoolConfig {
     this.headerColorHex = kDefaultHeaderHex,
     this.photoBackgroundHex = kDefaultPhotoBackgroundHex,
     this.divisionColors = const <String, int>{},
+    this.classes = defaultClasses,
+    this.divisions = defaultDivisions,
+    this.principalSignatureUrl,
+    this.localPrincipalSignaturePath,
     this.updatedAt,
   });
 
@@ -40,6 +44,33 @@ class SchoolConfig {
   /// White, the standard studio backdrop after background removal.
   static const int kDefaultPhotoBackgroundHex = 0xFFFFFFFF;
 
+  static const List<String> defaultClasses = <String>[
+    'NURSERY',
+    'LKG',
+    'UKG',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12',
+  ];
+
+  static const List<String> defaultDivisions = <String>[
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'F',
+  ];
+
   final String id;
   final String name;
 
@@ -53,6 +84,15 @@ class SchoolConfig {
 
   /// Cached copy of the logo so the card renders offline.
   final String? localLogoPath;
+
+  /// Allowed classes for student entry dropdown.
+  final List<String> classes;
+
+  /// Allowed divisions for student entry dropdown.
+  final List<String> divisions;
+
+  final String? principalSignatureUrl;
+  final String? localPrincipalSignaturePath;
 
   final String cardSizeId;
   final String templateId;
@@ -143,6 +183,10 @@ class SchoolConfig {
     int? headerColorHex,
     int? photoBackgroundHex,
     Map<String, int>? divisionColors,
+    List<String>? classes,
+    List<String>? divisions,
+    String? principalSignatureUrl,
+    String? localPrincipalSignaturePath,
     DateTime? updatedAt,
   }) {
     return SchoolConfig(
@@ -160,6 +204,11 @@ class SchoolConfig {
       headerColorHex: headerColorHex ?? this.headerColorHex,
       photoBackgroundHex: photoBackgroundHex ?? this.photoBackgroundHex,
       divisionColors: divisionColors ?? this.divisionColors,
+      classes: classes ?? this.classes,
+      divisions: divisions ?? this.divisions,
+      principalSignatureUrl: principalSignatureUrl ?? this.principalSignatureUrl,
+      localPrincipalSignaturePath:
+          localPrincipalSignaturePath ?? this.localPrincipalSignaturePath,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -181,9 +230,12 @@ class SchoolConfig {
         'addressLine': addressLine,
         'contactLine': contactLine,
         'logoUrl': logoUrl,
+        'principalSignatureUrl': principalSignatureUrl,
         'cardSizeId': cardSizeId,
         'templateId': templateId,
         'enabledFields': enabledFieldKeys.toList()..sort(),
+        'classes': classes,
+        'divisions': divisions,
         'primaryColor': _toHexString(primaryColorHex),
         'secondaryColor': _toHexString(secondaryColorHex),
         'headerColor': _toHexString(headerColorHex),
@@ -204,11 +256,17 @@ class SchoolConfig {
       addressLine: (map['addressLine'] as String?) ?? '',
       contactLine: (map['contactLine'] as String?) ?? '',
       logoUrl: map['logoUrl'] as String?,
+      principalSignatureUrl: map['principalSignatureUrl'] as String?,
       cardSizeId: (map['cardSizeId'] as String?) ?? 'v54x86',
       templateId: (map['templateId'] as String?) ?? 'default_vertical',
       enabledFieldKeys: <String>{
         ...?(map['enabledFields'] as List<Object?>?)?.whereType<String>(),
       },
+      classes: (map['classes'] as List<Object?>?)?.whereType<String>().toList() ??
+          defaultClasses,
+      divisions:
+          (map['divisions'] as List<Object?>?)?.whereType<String>().toList() ??
+              defaultDivisions,
       primaryColorHex: parseHex(map['primaryColor'] as String?, kDefaultPrimaryHex),
       secondaryColorHex: parseHex(map['secondaryColor'] as String?, kDefaultSecondaryHex),
       headerColorHex: parseHex(map['headerColor'] as String?, kDefaultHeaderHex),

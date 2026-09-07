@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
+import 'package:flutter_id_card/shared/services/local/audit_repository.dart';
 import 'package:flutter_id_card/shared/services/local/school_repository.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 
@@ -77,22 +78,23 @@ class SyncService {
   SyncService({
     required StudentRepository students,
     required SchoolRepository schools,
+    AuditRepository? auditRepo,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     Connectivity? connectivity,
   })  : _firestoreOverride = firestore,
         _storageOverride = storage,
         _connectivity = connectivity ?? Connectivity(),
-        // prefer_initializing_formals suggests `required this._students`, but
-        // Dart forbids a named parameter starting with an underscore, so the
-        // suggested form does not compile for a private field.
         // ignore: prefer_initializing_formals
         _students = students,
         // ignore: prefer_initializing_formals
-        _schools = schools;
+        _schools = schools,
+        // ignore: prefer_initializing_formals
+        _auditRepo = auditRepo;
 
   final StudentRepository _students;
   final SchoolRepository _schools;
+  final AuditRepository? _auditRepo;
   final FirebaseFirestore? _firestoreOverride;
   final FirebaseStorage? _storageOverride;
   final Connectivity _connectivity;
@@ -216,6 +218,21 @@ class SyncService {
         maxAttempts: _maxAttempts,
       );
 
+      if (_auditRepo != null && (uploaded > 0 || stillPending.isNotEmpty)) {
+        await _auditRepo.log(
+          action: 'sync_pass',
+          entityType: 'sync',
+          entityId: schoolId ?? (isAdmin ? 'admin' : 'all'),
+          actorUid: isAdmin ? 'admin' : (schoolId ?? 'sync_worker'),
+          details: <String, Object?>{
+            'uploaded': uploaded,
+            'stillPending': stillPending.length,
+            'isAdmin': isAdmin,
+            'schoolId': schoolId,
+          },
+        );
+      }
+
       _emit(
         _state.copyWith(
           activity: SyncActivity.idle,
@@ -334,6 +351,9 @@ class SyncService {
   // ------------------------------------------------------------------
 
   Future<int> _pushEntries() async {
+    // Reset entries that got stuck in 'syncing' for > 10 min back to 'pending'
+    await _students.resetStaleSyncing();
+
     final List<StudentEntry> due = await _students.dueForUpload(
       limit: _batchSize,
       maxAttempts: _maxAttempts,
@@ -366,6 +386,16 @@ class SyncService {
   }
 
   Future<bool> _uploadOne(StudentEntry entry) async {
+    // Pre-flight check: required fields must be present
+    if (entry.name.trim().isEmpty || entry.schoolId.trim().isEmpty) {
+      await _students.markFailed(
+        entry.id,
+        'Pre-flight validation failed: Student name and School ID are required.',
+        _maxAttempts,
+      );
+      return false;
+    }
+
     await _students.markSyncing(entry.id);
 
     try {

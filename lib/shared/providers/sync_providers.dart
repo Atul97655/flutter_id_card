@@ -11,6 +11,7 @@ final Provider<SyncService> syncServiceProvider = Provider<SyncService>((Ref ref
   final SyncService service = SyncService(
     students: ref.watch(studentRepositoryProvider),
     schools: ref.watch(schoolRepositoryProvider),
+    auditRepo: ref.watch(auditRepositoryProvider),
   );
   ref.onDispose(service.dispose);
   return service;

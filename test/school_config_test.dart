@@ -155,4 +155,29 @@ void main() {
       expect(restored.name, base.name);
     });
   });
+
+  group('SchoolConfig classes, divisions and signature', () {
+    test('defaults are populated when empty', () {
+      const SchoolConfig config = SchoolConfig(id: 's1', name: 'DEMO');
+      expect(config.classes, contains('10'));
+      expect(config.divisions, contains('A'));
+    });
+
+    test('custom classes and divisions survive round-trip', () {
+      const SchoolConfig custom = SchoolConfig(
+        id: 's2',
+        name: 'CUSTOM SCHOOL',
+        classes: <String>['Grade 1', 'Grade 2', 'Grade 3'],
+        divisions: <String>['Red', 'Blue', 'Green'],
+        principalSignatureUrl: 'https://example.com/sig.png',
+      );
+
+      final Map<String, Object?> map = custom.toFirestoreMap();
+      final SchoolConfig restored = SchoolConfig.fromFirestoreMap('s2', map);
+
+      expect(restored.classes, <String>['Grade 1', 'Grade 2', 'Grade 3']);
+      expect(restored.divisions, <String>['Red', 'Blue', 'Green']);
+      expect(restored.principalSignatureUrl, 'https://example.com/sig.png');
+    });
+  });
 }
