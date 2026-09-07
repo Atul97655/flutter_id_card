@@ -18,7 +18,7 @@ class IdCardApp extends ConsumerWidget {
     ref.watch(syncLifecycleProvider);
 
     return MaterialApp.router(
-      title: 'ID Card System',
+      title: 'ID entity',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       routerConfig: router,

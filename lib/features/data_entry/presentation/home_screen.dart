@@ -33,7 +33,7 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ID Card System'),
+        title: const Text('ID entity'),
         actions: <Widget>[
           if (session?.isAdmin ?? false)
             IconButton(

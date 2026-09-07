@@ -109,7 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const Center(child: AppLogo(size: 84)),
                     const SizedBox(height: 18),
                     Text(
-                      'ID Card System',
+                      'ID entity',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.w700),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Vector app mark: a stylised ID card with a photo block and text rows.
+/// Official app logo for "ID entity".
 ///
-/// Drawn rather than shipped as a raster so it stays crisp at every density and
-/// the app has no placeholder-image dependency. Swap in the organisation's own
-/// artwork by replacing the painter, not the call sites.
+/// Displays the branded app mark asset (`assets/images/app_icon.png`)
+/// with crisp scaling, rounded squircle corners, and a subtle drop shadow.
+/// Retains a vector painter fallback for test/headless environments.
 class AppLogo extends StatelessWidget {
   const AppLogo({
     super.key,
@@ -14,7 +14,55 @@ class AppLogo extends StatelessWidget {
 
   final double size;
 
-  /// Inverts the palette for use on the coloured splash background.
+  /// Inverts/adjusts styling if placed on a dark/coloured background.
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final double radius = size * 0.22;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: onDark
+                ? Colors.black.withValues(alpha: 0.25)
+                : Colors.black.withValues(alpha: 0.08),
+            blurRadius: size * 0.16,
+            offset: Offset(0, size * 0.06),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Image.asset(
+          'assets/images/app_icon.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (
+            BuildContext context,
+            Object error,
+            StackTrace? stackTrace,
+          ) {
+            return _FallbackLogo(size: size, onDark: onDark);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _FallbackLogo extends StatelessWidget {
+  const _FallbackLogo({
+    required this.size,
+    required this.onDark,
+  });
+
+  final double size;
   final bool onDark;
 
   @override
@@ -27,7 +75,9 @@ class AppLogo extends StatelessWidget {
         painter: _LogoPainter(
           cardColor: onDark ? Colors.white : scheme.primary,
           accentColor: onDark ? scheme.primary : Colors.white,
-          detailColor: onDark ? scheme.primary.withValues(alpha: 0.45) : Colors.white70,
+          detailColor: onDark
+              ? scheme.primary.withValues(alpha: 0.45)
+              : Colors.white70,
         ),
       ),
     );
@@ -73,7 +123,7 @@ class _LogoPainter extends CustomPainter {
 
     // Photo block.
     final double photoW = card.width * 0.42;
-    final double photoH = photoW * 1.25; // 1.2 x 1.5 in proportion
+    final double photoH = photoW * 1.25;
     final Rect photo = Rect.fromLTWH(
       card.left + (card.width - photoW) / 2,
       card.top + card.height * 0.30,

@@ -1,4 +1,4 @@
-# School ID Card System — Administrator User Manual
+# ID entity — Administrator User Manual
 
 This manual provides instructions for system administrators, print bureau managers, and school coordinators operating the administrative dashboard.
 

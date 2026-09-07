@@ -1,4 +1,4 @@
-# School ID Card System — Operator User Guide
+# ID entity — Operator User Guide
 
 This user guide is intended for school operators, field photographers, and data entry personnel using the Android application to register students and capture ID card photographs.
 
@@ -6,7 +6,7 @@ This user guide is intended for school operators, field photographers, and data 
 
 ## 1. Getting Started & Logging In
 
-1. **Launch the Application**: Open the **ID Card System** on your tablet or smartphone.
+1. **Launch the Application**: Open **ID entity** on your tablet or smartphone.
 2. **Select "School" Role**: Ensure the **School** tab is active on the login screen.
 3. **Enter Credentials**:
    - Enter your assigned **School Name or Code** (e.g. `SACRED HEART CONVENT` or `shc`).

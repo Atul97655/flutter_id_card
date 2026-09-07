@@ -88,7 +88,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             const AppLogo(size: 108, onDark: true),
             const SizedBox(height: AppTheme.gutter * 1.5),
             Text(
-              'ID CARD SYSTEM',
+              'ID ENTITY',
               style: theme.textTheme.headlineSmall?.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
