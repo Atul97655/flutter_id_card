@@ -1,0 +1,10 @@
+{
+    "java.jdt.ls.java.home": "C:\\Users\\ATUL\\.jdks\\corretto-17.0.20.1",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "C:\\Users\\ATUL\\.jdks\\corretto-17.0.20.1",
+            "default": true
+        }
+    ]
+}
