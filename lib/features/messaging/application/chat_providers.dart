@@ -35,6 +35,23 @@ final messagesProvider =
   return ref.watch(chatRepositoryProvider).watchMessages(chatId);
 });
 
+/// The one conversation an operator has with the admin.
+///
+/// The plan fixes messaging as hub-and-spoke: a teacher opening the app sees
+/// exactly one conversation, the Admin's. Broadcasts are excluded because they
+/// are announcements, not somewhere a reply belongs.
+///
+/// Null when the admin has not opened the conversation yet - only an admin can
+/// create one, so a teacher with no chat has nobody to write to and the UI must
+/// say so rather than offering a dead button.
+final Provider<Chat?> adminChatProvider = Provider<Chat?>((Ref ref) {
+  final List<Chat> chats = ref.watch(myChatsProvider).value ?? const <Chat>[];
+  for (final Chat c in chats) {
+    if (c.kind != ChatKind.broadcast) return c;
+  }
+  return null;
+});
+
 /// Total unread conversations, for the badge on the home screen.
 final Provider<int> unreadChatCountProvider = Provider<int>((Ref ref) {
   final SessionUser? session = ref.watch(currentSessionProvider);

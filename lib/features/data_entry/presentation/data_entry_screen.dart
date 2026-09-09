@@ -101,6 +101,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
         fatherName: _ctrl(StudentField.fatherName).text,
         studentClass: _ctrl(StudentField.studentClass).text,
         division: _ctrl(StudentField.division).text,
+        rollNumber: _ctrl(StudentField.rollNumber).text,
         bloodGroup: _ctrl(StudentField.bloodGroup).text,
         dobIso: _dob?.toIso8601String(),
         mobile: _ctrl(StudentField.mobile).text,
@@ -156,6 +157,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       _ctrl(StudentField.fatherName).text = draft.fatherName;
       _ctrl(StudentField.studentClass).text = draft.studentClass;
       _ctrl(StudentField.division).text = draft.division;
+      _ctrl(StudentField.rollNumber).text = draft.rollNumber;
       _ctrl(StudentField.bloodGroup).text = draft.bloodGroup;
       _ctrl(StudentField.mobile).text = draft.mobile;
       _ctrl(StudentField.address).text = draft.address;
@@ -175,6 +177,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
     _ctrl(StudentField.fatherName).text = entry.fatherName;
     _ctrl(StudentField.studentClass).text = entry.studentClass;
     _ctrl(StudentField.division).text = entry.division;
+    _ctrl(StudentField.rollNumber).text = entry.rollNumber;
     _ctrl(StudentField.bloodGroup).text = entry.bloodGroup;
     _ctrl(StudentField.mobile).text = entry.mobile;
     _ctrl(StudentField.address).text = entry.address;
@@ -294,6 +297,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       fatherName: _ctrl(StudentField.fatherName).text.trim(),
       studentClass: _ctrl(StudentField.studentClass).text.trim(),
       division: _ctrl(StudentField.division).text.trim(),
+      rollNumber: _ctrl(StudentField.rollNumber).text.trim(),
       bloodGroup: _ctrl(StudentField.bloodGroup).text.trim(),
       dob: _dob,
       mobile: _ctrl(StudentField.mobile).text.trim(),

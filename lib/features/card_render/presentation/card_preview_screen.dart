@@ -370,7 +370,11 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: FilledButton.icon(
-              onPressed: () => context.go('/home'),
+              // The entry is already committed by the form; this confirms the
+              // operator has eyeballed the card. `go` rather than `push` so
+              // Back from the receipt does not return to a preview of work
+              // that is already submitted.
+              onPressed: () => context.go('/submitted/${entry.id}'),
               icon: const Icon(Icons.check),
               label: const Text('Submit'),
             ),

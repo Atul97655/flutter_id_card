@@ -22,6 +22,7 @@ class EntryDraft {
     this.fatherName = '',
     this.studentClass = '',
     this.division = '',
+    this.rollNumber = '',
     this.bloodGroup = '',
     this.dobIso,
     this.mobile = '',
@@ -40,6 +41,7 @@ class EntryDraft {
   final String fatherName;
   final String studentClass;
   final String division;
+  final String rollNumber;
   final String bloodGroup;
   final String? dobIso;
   final String mobile;
@@ -55,6 +57,7 @@ class EntryDraft {
       fatherName.trim().isNotEmpty ||
       studentClass.trim().isNotEmpty ||
       division.trim().isNotEmpty ||
+      rollNumber.trim().isNotEmpty ||
       bloodGroup.trim().isNotEmpty ||
       mobile.trim().isNotEmpty ||
       address.trim().isNotEmpty ||
@@ -68,6 +71,7 @@ class EntryDraft {
         'fatherName': fatherName,
         'studentClass': studentClass,
         'division': division,
+        'rollNumber': rollNumber,
         'bloodGroup': bloodGroup,
         'dobIso': dobIso,
         'mobile': mobile,
@@ -83,6 +87,7 @@ class EntryDraft {
         fatherName: (json['fatherName'] as String?) ?? '',
         studentClass: (json['studentClass'] as String?) ?? '',
         division: (json['division'] as String?) ?? '',
+        rollNumber: (json['rollNumber'] as String?) ?? '',
         bloodGroup: (json['bloodGroup'] as String?) ?? '',
         dobIso: json['dobIso'] as String?,
         mobile: (json['mobile'] as String?) ?? '',

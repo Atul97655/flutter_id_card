@@ -15,7 +15,9 @@ import 'package:flutter_id_card/features/auth/presentation/splash_screen.dart';
 import 'package:flutter_id_card/features/card_render/presentation/card_preview_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/data_entry_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/home_screen.dart';
+import 'package:flutter_id_card/features/data_entry/presentation/request_detail_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/saved_entries_screen.dart';
+import 'package:flutter_id_card/features/data_entry/presentation/submission_success_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/sync_status_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_list_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
@@ -94,6 +96,18 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: '/entries',
         builder: (BuildContext c, GoRouterState s) => const SavedEntriesScreen(),
+      ),
+      GoRoute(
+        path: '/submitted/:id',
+        builder: (BuildContext c, GoRouterState s) => SubmissionSuccessScreen(
+          entryId: s.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/submissions/:id',
+        builder: (BuildContext c, GoRouterState s) => RequestDetailScreen(
+          entryId: s.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/sync',
