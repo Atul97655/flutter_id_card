@@ -142,6 +142,7 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
               result: _lastResult!,
               onOpenFolder: _openFolder,
               onPrintFile: _printFile,
+              onPrintAll: ExportService.canPrintDirectly ? _printAll : null,
             ),
           ],
 
@@ -354,6 +355,55 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Print failed: $e')),
       );
+    }
+  }
+
+  /// Sends the whole generated batch to one printer with no per-file dialog.
+  ///
+  /// The operator picks the printer once; a 25-sheet run then prints without
+  /// 25 confirmation dialogs. Desktop only - [ExportService.printAll] is a
+  /// no-op on Android, so the button that calls this is hidden there.
+  Future<void> _printAll(List<File> files) async {
+    if (files.isEmpty) return;
+    if (!ExportService.canPrintDirectly) {
+      _fail('Direct batch printing is only available on the desktop build.');
+      return;
+    }
+
+    final Printer? printer = await Printing.pickPrinter(context: context);
+    if (printer == null || !mounted) return; // operator dismissed the picker
+
+    setState(() {
+      _busy = true;
+      _status = 'Printing ${files.length} file(s) to ${printer.name}...';
+    });
+
+    try {
+      final int printed = await ref
+          .read(exportServiceProvider)
+          .printAll(files, printer: printer);
+      if (!mounted) return;
+      final bool all = printed == files.length;
+      setState(() {
+        _status = all
+            ? 'Sent all ${files.length} file(s) to ${printer.name}.'
+            : 'Sent $printed of ${files.length} file(s) to ${printer.name}; '
+                'the spooler rejected the rest.';
+      });
+      if (!all) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('$printed of ${files.length} printed'),
+              backgroundColor: StatusColors.pending,
+            ),
+          );
+      }
+    } on Object catch (e) {
+      _fail('Batch print failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 }
@@ -572,11 +622,16 @@ class _OutputCard extends StatelessWidget {
     required this.result,
     required this.onOpenFolder,
     required this.onPrintFile,
+    this.onPrintAll,
   });
 
   final ExportResult result;
   final VoidCallback onOpenFolder;
   final void Function(File) onPrintFile;
+
+  /// Non-null only where the platform can print a batch without a per-file
+  /// dialog (the desktop build). Hidden on Android.
+  final void Function(List<File>)? onPrintAll;
 
   @override
   Widget build(BuildContext context) {
@@ -631,21 +686,25 @@ class _OutputCard extends StatelessWidget {
                 style: theme.textTheme.bodySmall,
               ),
             const SizedBox(height: 10),
-            Row(
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
               children: <Widget>[
                 OutlinedButton.icon(
                   onPressed: onOpenFolder,
                   icon: const Icon(Icons.folder_open_outlined),
                   label: const Text('Open folder'),
                 ),
-                const SizedBox(width: 10),
-                if (result.files.isNotEmpty)
+                if (result.files.isNotEmpty && onPrintAll != null)
                   FilledButton.icon(
-                    onPressed: () => Printing.layoutPdf(
-                      name: result.files.first.uri.pathSegments.last,
-                      onLayout: (_) => result.files.first.readAsBytes(),
-                    ),
+                    onPressed: () => onPrintAll!(result.files),
                     icon: const Icon(Icons.print),
+                    label: Text('Print all (${result.files.length})'),
+                  ),
+                if (result.files.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () => onPrintFile(result.files.first),
+                    icon: const Icon(Icons.print_outlined),
                     label: const Text('Print first'),
                   ),
               ],
