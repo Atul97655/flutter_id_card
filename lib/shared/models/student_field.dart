@@ -37,6 +37,13 @@ enum StudentField {
     kind: FieldKind.text,
     forceUppercase: true,
   ),
+  rollNumber(
+    key: 'rollNumber',
+    formLabel: 'Roll No',
+    cardLabel: 'ROLL NO',
+    kind: FieldKind.text,
+    forceUppercase: true,
+  ),
   bloodGroup(
     key: 'bloodGroup',
     formLabel: 'Blood Group',

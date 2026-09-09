@@ -17,6 +17,7 @@ class StudentEntry {
     this.fatherName = '',
     this.studentClass = '',
     this.division = '',
+    this.rollNumber = '',
     this.bloodGroup = '',
     this.dob,
     this.mobile = '',
@@ -41,6 +42,12 @@ class StudentEntry {
   final String fatherName;
   final String studentClass;
   final String division;
+
+  /// The school's own register number for the student. Free text, not an int -
+  /// real registers use values like `12/A` and `0034`, and a leading zero that
+  /// an int would drop is meaningful to the school.
+  final String rollNumber;
+
   final String bloodGroup;
   final DateTime? dob;
   final String mobile;
@@ -91,6 +98,7 @@ class StudentEntry {
         StudentField.fatherName => fatherName,
         StudentField.studentClass => studentClass,
         StudentField.division => division,
+        StudentField.rollNumber => rollNumber,
         StudentField.bloodGroup => bloodGroup,
         StudentField.dob => formattedDob,
         StudentField.mobile => mobile,
@@ -120,6 +128,7 @@ class StudentEntry {
     String? fatherName,
     String? studentClass,
     String? division,
+    String? rollNumber,
     String? bloodGroup,
     DateTime? dob,
     bool clearDob = false,
@@ -147,6 +156,7 @@ class StudentEntry {
       fatherName: fatherName ?? this.fatherName,
       studentClass: studentClass ?? this.studentClass,
       division: division ?? this.division,
+      rollNumber: rollNumber ?? this.rollNumber,
       bloodGroup: bloodGroup ?? this.bloodGroup,
       dob: clearDob ? null : (dob ?? this.dob),
       mobile: mobile ?? this.mobile,
@@ -175,6 +185,7 @@ class StudentEntry {
         'fatherName': fatherName,
         'studentClass': studentClass,
         'division': division,
+        'rollNumber': rollNumber,
         'bloodGroup': bloodGroup,
         'dob': dob == null ? null : DateFormat('yyyy-MM-dd').format(dob!),
         'mobile': mobile,
@@ -196,6 +207,7 @@ class StudentEntry {
       fatherName: (map['fatherName'] as String?) ?? '',
       studentClass: (map['studentClass'] as String?) ?? '',
       division: (map['division'] as String?) ?? '',
+      rollNumber: (map['rollNumber'] as String?) ?? '',
       bloodGroup: (map['bloodGroup'] as String?) ?? '',
       dob: _parseDate(map['dob'] as String?),
       mobile: (map['mobile'] as String?) ?? '',

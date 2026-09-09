@@ -53,14 +53,20 @@ class AdminStats {
     this.awaitingReview = 0,
     this.approved = 0,
     this.rejected = 0,
+    this.printed = 0,
     this.printable = 0,
   });
 
   final int schools;
   final int total;
   final int awaitingReview;
+
+  /// Signed off but not yet through a print run.
   final int approved;
   final int rejected;
+
+  /// Already been through a print run.
+  final int printed;
 
   /// Approved *and* carrying a photo - what can actually go on a sheet. Kept
   /// distinct from [approved] because an approved entry whose photo went
@@ -78,6 +84,7 @@ final Provider<AsyncValue<AdminStats>> adminStatsProvider =
     int awaiting = 0;
     int approved = 0;
     int rejected = 0;
+    int printed = 0;
     int printable = 0;
 
     for (final StudentEntry e in all) {
@@ -89,6 +96,10 @@ final Provider<AsyncValue<AdminStats>> adminStatsProvider =
           if (e.hasPhoto) printable++;
         case ApprovalStatus.rejected:
           rejected++;
+        case ApprovalStatus.printed:
+          printed++;
+          // Still printable - reprints are routine, see ApprovalStatus.
+          if (e.hasPhoto) printable++;
       }
     }
 
@@ -97,6 +108,7 @@ final Provider<AsyncValue<AdminStats>> adminStatsProvider =
       total: all.length,
       awaitingReview: awaiting,
       approved: approved,
+      printed: printed,
       rejected: rejected,
       printable: printable,
     );
