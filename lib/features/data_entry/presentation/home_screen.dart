@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
-import 'package:flutter_id_card/features/messaging/application/chat_providers.dart';
+import 'package:flutter_id_card/features/notifications/application/notification_providers.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
@@ -47,7 +47,7 @@ class HomeScreen extends ConsumerWidget {
         ref.watch(entriesProvider);
     final List<StudentEntry> rejected = ref.watch(needsAttentionProvider);
 
-    final int unreadChats = ref.watch(unreadChatCountProvider);
+    final int unreadNotifications = ref.watch(unreadNotificationCountProvider);
     final int pending = syncCounts.value?[SyncStatus.pending] ?? 0;
     final int failed = syncCounts.value?[SyncStatus.failed] ?? 0;
     final List<StudentEntry> entries = entriesAsync.value ?? const <StudentEntry>[];
@@ -59,6 +59,13 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('ID entity'),
         actions: <Widget>[
+          IconButton(
+            tooltip: unreadNotifications == 0
+                ? 'Notifications'
+                : '$unreadNotifications need your attention',
+            icon: _NotificationBell(count: unreadNotifications),
+            onPressed: () => context.push('/notifications'),
+          ),
           if (session?.isAdmin ?? false)
             IconButton(
               icon: const Icon(Icons.admin_panel_settings_outlined),
@@ -134,32 +141,9 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ],
 
-                  const SizedBox(height: 12),
-                  FadeSlideIn(
-                    index: 6,
-                    child: _MenuCard(
-                      icon: Icons.forum_outlined,
-                      title: 'Messages',
-                      subtitle: unreadChats == 0
-                          ? 'Announcements and chat with the office'
-                          : '$unreadChats conversation(s) with new messages',
-                      badgeCount: unreadChats,
-                      color: const Color(0xFFAD1457),
-                      onTap: () => context.push('/messages'),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-                  FadeSlideIn(
-                    index: 7,
-                    child: _MenuCard(
-                      icon: Icons.logout,
-                      title: 'Logout',
-                      subtitle: session?.email ?? '',
-                      color: const Color(0xFF546E7A),
-                      onTap: () => _confirmLogout(context, ref),
-                    ),
-                  ),
+                  // Messages and Logout used to live here as menu rows. They
+                  // are now the Chats and Profile tabs - repeating them would
+                  // give the same action two homes.
                 ],
               ),
             ),
@@ -175,41 +159,50 @@ class HomeScreen extends ConsumerWidget {
     return 'Everything is up to date';
   }
 
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    final AsyncValue<Map<SyncStatus, int>> counts =
-        ref.read(syncCountsProvider);
-    final int unsynced = (counts.value?[SyncStatus.pending] ?? 0) +
-        (counts.value?[SyncStatus.failed] ?? 0);
+}
 
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('Log out?'),
-        content: Text(
-          unsynced > 0
-              // Entries live in the local database, not in the session, so they
-              // genuinely do survive - say so plainly to stop operators
-              // hoarding logins out of fear of losing a day's work.
-              ? '$unsynced entries have not uploaded yet.\n\nThey stay saved on '
-                  'this device and will upload the next time you sign in.'
-              : 'You will need your school code and password to sign back in.',
+/// Bell with a count bubble. The bubble scales in so a notification landing
+/// while the operator is on this screen is noticed rather than silently added.
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        const Icon(Icons.notifications_none),
+        Positioned(
+          right: -3,
+          top: -3,
+          child: AnimatedScale(
+            scale: count > 0 ? 1 : 0,
+            duration: AppMotion.normal,
+            curve: AppMotion.emphasized,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              constraints: const BoxConstraints(minWidth: 15),
+              decoration: BoxDecoration(
+                color: StatusColors.failed,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Log out'),
-          ),
-        ],
-      ),
+      ],
     );
-
-    if (confirmed != true || !context.mounted) return;
-    await ref.read(authControllerProvider.notifier).signOut();
-    if (context.mounted) context.go('/login');
   }
 }
 
