@@ -223,6 +223,30 @@ describe('Review workflow', () => {
 // Privilege escalation.
 // ---------------------------------------------------------------------------
 describe('Privilege escalation', () => {
+  it('a teacher CAN stamp their own last login', async () => {
+    // The login path writes this on every sign-in with set(merge:true), which
+    // Firestore evaluates as an update. If the rule rejected it, every teacher
+    // login would log a permission error - the same class of bug as the chat
+    // document, which only surfaced when the rules were actually exercised.
+    await assertSucceeds(
+      setDoc(
+        doc(as(TEACHER_A), 'users', TEACHER_A),
+        { lastLoginDate: new Date().toISOString() },
+        { merge: true },
+      ),
+    );
+  });
+
+  it('but cannot smuggle another field alongside it', async () => {
+    await assertFails(
+      setDoc(
+        doc(as(TEACHER_A), 'users', TEACHER_A),
+        { lastLoginDate: new Date().toISOString(), role: 'Admin' },
+        { merge: true },
+      ),
+    );
+  });
+
   it('a teacher cannot make themselves an admin', async () => {
     await assertFails(updateDoc(doc(as(TEACHER_A), 'users', TEACHER_A), { role: 'Admin' }));
   });
