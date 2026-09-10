@@ -6,6 +6,7 @@ import 'package:flutter_id_card/features/admin/presentation/audit_log_screen.dar
 import 'package:flutter_id_card/features/admin/presentation/export_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/print_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/reports_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/requests_queue_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/school_detail_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/school_settings_screen.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
@@ -20,6 +21,7 @@ import 'package:flutter_id_card/features/data_entry/presentation/request_detail_
 import 'package:flutter_id_card/features/data_entry/presentation/saved_entries_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/submission_success_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/sync_status_screen.dart';
+import 'package:flutter_id_card/features/messaging/presentation/broadcast_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_list_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/notifications/presentation/notifications_screen.dart';
@@ -222,6 +224,16 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: 'requests',
+            builder: (BuildContext c, GoRouterState s) =>
+                const RequestsQueueScreen(),
+          ),
+          GoRoute(
+            path: 'broadcast',
+            builder: (BuildContext c, GoRouterState s) =>
+                const BroadcastScreen(),
           ),
           GoRoute(
             path: 'audit',
