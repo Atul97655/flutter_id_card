@@ -63,3 +63,12 @@ firestore-debug.log
 emulator_*.png
 /scratch/
 
+
+# Firebase rules-test harness (emulator deps and local emulator state)
+firebase/rules-tests/node_modules/
+firebase/rules-tests/package-lock.json
+firebase/**/*.log
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log

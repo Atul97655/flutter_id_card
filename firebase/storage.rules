@@ -1,12 +1,14 @@
 rules_version = '2';
 
-// Firebase Storage rules for student photos and school logos.
+// Firebase Storage rules for student photos, school branding and chat files.
 //
 // Deploy with:  firebase deploy --only storage
+// (Deploying rules is free - it does NOT require the Blaze plan.)
 //
 // Paths:
 //   schools/{schoolId}/photos/{entryId}.png   student photo
-//   schools/{schoolId}/logo.png               school logo
+//   schools/{schoolId}/logo.png               school logo / signature
+//   chats/{chatId}/{uuid}_{fileName}          chat attachment
 
 service firebase.storage {
   match /b/{bucket}/o {
@@ -51,12 +53,52 @@ service firebase.storage {
       allow write, delete: if isAdmin() && isReasonablePhoto();
     }
 
-    // Chat attachments (Phase 5). Membership is checked in Firestore; Storage
-    // rules cannot read an array cheaply, so this is deliberately coarse and
-    // relies on unguessable paths plus an authenticated, active account.
+    // --- chat attachments -------------------------------------------------
+    //
+    // Membership is read from the conversation document in Firestore. An
+    // earlier version of these rules allowed any active user to read and write
+    // here and leaned on "unguessable" paths, which is not a control at all:
+    // a chat id is visible to every member and is stored in plain text in
+    // Firestore, so any teacher could have read another school's attachments.
+    //
+    // The plan of action makes this non-negotiable - "a teacher can read and
+    // write messages only in their own conversation" - so it is enforced the
+    // same way the Firestore rules enforce it, against the members array.
+    //
+    // Cost: one Firestore read per Storage operation. That is the price of
+    // actually checking, and attachment traffic is low.
+    function chatMembers(chatId) {
+      return firestore.get(/databases/(default)/documents/chats/$(chatId))
+                      .data.get('members', []);
+    }
+
+    function isChatMember(chatId) {
+      return isActive()
+        && firestore.exists(/databases/(default)/documents/chats/$(chatId))
+        && (isAdmin() || request.auth.uid in chatMembers(chatId));
+    }
+
+    // Attachments are photos and paperwork. An allowlist keeps an executable
+    // out of a bucket whose download URLs get pasted into chats; widen it here
+    // if the office needs another document type.
+    function isAllowedAttachment() {
+      return request.resource.size < 10 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'application/pdf'
+          || request.resource.contentType == 'text/plain'
+          || request.resource.contentType == 'application/msword'
+          || request.resource.contentType == 'application/vnd.ms-excel'
+          || request.resource.contentType ==
+               'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          || request.resource.contentType ==
+               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
     match /chats/{chatId}/{fileName} {
-      allow read: if isActive();
-      allow write: if isActive() && request.resource.size < 10 * 1024 * 1024;
+      allow read: if isChatMember(chatId);
+      allow write: if isChatMember(chatId) && isAllowedAttachment();
       allow delete: if isAdmin();
     }
 

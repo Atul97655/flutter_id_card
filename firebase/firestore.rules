@@ -152,29 +152,62 @@ service cloud.firestore {
     // --- messaging (Phase 5) -----------------------------------------
 
     match /chats/{chatId} {
-      // Membership is stored on the chat document as an array of UIDs.
-      allow read: if isActive()
-        && (isAdmin() || request.auth.uid in resource.data.get('members', []));
+      function isMember() {
+        return isActive()
+          && request.auth.uid in resource.data.get('members', []);
+      }
 
-      // Only admins open a conversation, which keeps the chat list bounded.
+      // Membership is stored on the chat document as an array of UIDs.
+      allow read: if isActive() && (isAdmin() || isMember());
+
+      // Only admins open a conversation. This is the hub-and-spoke rule: a
+      // teacher cannot create a chat with anyone, so teacher-to-teacher
+      // messaging is impossible at the database level, not just hidden in the
+      // UI.
       allow create: if isAdmin();
-      allow update: if isAdmin();
       allow delete: if isAdmin();
 
+      // An admin may change anything about the conversation.
+      //
+      // A member may change ONLY the activity fields that sending or reading a
+      // message writes. Without this a teacher could not send a message or
+      // clear their unread badge at all: both go through a batched update on
+      // this document, and an admin-only update rule fails the whole batch.
+      // `members` is deliberately not in the list - a teacher must never be
+      // able to add themselves to another school's conversation.
+      allow update: if isAdmin()
+        || (
+          isMember()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId',
+                         'unreadFor'])
+        );
+
       match /messages/{messageId} {
+        function parentChat() {
+          return get(/databases/$(database)/documents/chats/$(chatId)).data;
+        }
+
         function isChatMember() {
           return isAdmin()
-            || request.auth.uid in
-               get(/databases/$(database)/documents/chats/$(chatId))
-                 .data.get('members', []);
+            || request.auth.uid in parentChat().get('members', []);
+        }
+
+        // Matches `ChatKind.broadcast.name` as written by the client.
+        function isBroadcast() {
+          return parentChat().get('kind', 'direct') == 'broadcast';
         }
 
         allow read: if isActive() && isChatMember();
 
         // senderId is pinned to the caller so nobody can post as someone else.
+        // A broadcast is an announcement, not a thread - only the admin may
+        // post into one. The chat screen also hides the composer, but that is
+        // decoration; this is the control.
         allow create: if isActive()
           && isChatMember()
-          && request.resource.data.senderId == request.auth.uid;
+          && request.resource.data.senderId == request.auth.uid
+          && (isAdmin() || !isBroadcast());
 
         // Messages are immutable except for read receipts.
         allow update: if isActive()

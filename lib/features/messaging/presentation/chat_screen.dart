@@ -191,6 +191,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final File file = File(path);
     final String name = picked.name;
 
+    // Checked here rather than letting the upload bounce off the Storage
+    // rules: a rule rejection surfaces as a raw Firebase permission error,
+    // which reads like a broken app instead of "we don't accept that file".
+    if (ChatRepository.contentTypeFor(name) == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cannot send "$name". Attachments must be a photo, PDF, text, '
+            'Word or Excel file.',
+          ),
+          backgroundColor: StatusColors.failed,
+        ),
+      );
+      return;
+    }
+
     setState(() => _sending = true);
     try {
       final String url = await ref.read(chatRepositoryProvider).uploadAttachment(

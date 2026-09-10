@@ -185,6 +185,11 @@ class ChatRepository {
   }
 
   /// Uploads an attachment and returns its download URL.
+  ///
+  /// The content type is set explicitly rather than left to the SDK. The
+  /// Storage rules allowlist attachment types, and an upload with no declared
+  /// type arrives as `application/octet-stream` and is rejected - so guessing
+  /// here is what keeps a legitimate photo or PDF from bouncing.
   Future<String> uploadAttachment({
     required String chatId,
     required File file,
@@ -196,8 +201,42 @@ class ChatRepository {
         .child(chatId)
         .child('${_uuid.v4()}_$fileName');
 
-    await ref.putFile(file);
+    await ref.putFile(
+      file,
+      SettableMetadata(contentType: contentTypeFor(fileName)),
+    );
     return ref.getDownloadURL();
+  }
+
+  /// Maps a filename to the MIME type the Storage rules expect.
+  ///
+  /// Deliberately mirrors the allowlist in `firebase/storage.rules`: if a type
+  /// is added there it has to be added here too, or the client will label the
+  /// file in a way the server refuses. Returns null for anything unrecognised,
+  /// which lets the upload fail loudly at the rule rather than silently
+  /// landing an unlabelled blob in the bucket.
+  static String? contentTypeFor(String fileName) {
+    final int dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot == fileName.length - 1) return null;
+    final String ext = fileName.substring(dot + 1).toLowerCase();
+
+    return switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      'heic' => 'image/heic',
+      'bmp' => 'image/bmp',
+      'pdf' => 'application/pdf',
+      'txt' || 'csv' => 'text/plain',
+      'doc' => 'application/msword',
+      'docx' =>
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls' => 'application/vnd.ms-excel',
+      'xlsx' =>
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      _ => null,
+    };
   }
 
   /// Client-side message search.
