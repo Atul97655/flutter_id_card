@@ -1,0 +1,10 @@
+# Copy this file to android/key.properties and fill it in.
+#
+# key.properties is gitignored and MUST stay that way - it holds the password
+# to your app signing key. See docs/RELEASE_SIGNING.md for how to create the
+# keystore it points at.
+
+storeFile=../upload-keystore.jks
+storePassword=CHANGE_ME
+keyAlias=upload
+keyPassword=CHANGE_ME

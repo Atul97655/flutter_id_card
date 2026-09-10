@@ -82,9 +82,12 @@ class SyncService {
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     Connectivity? connectivity,
+    bool Function()? isFirebaseReady,
   })  : _firestoreOverride = firestore,
         _storageOverride = storage,
         _connectivity = connectivity ?? Connectivity(),
+        _isFirebaseReady =
+            isFirebaseReady ?? (() => FirebaseBootstrap.instance.isReady),
         // ignore: prefer_initializing_formals
         _students = students,
         // ignore: prefer_initializing_formals
@@ -98,6 +101,15 @@ class SyncService {
   final FirebaseFirestore? _firestoreOverride;
   final FirebaseStorage? _storageOverride;
   final Connectivity _connectivity;
+
+  /// Whether Firebase has finished starting up.
+  ///
+  /// Injected rather than read straight off the singleton so this class can be
+  /// exercised against a fake Firestore. Without a seam here every test would
+  /// short-circuit at the readiness gate and the whole sync worker - the part
+  /// of the app that moves a day of captured work off a device - would stay
+  /// untestable.
+  final bool Function() _isFirebaseReady;
 
   FirebaseFirestore get _db => _firestoreOverride ?? FirebaseFirestore.instance;
   FirebaseStorage get _bucket => _storageOverride ?? FirebaseStorage.instance;
@@ -190,7 +202,7 @@ class SyncService {
   Future<void> syncNow({String? schoolId, bool isAdmin = false}) async {
     if (_running) return;
 
-    if (!FirebaseBootstrap.instance.isReady) {
+    if (!_isFirebaseReady()) {
       _emit(_state.copyWith(activity: SyncActivity.disabled));
       return;
     }
