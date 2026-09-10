@@ -425,13 +425,33 @@ class SyncService {
     try {
       String? photoUrl = entry.remotePhotoUrl;
 
-      // Upload the photo first. Doing it before the document means a document
-      // never exists pointing at a photo that failed to upload.
+      // Why the photo is attempted first, and why its failure is NOT fatal:
+      //
+      // Uploading it before the document means a document can never point at a
+      // photo that failed to land. But an earlier version let a photo failure
+      // abort the whole row, which meant that if Storage was unavailable -
+      // exactly the case when the bucket has not been provisioned - not a
+      // single submission reached the office. The review queue stayed empty
+      // and the operator's day of work looked lost.
+      //
+      // So a photo failure now degrades instead: the student's details still
+      // upload with a null photoUrl, the entry appears in the admin queue, and
+      // the row stays queued so the photo is retried. The print path already
+      // excludes entries without a photo and reports the count, so a card can
+      // never be printed with an empty photo box.
+      String? photoError;
+
       final String? localPath = entry.localPhotoPath;
       if (photoUrl == null && localPath != null && localPath.isNotEmpty) {
         final File file = File(localPath);
         if (file.existsSync()) {
-          photoUrl = await _uploadPhoto(entry, file);
+          try {
+            photoUrl = await _uploadPhoto(entry, file);
+          } on FirebaseException catch (e) {
+            photoError = _describePhoto(e);
+          } on Object catch (e) {
+            photoError = 'Photo upload failed: $e';
+          }
         } else {
           // The processed photo is gone from disk - the OS cleared it, or the
           // app was reinstalled. Retrying cannot fix this, so fail it straight
@@ -456,6 +476,14 @@ class SyncService {
           .collection('entries')
           .doc(entry.id)
           .set(toWrite.toFirestoreMap(), SetOptions(merge: true));
+
+      if (photoError != null) {
+        // The details are on the server; only the photo is outstanding. Keep
+        // the row queued so the photo is retried, and tell the operator which
+        // half failed rather than implying the whole submission was lost.
+        await _students.markFailed(entry.id, photoError, entry.syncAttempts);
+        return false;
+      }
 
       await _students.markSynced(entry.id, remotePhotoUrl: photoUrl);
       return true;
@@ -492,11 +520,42 @@ class SyncService {
     return ref.getDownloadURL();
   }
 
+  /// Photo-upload failures, phrased so the operator knows the student's
+  /// details DID reach the office and only the picture is outstanding.
+  ///
+  /// A missing bucket or object here almost always means Cloud Storage has not
+  /// been provisioned on the Firebase project at all, rather than anything the
+  /// operator did - so the message points at the office instead of asking them
+  /// to retake a photo that is perfectly fine.
+  String _describePhoto(FirebaseException e) => switch (e.code) {
+        'bucket-not-found' || 'object-not-found' || 'project-not-found' =>
+          'Details uploaded, but photo storage is not set up for this school '
+              'yet. Tell the office - the photo will upload by itself once it '
+              'is. Do not retake it.',
+        'unauthorized' || 'permission-denied' =>
+          'Details uploaded, but the server rejected the photo. Your account '
+              'may not have access to this school.',
+        'unauthenticated' => 'Signed out. Sign in again to upload the photo.',
+        'quota-exceeded' || 'resource-exhausted' =>
+          'Details uploaded. Photo storage is full - tell the office.',
+        'retry-limit-exceeded' || 'canceled' =>
+          'Details uploaded. The photo did not finish - it will retry.',
+        _ => 'Details uploaded, but the photo did not: '
+            '${e.message ?? e.code}',
+      };
+
   /// Turns Firebase error codes into something an operator can act on.
   String _describe(FirebaseException e) => switch (e.code) {
+        // Two very different causes, and the operator can only act on one of
+        // them, so both are named. The common one is not an access problem at
+        // all: editing a card resets it to "pending review", and the server
+        // refuses that if the office has already approved it. The operator's
+        // device simply had not learned about the approval yet.
         'permission-denied' =>
-          'Server rejected this record. Your account may not have access to '
-              'this school.',
+          'Server rejected this change. Usually this means the office already '
+              'approved this card, so it can no longer be edited - open it to '
+              'see its current status. If it is still pending, your account '
+              'may not have access to this school.',
         'unavailable' || 'deadline-exceeded' =>
           'Server unreachable. Will retry automatically.',
         'unauthenticated' => 'Signed out. Sign in again to upload.',
