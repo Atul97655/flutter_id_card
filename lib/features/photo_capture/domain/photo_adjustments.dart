@@ -12,6 +12,7 @@ class PhotoAdjustments {
     this.autoFrame = true,
     this.nudgeX = 0,
     this.nudgeY = 0,
+    this.zoom = 0,
   });
 
   static const PhotoAdjustments neutral = PhotoAdjustments();
@@ -37,12 +38,29 @@ class PhotoAdjustments {
   final double nudgeX;
   final double nudgeY;
 
+  /// Crop tightness. 0 = the framing the detector chose, 1.0 = the tightest
+  /// allowed crop. Negative is not offered: pulling wider than the detected
+  /// frame would sample outside the source and letterbox the card's photo box.
+  ///
+  /// Applied by shrinking the crop window, so zooming in raises the effective
+  /// resolution of the face rather than upscaling pixels.
+  final double zoom;
+
+  /// The most the crop window may shrink. A face at 45% of the original crop
+  /// is already tighter than any of the reference cards, and going further
+  /// starts cutting foreheads and chins.
+  static const double maxZoomShrink = 0.55;
+
   bool get isNeutral =>
       brightness == 0 &&
       contrast == 0 &&
       saturation == 0 &&
       nudgeX == 0 &&
-      nudgeY == 0;
+      nudgeY == 0 &&
+      zoom == 0;
+
+  /// Crop-window scale for [zoom]: 1.0 at rest, shrinking as zoom rises.
+  double get cropScale => 1 - (zoom.clamp(0.0, 1.0) * maxZoomShrink);
 
   PhotoAdjustments copyWith({
     double? brightness,
@@ -52,6 +70,7 @@ class PhotoAdjustments {
     bool? autoFrame,
     double? nudgeX,
     double? nudgeY,
+    double? zoom,
   }) {
     return PhotoAdjustments(
       brightness: brightness ?? this.brightness,
@@ -61,6 +80,7 @@ class PhotoAdjustments {
       autoFrame: autoFrame ?? this.autoFrame,
       nudgeX: nudgeX ?? this.nudgeX,
       nudgeY: nudgeY ?? this.nudgeY,
+      zoom: zoom ?? this.zoom,
     );
   }
 

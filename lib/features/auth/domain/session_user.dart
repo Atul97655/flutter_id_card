@@ -6,6 +6,13 @@
 /// server-side, because a client-side role check alone is decoration.
 enum UserRole {
   admin('Admin'),
+
+  /// An individual teacher submitting cards for their school. Same data scope
+  /// as [school] - both are tied to one `schoolId` and see only that school's
+  /// students. The distinction is organisational, not a privilege boundary:
+  /// a school account is the office, a teacher account is one person in it.
+  teacher('Teacher'),
+
   school('School');
 
   const UserRole(this.wireValue);
@@ -13,6 +20,10 @@ enum UserRole {
   /// Exact string stored in Firestore. Matches the values already in the
   /// project's `users` collection.
   final String wireValue;
+
+  /// Everyone who is not an admin: submits cards, sees only their own school,
+  /// and can message only the admin.
+  bool get isOperator => this != UserRole.admin;
 
   static UserRole fromWire(String? value) {
     for (final UserRole r in UserRole.values) {

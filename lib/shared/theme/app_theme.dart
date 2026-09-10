@@ -107,4 +107,9 @@ final class StatusColors {
   static const Color syncing = Color(0xFF0288D1);
   static const Color synced = Color(0xFF2E7D32);
   static const Color failed = Color(0xFFC62828);
+
+  /// A card that has been through a print run. Indigo rather than another
+  /// green so "approved" and "printed" stay tellable apart at a glance - they
+  /// are adjacent states an operator asks the office about by name.
+  static const Color printed = Color(0xFF4527A0);
 }

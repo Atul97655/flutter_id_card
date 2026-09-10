@@ -6,20 +6,27 @@ import 'package:flutter_id_card/features/admin/presentation/audit_log_screen.dar
 import 'package:flutter_id_card/features/admin/presentation/export_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/print_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/reports_screen.dart';
+import 'package:flutter_id_card/features/admin/presentation/requests_queue_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/school_detail_screen.dart';
 import 'package:flutter_id_card/features/admin/presentation/school_settings_screen.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/auth/presentation/login_screen.dart';
+import 'package:flutter_id_card/features/auth/presentation/profile_screen.dart';
 import 'package:flutter_id_card/features/auth/presentation/splash_screen.dart';
 import 'package:flutter_id_card/features/card_render/presentation/card_preview_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/data_entry_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/home_screen.dart';
+import 'package:flutter_id_card/features/data_entry/presentation/request_detail_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/saved_entries_screen.dart';
+import 'package:flutter_id_card/features/data_entry/presentation/submission_success_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/sync_status_screen.dart';
+import 'package:flutter_id_card/features/messaging/presentation/broadcast_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_list_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
+import 'package:flutter_id_card/features/notifications/presentation/notifications_screen.dart';
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart';
+import 'package:flutter_id_card/shared/widgets/app_shell.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -77,10 +84,60 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         name: LoginScreen.routeName,
         builder: (BuildContext c, GoRouterState s) => const LoginScreen(),
       ),
+      // The operator's three tabs. Each branch keeps its own stack, so
+      // switching to Chats and back does not reset a scrolled list.
+      StatefulShellRoute.indexedStack(
+        builder: (
+          BuildContext c,
+          GoRouterState s,
+          StatefulNavigationShell shell,
+        ) =>
+            AppShell(navigationShell: shell),
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: HomeScreen.routePath,
+                name: HomeScreen.routeName,
+                builder: (BuildContext c, GoRouterState s) =>
+                    const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/messages',
+                builder: (BuildContext c, GoRouterState s) =>
+                    const ChatListScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/profile',
+                builder: (BuildContext c, GoRouterState s) =>
+                    const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // Everything below pushes over the shell: focused tasks where a
+      // navigation bar underneath would invite a mis-tap that abandons
+      // half-entered work.
       GoRoute(
-        path: HomeScreen.routePath,
-        name: HomeScreen.routeName,
-        builder: (BuildContext c, GoRouterState s) => const HomeScreen(),
+        path: '/messages/:chatId',
+        builder: (BuildContext c, GoRouterState s) => ChatScreen(
+          chatId: s.pathParameters['chatId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (BuildContext c, GoRouterState s) =>
+            const NotificationsScreen(),
       ),
       GoRoute(
         path: '/entry/new',
@@ -94,6 +151,18 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: '/entries',
         builder: (BuildContext c, GoRouterState s) => const SavedEntriesScreen(),
+      ),
+      GoRoute(
+        path: '/submitted/:id',
+        builder: (BuildContext c, GoRouterState s) => SubmissionSuccessScreen(
+          entryId: s.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/submissions/:id',
+        builder: (BuildContext c, GoRouterState s) => RequestDetailScreen(
+          entryId: s.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/sync',
@@ -110,18 +179,6 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         builder: (BuildContext c, GoRouterState s) => CardPreviewScreen(
           entryId: s.pathParameters['id'] ?? '',
         ),
-      ),
-      GoRoute(
-        path: '/messages',
-        builder: (BuildContext c, GoRouterState s) => const ChatListScreen(),
-        routes: <RouteBase>[
-          GoRoute(
-            path: ':chatId',
-            builder: (BuildContext c, GoRouterState s) => ChatScreen(
-              chatId: s.pathParameters['chatId'] ?? '',
-            ),
-          ),
-        ],
       ),
 
       // --- admin (role-gated by the redirect above) ---------------------
@@ -167,6 +224,16 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: 'requests',
+            builder: (BuildContext c, GoRouterState s) =>
+                const RequestsQueueScreen(),
+          ),
+          GoRoute(
+            path: 'broadcast',
+            builder: (BuildContext c, GoRouterState s) =>
+                const BroadcastScreen(),
           ),
           GoRoute(
             path: 'audit',

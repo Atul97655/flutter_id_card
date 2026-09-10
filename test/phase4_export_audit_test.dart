@@ -82,8 +82,8 @@ void main() {
       await db.close();
     });
 
-    test('database schema version is 5', () {
-      expect(db.schemaVersion, 5);
+    test('database schema version is 6', () {
+      expect(db.schemaVersion, 6);
     });
 
     test('logs actions and retrieves via watchRecent and listForEntity', () async {

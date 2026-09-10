@@ -9,6 +9,7 @@ import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -742,7 +743,10 @@ class _SubmissionTile extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 6,
                         children: <Widget>[
-                          _ApprovalChip(status: entry.approvalStatus),
+                          ApprovalStatusChip(
+                            status: entry.approvalStatus,
+                            dense: true,
+                          ),
                           SyncStatusChip(status: entry.syncStatus, dense: true),
                           if (!entry.hasPhoto)
                             const _WarningChip(text: 'No photo'),
@@ -797,45 +801,6 @@ class _SubmissionTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ApprovalChip extends StatelessWidget {
-  const _ApprovalChip({required this.status});
-
-  final ApprovalStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (Color color, IconData icon) = switch (status) {
-      ApprovalStatus.pending => (StatusColors.pending, Icons.pending_actions),
-      ApprovalStatus.approved => (StatusColors.synced, Icons.verified),
-      ApprovalStatus.rejected => (StatusColors.failed, Icons.cancel_outlined),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            status.label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

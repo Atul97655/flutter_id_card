@@ -22,15 +22,31 @@ enum ApprovalStatus {
 
   /// An admin sent it back. `StudentEntry.rejectionReason` carries the why, so
   /// the operator can fix the specific problem rather than guessing.
-  rejected('Rejected');
+  rejected('Rejected'),
+
+  /// The card has been through a print run. Terminal state, set automatically
+  /// when a print batch is generated - never chosen by hand.
+  ///
+  /// Kept distinct from [approved] so the teacher can tell "the office signed
+  /// off" from "the card physically exists", which is the question they
+  /// actually ring the office about.
+  printed('Printed');
 
   const ApprovalStatus(this.label);
 
   final String label;
 
-  /// Only approved work reaches a printer. This is the single gate the
-  /// imposition and export paths check.
-  bool get isPrintable => this == ApprovalStatus.approved;
+  /// Only reviewed-and-signed-off work reaches a printer. This is the single
+  /// gate the imposition and export paths check.
+  ///
+  /// [printed] stays printable on purpose: reprints are routine (a card is
+  /// lost, a sheet jams), and excluding them would mean an admin could never
+  /// re-run a batch without first flipping every entry back to approved.
+  bool get isPrintable =>
+      this == ApprovalStatus.approved || this == ApprovalStatus.printed;
+
+  /// True once an admin has signed off, whether or not it has printed yet.
+  bool get isApproved => isPrintable;
 
   /// Whether the operator is expected to act on this entry.
   bool get needsOperatorAttention => this == ApprovalStatus.rejected;

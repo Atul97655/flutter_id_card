@@ -242,10 +242,13 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
             },
           );
 
+      final int marked = await _markPrinted(entries);
+
       if (!mounted) return;
       setState(() {
         _lastResult = result;
-        _status = 'Wrote ${result.fileCount} file(s) to $subfolder.';
+        _status = 'Wrote ${result.fileCount} file(s) to $subfolder.'
+            '${marked > 0 ? ' $marked card(s) marked as printed.' : ''}';
       });
     } on Object catch (e) {
       _fail('Generation failed: $e');
@@ -306,15 +309,34 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
             },
           );
 
+      final int marked = await _markPrinted(entries);
+
       if (!mounted) return;
       setState(() {
         _lastResult = result;
-        _status = 'Wrote ${result.fileCount} single card(s).';
+        _status = 'Wrote ${result.fileCount} single card(s).'
+            '${marked > 0 ? ' $marked card(s) marked as printed.' : ''}';
       });
     } on Object catch (e) {
       _fail('Generation failed: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Flips the entries that just went onto a sheet to `printed`, so the
+  /// teacher's My Submissions list stops saying "Approved" for a card that
+  /// physically exists. Returns how many actually moved.
+  ///
+  /// Deliberately non-fatal: the PDFs are already on disk and a failure to
+  /// update a status must not read as "the print run failed".
+  Future<int> _markPrinted(List<StudentEntry> entries) async {
+    try {
+      return await ref.read(studentRepositoryProvider).markPrinted(
+            entries.map((StudentEntry e) => e.id).toList(),
+          );
+    } on Object {
+      return 0;
     }
   }
 

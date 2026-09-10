@@ -9,7 +9,8 @@ rules_version = '2';
 // Deploy with:  firebase deploy --only firestore:rules
 //
 // Data model these rules assume:
-//   users/{uid}                      role: "Admin" | "School", schoolId, active
+//   users/{uid}                      role: "Admin" | "Teacher" | "School",
+//                                    schoolId, active
 //   schools/{schoolId}               name, cardSizeId, enabledFields, colours...
 //   schools/{schoolId}/entries/{id}  one student record
 //   chats/{chatId}                   Phase 5 messaging
@@ -47,12 +48,22 @@ service cloud.firestore {
       return isActive() && userDoc().role == 'Admin';
     }
 
+    // Teacher and School are the same data scope - both are tied to exactly
+    // one schoolId and see only that school. The split is organisational (a
+    // School account is the office, a Teacher account is one person in it),
+    // so every rule below treats them identically. Anything that is NOT
+    // 'Admin' is an operator, which keeps an unrecognised future role at the
+    // lower privilege rather than accidentally granting admin.
+    function isOperator() {
+      return isActive() && userDoc().role != 'Admin';
+    }
+
     function operatorSchoolId() {
       return userDoc().get('schoolId', '');
     }
 
     function belongsToSchool(schoolId) {
-      return isActive() && operatorSchoolId() == schoolId;
+      return isOperator() && operatorSchoolId() == schoolId;
     }
 
     // --- users -------------------------------------------------------
@@ -109,6 +120,7 @@ service cloud.firestore {
               && (!('fatherName' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.fatherName))
               && (!('studentClass' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.studentClass))
               && (!('division' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.division))
+              && (!('rollNumber' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.rollNumber))
               && (!('address' in request.resource.data) || isUppercaseOrEmpty(request.resource.data.address));
         }
 

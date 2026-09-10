@@ -797,26 +797,32 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        // Zoom first: framing is judged before colour, and it is the control
+        // an operator reaches for most after a wide capture.
+        _slider(
+          label: 'Zoom',
+          icon: Icons.zoom_in,
+          value: _adjustments.zoom,
+          min: 0,
+          apply: (double v) => _adjustments.copyWith(zoom: v),
+        ),
         _slider(
           label: 'Brightness',
           icon: Icons.brightness_6_outlined,
           value: _adjustments.brightness,
-          onChanged: (double v) =>
-              _updateAdjustments(_adjustments.copyWith(brightness: v)),
+          apply: (double v) => _adjustments.copyWith(brightness: v),
         ),
         _slider(
           label: 'Contrast',
           icon: Icons.contrast,
           value: _adjustments.contrast,
-          onChanged: (double v) =>
-              _updateAdjustments(_adjustments.copyWith(contrast: v)),
+          apply: (double v) => _adjustments.copyWith(contrast: v),
         ),
         _slider(
           label: 'Saturation',
           icon: Icons.palette_outlined,
           value: _adjustments.saturation,
-          onChanged: (double v) =>
-              _updateAdjustments(_adjustments.copyWith(saturation: v)),
+          apply: (double v) => _adjustments.copyWith(saturation: v),
         ),
         const SizedBox(height: 6),
         SwitchListTile(
@@ -870,11 +876,18 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
     );
   }
 
+  /// One adjustment slider.
+  ///
+  /// [apply] builds the new adjustments from a slider value, so the caller owns
+  /// which field moves. This used to switch on the label string, which meant
+  /// renaming a label silently rewired it to the wrong control.
   Widget _slider({
     required String label,
     required IconData icon,
     required double value,
-    required ValueChanged<double> onChanged,
+    required PhotoAdjustments Function(double) apply,
+    double min = -1,
+    double max = 1,
   }) {
     return Row(
       children: <Widget>[
@@ -889,21 +902,16 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
         ),
         Expanded(
           child: Slider(
-            value: value.clamp(-1.0, 1.0),
-            min: -1,
-            max: 1,
-            divisions: 20,
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: ((max - min) * 10).round(),
             label: value == 0 ? '0' : (value * 100).round().toString(),
-            // Only reprocess on release: firing the isolate on every pixel of
+            // Live-update the local value so the thumb tracks the finger, but
+            // only reprocess on release - firing the isolate on every pixel of
             // a drag would make the slider feel laggy.
-            onChanged: (double v) => setState(
-              () => _adjustments = switch (label) {
-                'Brightness' => _adjustments.copyWith(brightness: v),
-                'Contrast' => _adjustments.copyWith(contrast: v),
-                _ => _adjustments.copyWith(saturation: v),
-              },
-            ),
-            onChangeEnd: onChanged,
+            onChanged: (double v) => setState(() => _adjustments = apply(v)),
+            onChangeEnd: (double v) => _updateAdjustments(apply(v)),
           ),
         ),
       ],

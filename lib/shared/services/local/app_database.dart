@@ -19,6 +19,11 @@ class StudentEntries extends Table {
   TextColumn get fatherName => text().withDefault(const Constant(''))();
   TextColumn get studentClass => text().withDefault(const Constant(''))();
   TextColumn get division => text().withDefault(const Constant(''))();
+
+  /// School register number. Text, not an integer - real registers use values
+  /// like `12/A` and `0034` where a dropped leading zero changes the meaning.
+  TextColumn get rollNumber => text().withDefault(const Constant(''))();
+
   TextColumn get bloodGroup => text().withDefault(const Constant(''))();
   DateTimeColumn get dob => dateTime().nullable()();
   TextColumn get mobile => text().withDefault(const Constant(''))();
@@ -145,7 +150,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -205,6 +210,30 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             await m.createTable(auditLogs);
             await m.createTable(printBatches);
+          }
+
+          // v5 -> v6: roll number.
+          //
+          // The column is additive with an empty default, but the field also
+          // has to be switched ON for schools that already exist - the enabled
+          // field set is stored per school, so without this backfill a roll
+          // number column would exist that no form ever renders. New schools
+          // pick it up automatically via `SchoolConfig.allFieldKeys`.
+          if (from < 6) {
+            await m.addColumn(
+              studentEntries,
+              studentEntries.rollNumber as GeneratedColumn<Object>,
+            );
+            await customStatement('''
+UPDATE school_configs
+   SET enabled_fields = CASE
+         WHEN enabled_fields IS NULL OR enabled_fields = ''
+           THEN 'rollNumber'
+         ELSE enabled_fields || ',rollNumber'
+       END
+ WHERE enabled_fields IS NULL
+    OR enabled_fields NOT LIKE '%rollNumber%'
+''');
           }
         },
         beforeOpen: (OpeningDetails details) async {

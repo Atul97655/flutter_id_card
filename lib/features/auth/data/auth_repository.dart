@@ -129,7 +129,15 @@ class AuthRepository {
 
     final SessionUser session = await _loadProfile(fbUser);
 
-    if (session.role != expectedRole) {
+    // Compared by privilege class, not exact role. The operator tab accepts
+    // both School and Teacher accounts - they are the same data scope, and an
+    // exact-equality check here would lock every Teacher account out of the
+    // only tab it is allowed to use.
+    final bool roleMatches = expectedRole == UserRole.admin
+        ? session.role == UserRole.admin
+        : session.role.isOperator;
+
+    if (!roleMatches) {
       await _auth.signOut();
       throw AuthFailure(
         expectedRole == UserRole.admin
@@ -137,7 +145,7 @@ class AuthRepository {
             : 'This is an admin account - use the Admin tab to sign in.',
       );
     }
-    if (expectedRole == UserRole.school && !session.canEnterData) {
+    if (expectedRole != UserRole.admin && !session.canEnterData) {
       await _auth.signOut();
       throw const AuthFailure(
         'This account has no school assigned. Ask your administrator to set '
@@ -257,6 +265,74 @@ class AuthRepository {
     await prefs.remove(_sessionCacheKey);
     if (isBackendAvailable) {
       await _auth.signOut();
+    }
+  }
+
+  /// Changes the signed-in account's password.
+  ///
+  /// Re-authenticates with [currentPassword] first. Firebase requires a recent
+  /// login for a password change and otherwise fails with
+  /// `requires-recent-login` after the operator has already typed a new
+  /// password twice - re-authenticating up front turns that into a clear
+  /// "current password is wrong" instead.
+  ///
+  /// A reset-by-email flow deliberately is not offered: school accounts use a
+  /// synthetic address (`<code>@$kSchoolAuthDomain`) that never receives mail,
+  /// so a reset link would silently go nowhere.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (!isBackendAvailable) {
+      throw const AuthFailure(
+        'Cannot reach the server. Connect to the internet and try again.',
+      );
+    }
+
+    final User? user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw const AuthFailure('You are not signed in.');
+    }
+    if (newPassword.length < 6) {
+      throw const AuthFailure('The new password must be at least 6 characters.');
+    }
+    if (newPassword == currentPassword) {
+      throw const AuthFailure('The new password is the same as the old one.');
+    }
+
+    try {
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure(
+        switch (e.code) {
+          'wrong-password' ||
+          'invalid-credential' =>
+            'That is not your current password.',
+          'too-many-requests' =>
+            'Too many attempts. Wait a few minutes and try again.',
+          'network-request-failed' =>
+            'No connection. Try again when you are online.',
+          _ => 'Could not verify your current password (${e.code}).',
+        },
+      );
+    }
+
+    try {
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure(
+        switch (e.code) {
+          'weak-password' => 'That password is too easy to guess.',
+          'requires-recent-login' =>
+            'Sign out and sign in again, then change the password.',
+          _ => 'Could not change the password (${e.code}).',
+        },
+      );
     }
   }
 

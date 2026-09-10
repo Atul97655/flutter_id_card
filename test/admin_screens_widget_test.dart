@@ -96,9 +96,22 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Admin Panel'), findsOneWidget);
-      expect(find.text('Audit Log & Activity Trail'), findsOneWidget);
-      expect(find.text('Operator & School Accounts'), findsOneWidget);
-      expect(find.text('Test Academy'), findsOneWidget);
+      // Twice now: once beside the entry in Latest requests, once in the
+      // school list below it.
+      expect(find.text('Test Academy'), findsWidgets);
+
+      // The three verbose navigation cards were replaced by a compact quick
+      // actions grid, so the dashboard leads with the backlog instead of a
+      // wall of link cards.
+      expect(find.text('Quick actions'), findsOneWidget);
+      expect(find.text('Audit log'), findsOneWidget);
+      expect(find.text('Accounts'), findsOneWidget);
+      expect(find.text('Requests'), findsOneWidget);
+      expect(find.text('Bulk message'), findsOneWidget);
+
+      // One entry is awaiting review, so the callout is the first thing shown.
+      expect(find.text('awaiting review'), findsOneWidget);
+      expect(find.text('Latest requests'), findsOneWidget);
     });
   });
 

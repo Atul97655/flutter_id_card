@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/admin/application/admin_providers.dart';
+import 'package:flutter_id_card/features/admin/presentation/requests_queue_screen.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -52,49 +55,32 @@ class AdminDashboardScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
-          _StatGrid(stats: stats),
-          const SizedBox(height: 10),
-          Card(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: ListTile(
-              leading: Icon(Icons.analytics_outlined,
-                  color: Theme.of(context).colorScheme.primary),
-              title: const Text('Reports & Analytics',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text(
-                  'Cross-school breakdown, approval rates, monthly trends & CSV exports'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/admin/reports'),
+          // The backlog is why an admin opens this screen, so it leads -
+          // above the stat grid, which is context rather than a task.
+          if ((stats.value?.awaitingReview ?? 0) > 0) ...<Widget>[
+            FadeSlideIn(
+              child: _ReviewCallout(
+                waiting: stats.value!.awaitingReview,
+                onTap: () => context.push(RequestsQueueScreen.routePath),
+              ),
+            ),
+            const SizedBox(height: AppTheme.gutter),
+          ],
+
+          FadeSlideIn(index: 1, child: _StatGrid(stats: stats)),
+          const SizedBox(height: AppTheme.gutter),
+
+          const FadeSlideIn(index: 2, child: _QuickActions()),
+          const SizedBox(height: AppTheme.gutter),
+
+          FadeSlideIn(
+            index: 3,
+            child: _LatestRequests(
+              entries: entries.value ?? const <StudentEntry>[],
+              schools: schools.value ?? const <SchoolConfig>[],
             ),
           ),
-          const SizedBox(height: 6),
-          Card(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: ListTile(
-              leading: Icon(Icons.people_alt_outlined,
-                  color: Theme.of(context).colorScheme.primary),
-              title: const Text('Operator & School Accounts',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text(
-                  'Create school operator credentials and toggle active access'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/admin/users'),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Card(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: ListTile(
-              leading: Icon(Icons.receipt_long_outlined,
-                  color: Theme.of(context).colorScheme.secondary),
-              title: const Text('Audit Log & Activity Trail',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text(
-                  'Chronological history of approvals, rejections, exports & prints'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/admin/audit'),
-            ),
-          ),
+
           const SizedBox(height: AppTheme.gutter * 1.5),
           Row(
             children: <Widget>[
@@ -147,6 +133,327 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 }
 
+/// The one thing on this screen that is a task rather than information.
+class _ReviewCallout extends StatelessWidget {
+  const _ReviewCallout({required this.waiting, required this.onTap});
+
+  final int waiting;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PressableSurface(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppTheme.cornerRadius),
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFFE8760A), Color(0xFFF5A623)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: StatusColors.pending.withValues(alpha: 0.3),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.pending_actions,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      AnimatedCount(
+                        value: waiting,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'awaiting review',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  const Text(
+                    'Open the queue to approve or send them back',
+                    style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Everything an admin does that is not reviewing a card.
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 2, 4, 10),
+              child: Text(
+                'Quick actions',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 2.4,
+              children: <Widget>[
+                _Action(
+                  icon: Icons.fact_check_outlined,
+                  label: 'Requests',
+                  color: StatusColors.pending,
+                  onTap: () => context.push(RequestsQueueScreen.routePath),
+                ),
+                _Action(
+                  icon: Icons.campaign_outlined,
+                  label: 'Bulk message',
+                  color: const Color(0xFFAD1457),
+                  onTap: () => context.push('/admin/broadcast'),
+                ),
+                _Action(
+                  icon: Icons.forum_outlined,
+                  label: 'Messages',
+                  color: const Color(0xFF00695C),
+                  onTap: () => context.push('/messages'),
+                ),
+                _Action(
+                  icon: Icons.analytics_outlined,
+                  label: 'Reports',
+                  color: Theme.of(context).colorScheme.primary,
+                  onTap: () => context.push('/admin/reports'),
+                ),
+                _Action(
+                  icon: Icons.people_alt_outlined,
+                  label: 'Accounts',
+                  color: const Color(0xFF4527A0),
+                  onTap: () => context.push('/admin/users'),
+                ),
+                _Action(
+                  icon: Icons.history_edu_outlined,
+                  label: 'Audit log',
+                  color: Theme.of(context).colorScheme.secondary,
+                  onTap: () => context.push('/admin/audit'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Action extends StatelessWidget {
+  const _Action({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PressableSurface(
+      onTap: onTap,
+      scale: 0.95,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: color,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The most recent submissions across every school.
+class _LatestRequests extends StatelessWidget {
+  const _LatestRequests({required this.entries, required this.schools});
+
+  final List<StudentEntry> entries;
+  final List<SchoolConfig> schools;
+
+  static const int _max = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Map<String, String> names = <String, String>{
+      for (final SchoolConfig s in schools) s.id: s.name,
+    };
+
+    final List<StudentEntry> latest = <StudentEntry>[...entries]
+      ..sort(
+        (StudentEntry a, StudentEntry b) => b.createdAt.compareTo(a.createdAt),
+      );
+    final List<StudentEntry> shown = latest.take(_max).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppTheme.gutter, 14, 8, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Latest requests',
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (entries.length > shown.length)
+                  TextButton(
+                    onPressed: () =>
+                        context.push(RequestsQueueScreen.routePath),
+                    child: const Text('See all'),
+                  ),
+              ],
+            ),
+            if (shown.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 8, 8, 12),
+                child: Text(
+                  'Nothing has been submitted yet.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              )
+            else
+              for (final StudentEntry e in shown)
+                InkWell(
+                  onTap: () => context.push('/admin/schools/${e.schoolId}'),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 9,
+                      horizontal: 4,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                e.name.isEmpty ? 'UNNAMED' : e.name,
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                names[e.schoolId] ?? e.schoolId,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontSize: 11.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ApprovalStatusChip(
+                          status: e.approvalStatus,
+                          dense: true,
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StatGrid extends StatelessWidget {
   const _StatGrid({required this.stats});
 
@@ -177,15 +484,15 @@ class _StatGrid extends StatelessWidget {
           icon: Icons.verified_outlined,
         ),
         _StatTile(
-          label: 'Rejected',
-          value: s.rejected,
-          color: StatusColors.failed,
-          icon: Icons.cancel_outlined,
+          label: 'Printed',
+          value: s.printed,
+          color: StatusColors.printed,
+          icon: Icons.print_outlined,
         ),
         _StatTile(
           label: 'Ready to print',
           value: s.printable,
-          color: const Color(0xFF4527A0),
+          color: const Color(0xFF00695C),
           icon: Icons.local_printshop_outlined,
         ),
       ],

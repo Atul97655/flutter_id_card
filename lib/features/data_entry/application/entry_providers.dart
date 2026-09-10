@@ -1,4 +1,5 @@
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
+import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
@@ -51,6 +52,35 @@ final Provider<AsyncValue<Map<SyncStatus, int>>> syncCountsProvider =
     }
     return counts;
   });
+});
+
+/// Per-approval-state tallies for the My Submissions filter tabs.
+///
+/// Separate from [syncCountsProvider]: that one answers "has this reached the
+/// server?", this one answers "what did the office decide?". A teacher cares
+/// about the second and only notices the first when something is stuck.
+final Provider<AsyncValue<Map<ApprovalStatus, int>>> submissionCountsProvider =
+    Provider<AsyncValue<Map<ApprovalStatus, int>>>((Ref ref) {
+  return ref.watch(entriesProvider).whenData((List<StudentEntry> entries) {
+    final Map<ApprovalStatus, int> counts = <ApprovalStatus, int>{
+      for (final ApprovalStatus s in ApprovalStatus.values) s: 0,
+    };
+    for (final StudentEntry e in entries) {
+      counts[e.approvalStatus] = (counts[e.approvalStatus] ?? 0) + 1;
+    }
+    return counts;
+  });
+});
+
+/// Entries the operator needs to do something about - rejected work, which is
+/// the only state that is genuinely their move. Drives the home screen badge.
+final Provider<List<StudentEntry>> needsAttentionProvider =
+    Provider<List<StudentEntry>>((Ref ref) {
+  final List<StudentEntry> all =
+      ref.watch(entriesProvider).value ?? const <StudentEntry>[];
+  return all
+      .where((StudentEntry e) => e.approvalStatus.needsOperatorAttention)
+      .toList();
 });
 
 /// A single entry by id, for the edit and preview flows.

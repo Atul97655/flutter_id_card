@@ -137,6 +137,7 @@ class PhotoProcessor {
       saturation: adjustments.saturation,
       nudgeX: adjustments.nudgeX,
       nudgeY: adjustments.nudgeY,
+      cropScale: adjustments.cropScale,
     );
 
     final _ProcessResponse response = await compute(_runPipeline, request);
@@ -272,6 +273,7 @@ class _ProcessRequest {
     required this.saturation,
     required this.nudgeX,
     required this.nudgeY,
+    required this.cropScale,
   });
 
   final Uint8List sourceBytes;
@@ -288,6 +290,9 @@ class _ProcessRequest {
   final double saturation;
   final double nudgeX;
   final double nudgeY;
+
+  /// Crop-window scale from PhotoAdjustments.zoom; 1.0 leaves framing alone.
+  final double cropScale;
 
   bool get hasFace => faceLeft >= 0 && faceWidth > 0 && faceHeight > 0;
   bool get hasMask => maskConfidences != null && maskWidth > 0 && maskHeight > 0;
@@ -372,8 +377,11 @@ _ProcessResponse _runPipeline(_ProcessRequest req) {
             sourceHeight: working.height,
           );
 
+    // Zoom before nudge: tightening the window first means the nudge moves the
+    // crop the operator can actually see, and the clamp inside _applyNudge is
+    // computed against the final window size.
     final PixelRect nudged = _applyNudge(
-      crop,
+      _applyZoom(crop, req.cropScale),
       working.width,
       working.height,
       req.nudgeX,
@@ -484,6 +492,29 @@ double _smoothstep(double edge0, double edge1, double x) {
   if (edge1 <= edge0) return x >= edge1 ? 1 : 0;
   final double t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
   return t * t * (3 - 2 * t);
+}
+
+/// Tightens the crop window around its own centre.
+///
+/// Shrinking the window rather than scaling the pixels means zooming in raises
+/// the effective resolution of the face instead of upscaling - the crop still
+/// gets resized to [PhotoSpec] afterwards, so a tighter window simply spends
+/// more of the source's real detail on the face.
+///
+/// The aspect ratio is preserved: the card's photo box is a fixed 1.2 x 1.5 in,
+/// so a crop of any other shape would be squashed at the resize step.
+PixelRect _applyZoom(PixelRect crop, double cropScale) {
+  if (cropScale >= 1) return crop;
+
+  final int width = math.max(1, (crop.width * cropScale).round());
+  final int height = math.max(1, (crop.height * cropScale).round());
+
+  return PixelRect(
+    left: crop.left + ((crop.width - width) ~/ 2),
+    top: crop.top + ((crop.height - height) ~/ 2),
+    width: width,
+    height: height,
+  );
 }
 
 /// Shifts the crop by a fraction of its own size, then clamps it back inside

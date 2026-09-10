@@ -75,6 +75,18 @@ class $StudentEntriesTable extends StudentEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _rollNumberMeta = const VerificationMeta(
+    'rollNumber',
+  );
+  @override
+  late final GeneratedColumn<String> rollNumber = GeneratedColumn<String>(
+    'roll_number',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _bloodGroupMeta = const VerificationMeta(
     'bloodGroup',
   );
@@ -250,6 +262,7 @@ class $StudentEntriesTable extends StudentEntries
     fatherName,
     studentClass,
     division,
+    rollNumber,
     bloodGroup,
     dob,
     mobile,
@@ -316,6 +329,12 @@ class $StudentEntriesTable extends StudentEntries
       context.handle(
         _divisionMeta,
         division.isAcceptableOrUnknown(data['division']!, _divisionMeta),
+      );
+    }
+    if (data.containsKey('roll_number')) {
+      context.handle(
+        _rollNumberMeta,
+        rollNumber.isAcceptableOrUnknown(data['roll_number']!, _rollNumberMeta),
       );
     }
     if (data.containsKey('blood_group')) {
@@ -460,6 +479,10 @@ class $StudentEntriesTable extends StudentEntries
         DriftSqlType.string,
         data['${effectivePrefix}division'],
       )!,
+      rollNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}roll_number'],
+      )!,
       bloodGroup: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}blood_group'],
@@ -536,6 +559,10 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
   final String fatherName;
   final String studentClass;
   final String division;
+
+  /// School register number. Text, not an integer - real registers use values
+  /// like `12/A` and `0034` where a dropped leading zero changes the meaning.
+  final String rollNumber;
   final String bloodGroup;
   final DateTime? dob;
   final String mobile;
@@ -570,6 +597,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     required this.fatherName,
     required this.studentClass,
     required this.division,
+    required this.rollNumber,
     required this.bloodGroup,
     this.dob,
     required this.mobile,
@@ -595,6 +623,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     map['father_name'] = Variable<String>(fatherName);
     map['student_class'] = Variable<String>(studentClass);
     map['division'] = Variable<String>(division);
+    map['roll_number'] = Variable<String>(rollNumber);
     map['blood_group'] = Variable<String>(bloodGroup);
     if (!nullToAbsent || dob != null) {
       map['dob'] = Variable<DateTime>(dob);
@@ -635,6 +664,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       fatherName: Value(fatherName),
       studentClass: Value(studentClass),
       division: Value(division),
+      rollNumber: Value(rollNumber),
       bloodGroup: Value(bloodGroup),
       dob: dob == null && nullToAbsent ? const Value.absent() : Value(dob),
       mobile: Value(mobile),
@@ -677,6 +707,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       fatherName: serializer.fromJson<String>(json['fatherName']),
       studentClass: serializer.fromJson<String>(json['studentClass']),
       division: serializer.fromJson<String>(json['division']),
+      rollNumber: serializer.fromJson<String>(json['rollNumber']),
       bloodGroup: serializer.fromJson<String>(json['bloodGroup']),
       dob: serializer.fromJson<DateTime?>(json['dob']),
       mobile: serializer.fromJson<String>(json['mobile']),
@@ -704,6 +735,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       'fatherName': serializer.toJson<String>(fatherName),
       'studentClass': serializer.toJson<String>(studentClass),
       'division': serializer.toJson<String>(division),
+      'rollNumber': serializer.toJson<String>(rollNumber),
       'bloodGroup': serializer.toJson<String>(bloodGroup),
       'dob': serializer.toJson<DateTime?>(dob),
       'mobile': serializer.toJson<String>(mobile),
@@ -729,6 +761,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     String? fatherName,
     String? studentClass,
     String? division,
+    String? rollNumber,
     String? bloodGroup,
     Value<DateTime?> dob = const Value.absent(),
     String? mobile,
@@ -751,6 +784,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     fatherName: fatherName ?? this.fatherName,
     studentClass: studentClass ?? this.studentClass,
     division: division ?? this.division,
+    rollNumber: rollNumber ?? this.rollNumber,
     bloodGroup: bloodGroup ?? this.bloodGroup,
     dob: dob.present ? dob.value : this.dob,
     mobile: mobile ?? this.mobile,
@@ -785,6 +819,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           ? data.studentClass.value
           : this.studentClass,
       division: data.division.present ? data.division.value : this.division,
+      rollNumber: data.rollNumber.present
+          ? data.rollNumber.value
+          : this.rollNumber,
       bloodGroup: data.bloodGroup.present
           ? data.bloodGroup.value
           : this.bloodGroup,
@@ -830,6 +867,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           ..write('fatherName: $fatherName, ')
           ..write('studentClass: $studentClass, ')
           ..write('division: $division, ')
+          ..write('rollNumber: $rollNumber, ')
           ..write('bloodGroup: $bloodGroup, ')
           ..write('dob: $dob, ')
           ..write('mobile: $mobile, ')
@@ -857,6 +895,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     fatherName,
     studentClass,
     division,
+    rollNumber,
     bloodGroup,
     dob,
     mobile,
@@ -883,6 +922,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           other.fatherName == this.fatherName &&
           other.studentClass == this.studentClass &&
           other.division == this.division &&
+          other.rollNumber == this.rollNumber &&
           other.bloodGroup == this.bloodGroup &&
           other.dob == this.dob &&
           other.mobile == this.mobile &&
@@ -907,6 +947,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
   final Value<String> fatherName;
   final Value<String> studentClass;
   final Value<String> division;
+  final Value<String> rollNumber;
   final Value<String> bloodGroup;
   final Value<DateTime?> dob;
   final Value<String> mobile;
@@ -930,6 +971,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.fatherName = const Value.absent(),
     this.studentClass = const Value.absent(),
     this.division = const Value.absent(),
+    this.rollNumber = const Value.absent(),
     this.bloodGroup = const Value.absent(),
     this.dob = const Value.absent(),
     this.mobile = const Value.absent(),
@@ -954,6 +996,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.fatherName = const Value.absent(),
     this.studentClass = const Value.absent(),
     this.division = const Value.absent(),
+    this.rollNumber = const Value.absent(),
     this.bloodGroup = const Value.absent(),
     this.dob = const Value.absent(),
     this.mobile = const Value.absent(),
@@ -981,6 +1024,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Expression<String>? fatherName,
     Expression<String>? studentClass,
     Expression<String>? division,
+    Expression<String>? rollNumber,
     Expression<String>? bloodGroup,
     Expression<DateTime>? dob,
     Expression<String>? mobile,
@@ -1005,6 +1049,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       if (fatherName != null) 'father_name': fatherName,
       if (studentClass != null) 'student_class': studentClass,
       if (division != null) 'division': division,
+      if (rollNumber != null) 'roll_number': rollNumber,
       if (bloodGroup != null) 'blood_group': bloodGroup,
       if (dob != null) 'dob': dob,
       if (mobile != null) 'mobile': mobile,
@@ -1031,6 +1076,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Value<String>? fatherName,
     Value<String>? studentClass,
     Value<String>? division,
+    Value<String>? rollNumber,
     Value<String>? bloodGroup,
     Value<DateTime?>? dob,
     Value<String>? mobile,
@@ -1055,6 +1101,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       fatherName: fatherName ?? this.fatherName,
       studentClass: studentClass ?? this.studentClass,
       division: division ?? this.division,
+      rollNumber: rollNumber ?? this.rollNumber,
       bloodGroup: bloodGroup ?? this.bloodGroup,
       dob: dob ?? this.dob,
       mobile: mobile ?? this.mobile,
@@ -1094,6 +1141,9 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     }
     if (division.present) {
       map['division'] = Variable<String>(division.value);
+    }
+    if (rollNumber.present) {
+      map['roll_number'] = Variable<String>(rollNumber.value);
     }
     if (bloodGroup.present) {
       map['blood_group'] = Variable<String>(bloodGroup.value);
@@ -1155,6 +1205,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
           ..write('fatherName: $fatherName, ')
           ..write('studentClass: $studentClass, ')
           ..write('division: $division, ')
+          ..write('rollNumber: $rollNumber, ')
           ..write('bloodGroup: $bloodGroup, ')
           ..write('dob: $dob, ')
           ..write('mobile: $mobile, ')
@@ -3167,6 +3218,7 @@ typedef $$StudentEntriesTableCreateCompanionBuilder =
       Value<String> fatherName,
       Value<String> studentClass,
       Value<String> division,
+      Value<String> rollNumber,
       Value<String> bloodGroup,
       Value<DateTime?> dob,
       Value<String> mobile,
@@ -3192,6 +3244,7 @@ typedef $$StudentEntriesTableUpdateCompanionBuilder =
       Value<String> fatherName,
       Value<String> studentClass,
       Value<String> division,
+      Value<String> rollNumber,
       Value<String> bloodGroup,
       Value<DateTime?> dob,
       Value<String> mobile,
@@ -3246,6 +3299,11 @@ class $$StudentEntriesTableFilterComposer
 
   ColumnFilters<String> get division => $composableBuilder(
     column: $table.division,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rollNumber => $composableBuilder(
+    column: $table.rollNumber,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3364,6 +3422,11 @@ class $$StudentEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get rollNumber => $composableBuilder(
+    column: $table.rollNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get bloodGroup => $composableBuilder(
     column: $table.bloodGroup,
     builder: (column) => ColumnOrderings(column),
@@ -3470,6 +3533,11 @@ class $$StudentEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get division =>
       $composableBuilder(column: $table.division, builder: (column) => column);
+
+  GeneratedColumn<String> get rollNumber => $composableBuilder(
+    column: $table.rollNumber,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get bloodGroup => $composableBuilder(
     column: $table.bloodGroup,
@@ -3578,6 +3646,7 @@ class $$StudentEntriesTableTableManager
                 Value<String> fatherName = const Value.absent(),
                 Value<String> studentClass = const Value.absent(),
                 Value<String> division = const Value.absent(),
+                Value<String> rollNumber = const Value.absent(),
                 Value<String> bloodGroup = const Value.absent(),
                 Value<DateTime?> dob = const Value.absent(),
                 Value<String> mobile = const Value.absent(),
@@ -3601,6 +3670,7 @@ class $$StudentEntriesTableTableManager
                 fatherName: fatherName,
                 studentClass: studentClass,
                 division: division,
+                rollNumber: rollNumber,
                 bloodGroup: bloodGroup,
                 dob: dob,
                 mobile: mobile,
@@ -3626,6 +3696,7 @@ class $$StudentEntriesTableTableManager
                 Value<String> fatherName = const Value.absent(),
                 Value<String> studentClass = const Value.absent(),
                 Value<String> division = const Value.absent(),
+                Value<String> rollNumber = const Value.absent(),
                 Value<String> bloodGroup = const Value.absent(),
                 Value<DateTime?> dob = const Value.absent(),
                 Value<String> mobile = const Value.absent(),
@@ -3649,6 +3720,7 @@ class $$StudentEntriesTableTableManager
                 fatherName: fatherName,
                 studentClass: studentClass,
                 division: division,
+                rollNumber: rollNumber,
                 bloodGroup: bloodGroup,
                 dob: dob,
                 mobile: mobile,

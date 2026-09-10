@@ -211,6 +211,31 @@ class StudentRepository {
     );
   }
 
+  /// Marks every entry that went into a print run as printed.
+  ///
+  /// Called by the print screen after a batch is written, never chosen by hand.
+  /// Only `approved` rows move: a row that is somehow still pending must not be
+  /// promoted straight to printed, and a row already printed does not need its
+  /// review timestamp rewritten on every reprint.
+  ///
+  /// Like [approve], this re-queues the rows for sync so the teacher's device
+  /// learns their cards were printed.
+  Future<int> markPrinted(List<String> ids) async {
+    if (ids.isEmpty) return 0;
+    return (_db.update(_db.studentEntries)
+          ..where(
+            (StudentEntries t) =>
+                t.id.isIn(ids) & t.approvalStatus.equals('approved'),
+          ))
+        .write(
+      const StudentEntriesCompanion(
+        approvalStatus: Value<String>('printed'),
+        syncStatus: Value<String>('pending'),
+        syncAttempts: Value<int>(0),
+      ),
+    );
+  }
+
   /// Bulk approve, for an admin clearing a whole class at once. Runs as one
   /// batch so a hundred-row approval is a single database round trip.
   Future<void> approveAll(
@@ -363,6 +388,7 @@ class StudentRepository {
         fatherName: row.fatherName,
         studentClass: row.studentClass,
         division: row.division,
+        rollNumber: row.rollNumber,
         bloodGroup: row.bloodGroup,
         dob: row.dob,
         mobile: row.mobile,
@@ -387,6 +413,7 @@ class StudentRepository {
         fatherName: Value<String>(e.fatherName),
         studentClass: Value<String>(e.studentClass),
         division: Value<String>(e.division),
+        rollNumber: Value<String>(e.rollNumber),
         bloodGroup: Value<String>(e.bloodGroup),
         dob: Value<DateTime?>(e.dob),
         mobile: Value<String>(e.mobile),
