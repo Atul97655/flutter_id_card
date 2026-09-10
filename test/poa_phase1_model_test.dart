@@ -144,11 +144,11 @@ void main() {
     });
   });
 
-  group('Schema v6 migration', () {
-    test('declares version 6', () {
+  group('Schema migration', () {
+    test('declares version 7', () {
       final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
       addTearDown(db.close);
-      expect(db.schemaVersion, 6);
+      expect(db.schemaVersion, 7);
     });
 
     test('stores and reads back a roll number', () async {

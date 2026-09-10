@@ -107,9 +107,14 @@ class StudentRepository {
         .go();
   }
 
+  /// Marks an upload as in flight and stamps the attempt clock, which is what
+  /// [resetStaleSyncing] measures against.
   Future<void> markSyncing(String id) => _patchSync(
         id,
-        const StudentEntriesCompanion(syncStatus: Value<String>('syncing')),
+        StudentEntriesCompanion(
+          syncStatus: const Value<String>('syncing'),
+          lastSyncAttemptAt: Value<DateTime?>(DateTime.now()),
+        ),
       );
 
   Future<void> markSynced(String id, {String? remotePhotoUrl}) => _patchSync(
@@ -130,6 +135,9 @@ class StudentRepository {
           syncStatus: const Value<String>('failed'),
           syncError: Value<String?>(error),
           syncAttempts: Value<int>(previousAttempts + 1),
+          // Stamped so the backoff measures from this failure rather than from
+          // whenever the operator last edited the row.
+          lastSyncAttemptAt: Value<DateTime?>(DateTime.now()),
         ),
       );
 
@@ -146,12 +154,21 @@ class StudentRepository {
         syncStatus: Value<String>('pending'),
         syncAttempts: Value<int>(0),
         syncError: Value<String?>(null),
+        // Cleared so an explicit retry is attempted at once instead of sitting
+        // out the backoff from the failure the operator just reacted to.
+        lastSyncAttemptAt: Value<DateTime?>(null),
       ),
     );
   }
 
   /// Resets entries stuck in 'syncing' for more than [olderThan] (default 10 min)
   /// back to 'pending'.
+  ///
+  /// Measures `lastSyncAttemptAt`, not `updatedAt`. Using the edit time meant a
+  /// row edited over ten minutes ago looked stuck the instant it started
+  /// uploading, so a genuinely in-flight upload could be reset and sent twice.
+  /// A row with no attempt clock at all is treated as stuck: it can only get
+  /// into that state from a build before this column existed.
   Future<int> resetStaleSyncing({
     Duration olderThan = const Duration(minutes: 10),
   }) async {
@@ -160,7 +177,8 @@ class StudentRepository {
           ..where(
             (StudentEntries t) =>
                 t.syncStatus.equals('syncing') &
-                t.updatedAt.isSmallerThanValue(threshold),
+                (t.lastSyncAttemptAt.isSmallerThanValue(threshold) |
+                    t.lastSyncAttemptAt.isNull()),
           ))
         .write(
       const StudentEntriesCompanion(
@@ -403,6 +421,7 @@ class StudentRepository {
         reviewedBy: row.reviewedBy,
         reviewedAt: row.reviewedAt,
         createdAt: row.createdAt,
+        lastSyncAttemptAt: row.lastSyncAttemptAt,
         updatedAt: row.updatedAt,
       );
 
@@ -428,6 +447,7 @@ class StudentRepository {
         reviewedBy: Value<String?>(e.reviewedBy),
         reviewedAt: Value<DateTime?>(e.reviewedAt),
         createdAt: Value<DateTime>(e.createdAt),
+        lastSyncAttemptAt: Value<DateTime?>(e.lastSyncAttemptAt),
         updatedAt: Value<DateTime>(e.updatedAt),
       );
 }

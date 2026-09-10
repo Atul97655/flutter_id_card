@@ -38,6 +38,18 @@ class StudentEntries extends Table {
   IntColumn get syncAttempts => integer().withDefault(const Constant(0))();
   TextColumn get syncError => text().nullable()();
 
+  /// When the worker last *attempted* to upload this row.
+  ///
+  /// Deliberately separate from [updatedAt], which is when the operator last
+  /// edited the record. The retry backoff and the stuck-upload sweep both need
+  /// "when did we last try", and reading the edit time instead made both
+  /// meaningless: a row edited an hour ago was always already past its backoff
+  /// window, and was always old enough to look stuck the instant it started
+  /// uploading.
+  ///
+  /// Null until the first attempt. Device-local bookkeeping - never uploaded.
+  DateTimeColumn get lastSyncAttemptAt => dateTime().nullable()();
+
   /// Stores the `ApprovalStatus` enum name - the admin's review decision,
   /// independent of whether the row has uploaded yet.
   TextColumn get approvalStatus => text().withDefault(const Constant('pending'))();
@@ -150,7 +162,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -234,6 +246,19 @@ UPDATE school_configs
  WHERE enabled_fields IS NULL
     OR enabled_fields NOT LIKE '%rollNumber%'
 ''');
+          }
+
+          // v6 -> v7: give sync its own clock.
+          //
+          // Nullable with no backfill on purpose. A null reads as "never
+          // attempted", which makes every existing row immediately eligible
+          // for one upload attempt - the correct behaviour after an upgrade,
+          // and it cannot strand a row that was mid-retry.
+          if (from < 7) {
+            await m.addColumn(
+              studentEntries,
+              studentEntries.lastSyncAttemptAt as GeneratedColumn<Object>,
+            );
           }
         },
         beforeOpen: (OpeningDetails details) async {

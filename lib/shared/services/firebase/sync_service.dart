@@ -361,7 +361,7 @@ class SyncService {
 
     int uploaded = 0;
     for (final StudentEntry entry in due) {
-      if (await _shouldDelay(entry)) continue;
+      if (_shouldDelay(entry)) continue;
 
       final bool ok = await _uploadOne(entry);
       if (ok) uploaded++;
@@ -372,8 +372,21 @@ class SyncService {
   /// Exponential backoff between retries of the same row: roughly 2s, 4s, 8s,
   /// ... capped at 5 minutes. Without this, a row that fails instantly would
   /// be retried on every pass and dominate the batch.
-  Future<bool> _shouldDelay(StudentEntry entry) async {
+  ///
+  /// Measured from [StudentEntry.lastSyncAttemptAt] - when the worker last
+  /// tried - NOT from `updatedAt`, which is when the operator last edited the
+  /// row. Reading the edit time made this a no-op: by the time a row had
+  /// failed once, its edit time was almost always further in the past than any
+  /// backoff window, so the check returned false every time and the "bounded
+  /// retries with backoff" this class documents never actually happened.
+  bool _shouldDelay(StudentEntry entry) {
     if (entry.syncAttempts == 0) return false;
+
+    // No attempt clock means a row written before that column existed. Let it
+    // through: one immediate attempt is the safe direction, and the next
+    // failure stamps the clock properly.
+    final DateTime? lastAttempt = entry.lastSyncAttemptAt;
+    if (lastAttempt == null) return false;
 
     final Duration wait = Duration(
       seconds: math.min(
@@ -381,8 +394,7 @@ class SyncService {
         math.pow(2, entry.syncAttempts).toInt(),
       ),
     );
-    final DateTime readyAt = entry.updatedAt.add(wait);
-    return DateTime.now().isBefore(readyAt);
+    return DateTime.now().isBefore(lastAttempt.add(wait));
   }
 
   Future<bool> _uploadOne(StudentEntry entry) async {

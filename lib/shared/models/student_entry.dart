@@ -27,6 +27,7 @@ class StudentEntry {
     this.syncStatus = SyncStatus.pending,
     this.syncAttempts = 0,
     this.syncError,
+    this.lastSyncAttemptAt,
     this.approvalStatus = ApprovalStatus.pending,
     this.rejectionReason,
     this.reviewedBy,
@@ -62,6 +63,13 @@ class StudentEntry {
   final SyncStatus syncStatus;
   final int syncAttempts;
   final String? syncError;
+
+  /// When the sync worker last tried to upload this row, or null if it never
+  /// has. Distinct from [updatedAt], which is when the *operator* last edited
+  /// it - the retry backoff and the stuck-upload sweep both need the former.
+  ///
+  /// Device-local bookkeeping: not part of [toFirestoreMap].
+  final DateTime? lastSyncAttemptAt;
 
   /// The admin's review decision. Independent of [syncStatus] - see
   /// [ApprovalStatus] for why the two are kept apart.
@@ -141,6 +149,7 @@ class StudentEntry {
     int? syncAttempts,
     String? syncError,
     bool clearSyncError = false,
+    DateTime? lastSyncAttemptAt,
     ApprovalStatus? approvalStatus,
     String? rejectionReason,
     bool clearRejectionReason = false,
@@ -166,6 +175,7 @@ class StudentEntry {
       syncStatus: syncStatus ?? this.syncStatus,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: clearSyncError ? null : (syncError ?? this.syncError),
+      lastSyncAttemptAt: lastSyncAttemptAt ?? this.lastSyncAttemptAt,
       approvalStatus: approvalStatus ?? this.approvalStatus,
       rejectionReason:
           clearRejectionReason ? null : (rejectionReason ?? this.rejectionReason),
