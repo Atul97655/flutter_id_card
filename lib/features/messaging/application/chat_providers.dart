@@ -52,6 +52,26 @@ final Provider<Chat?> adminChatProvider = Provider<Chat?>((Ref ref) {
   return null;
 });
 
+/// Every announcement the admin has sent, newest first.
+///
+/// Broadcasts need no table of their own: one broadcast IS one chat document,
+/// so the conversation list already is the archive. That also means the
+/// delivery report stays live rather than being a snapshot frozen at send
+/// time - `unreadFor` shrinks as recipients open it.
+final Provider<List<Chat>> sentBroadcastsProvider =
+    Provider<List<Chat>>((Ref ref) {
+  final List<Chat> chats = ref.watch(myChatsProvider).value ?? const <Chat>[];
+  final List<Chat> broadcasts = chats
+      .where((Chat c) => c.kind == ChatKind.broadcast)
+      .toList()
+    ..sort((Chat a, Chat b) {
+      final DateTime x = a.lastMessageAt ?? DateTime(1970);
+      final DateTime y = b.lastMessageAt ?? DateTime(1970);
+      return y.compareTo(x);
+    });
+  return broadcasts;
+});
+
 /// Total unread conversations, for the badge on the home screen.
 final Provider<int> unreadChatCountProvider = Provider<int>((Ref ref) {
   final SessionUser? session = ref.watch(currentSessionProvider);

@@ -10,31 +10,34 @@ import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 /// How the admin picked who receives a broadcast.
 enum RecipientMode { everyone, bySchool, selected }
 
-/// Outcome of one broadcast, shown as the delivery report the plan asks for.
+/// Outcome of one broadcast, as far as the send itself can know.
+///
+/// There is deliberately no `failures` list. A broadcast is ONE announcement
+/// conversation, written in a single batch - it either lands for everyone or
+/// it throws and lands for nobody. A per-recipient failure cannot occur, so a
+/// field for it could only ever be empty, and an earlier version of this
+/// screen reported a hardcoded empty list as if it had checked.
+///
+/// What "delivery" actually means here is whether recipients have *opened* it,
+/// and that is live state on the conversation rather than anything the send
+/// can return. See [_DeliveryReport], which reads it from `unreadFor`.
 class BroadcastResult {
   const BroadcastResult({
+    required this.chatId,
     required this.recipients,
     required this.schools,
-    required this.failures,
     required this.sentAt,
   });
 
+  final String chatId;
   final int recipients;
   final int schools;
-
-  /// Recipients the send could not reach, by display name. Non-empty means a
-  /// partial delivery, which must be reported rather than rounded up to
-  /// "sent".
-  final List<String> failures;
-
   final DateTime sentAt;
-
-  int get delivered => recipients - failures.length;
-  bool get isComplete => failures.isEmpty;
 }
 
 /// Compose one message and send it to many operators at once.
@@ -180,6 +183,13 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
                             padding: const EdgeInsets.only(top: AppTheme.gutter),
                             child: _DeliveryReport(result: _result!),
                           ),
+                  ),
+
+                  // The plan asks for a delivery report per broadcast, not just
+                  // for the one that was sent a moment ago.
+                  const Padding(
+                    padding: EdgeInsets.only(top: AppTheme.gutter),
+                    child: _BroadcastHistory(),
                   ),
 
                   const SizedBox(height: AppTheme.gutter),
@@ -333,9 +343,9 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
       if (!mounted) return;
       setState(() {
         _result = BroadcastResult(
+          chatId: chat.id,
           recipients: recipients.length,
           schools: schoolIds.length,
-          failures: const <String>[],
           sentAt: DateTime.now(),
         );
         _title.clear();
@@ -544,16 +554,37 @@ class _RecipientSummary extends StatelessWidget {
 // Delivery report
 // ---------------------------------------------------------------------------
 
-class _DeliveryReport extends StatelessWidget {
+/// Live delivery report for the broadcast that was just sent.
+///
+/// "Delivered" is not something the send can report: writing the announcement
+/// is one atomic batch, so it reaches everyone or nobody. The number that
+/// actually matters to an admin is how many recipients have OPENED it, which
+/// is live state - `unreadFor` on the conversation shrinks as people read.
+/// So this watches the chat rather than rendering a frozen snapshot.
+class _DeliveryReport extends ConsumerWidget {
   const _DeliveryReport({required this.result});
 
   final BroadcastResult result;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
-    final Color tint =
-        result.isComplete ? StatusColors.synced : StatusColors.pending;
+
+    final Chat? chat = ref
+        .watch(sentBroadcastsProvider)
+        .where((Chat c) => c.id == result.chatId)
+        .firstOrNull;
+
+    // Until the conversation round-trips back through the snapshot listener,
+    // nobody has read it yet - which is true, and still worth showing.
+    final String? adminUid = ref.watch(currentSessionProvider)?.uid;
+    final int read = (chat == null || adminUid == null)
+        ? 0
+        : chat.readCount(adminUid);
+    final int unread = result.recipients - read;
+    final bool allRead = read == result.recipients && result.recipients > 0;
+
+    final Color tint = allRead ? StatusColors.synced : StatusColors.syncing;
 
     return Card(
       color: tint.withValues(alpha: 0.07),
@@ -569,14 +600,14 @@ class _DeliveryReport extends StatelessWidget {
             Row(
               children: <Widget>[
                 Icon(
-                  result.isComplete
+                  allRead
                       ? Icons.mark_email_read_outlined
-                      : Icons.warning_amber_rounded,
+                      : Icons.send_outlined,
                   color: tint,
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  result.isComplete ? 'Delivered' : 'Partly delivered',
+                  allRead ? 'Read by everyone' : 'Sent',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: tint,
@@ -587,20 +618,31 @@ class _DeliveryReport extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
-                _Stat(label: 'Recipients', value: result.delivered),
+                _Stat(label: 'Recipients', value: result.recipients),
                 _Stat(label: 'Schools', value: result.schools),
-                if (!result.isComplete)
-                  _Stat(label: 'Failed', value: result.failures.length),
+                _Stat(label: 'Opened', value: read),
               ],
             ),
-            if (!result.isComplete) ...<Widget>[
-              const SizedBox(height: 10),
-              Text(
-                'Could not reach: ${result.failures.join(', ')}',
-                style: const TextStyle(fontSize: 12, height: 1.4),
-              ),
-            ],
             const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: result.recipients == 0 ? 0 : read / result.recipients,
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(3),
+              backgroundColor: tint.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation<Color>(tint),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              allRead
+                  ? 'Every recipient has opened this announcement.'
+                  : '$unread of ${result.recipients} have not opened it yet. '
+                      'This updates as they do.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 6),
             Text(
               'Recipients see this the next time they open the app. Push '
               'notifications are not enabled, so it will not reach a closed '
@@ -612,6 +654,121 @@ class _DeliveryReport extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Past announcements with their live read counts - the plan's "delivery
+/// report view for each broadcast".
+///
+/// No archive table is needed: one broadcast is one chat document, so the
+/// conversation list already is the history.
+class _BroadcastHistory extends ConsumerWidget {
+  const _BroadcastHistory();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ThemeData theme = Theme.of(context);
+    final List<Chat> sent = ref.watch(sentBroadcastsProvider);
+    final String? adminUid = ref.watch(currentSessionProvider)?.uid;
+
+    if (sent.isEmpty || adminUid == null) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding:
+            const EdgeInsets.fromLTRB(AppTheme.gutter, 14, AppTheme.gutter, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Past announcements',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Read counts update live as recipients open them.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            for (final Chat c in sent.take(10))
+              _HistoryRow(chat: c, senderUid: adminUid),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.chat, required this.senderUid});
+
+  final Chat chat;
+
+  /// The admin who sent it - excluded from the recipient and read totals.
+  final String senderUid;
+
+  static final DateFormat _stamp = DateFormat('dd MMM, h:mm a');
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    final int recipients = chat.recipientCount(senderUid);
+    final int read = chat.readCount(senderUid);
+    final bool allRead = recipients > 0 && read == recipients;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            allRead ? Icons.mark_email_read_outlined : Icons.campaign_outlined,
+            size: 18,
+            color: allRead ? StatusColors.synced : theme.colorScheme.outline,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  chat.title.isEmpty ? 'Announcement' : chat.title,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  chat.lastMessageAt == null
+                      ? chat.lastMessage
+                      : '${_stamp.format(chat.lastMessageAt!)} - '
+                          '${chat.lastMessage}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 11.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '$read/$recipients read',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: allRead ? StatusColors.synced : theme.colorScheme.outline,
+            ),
+          ),
+        ],
       ),
     );
   }

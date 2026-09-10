@@ -4,6 +4,7 @@ import 'package:flutter_id_card/features/admin/presentation/requests_queue_scree
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/managed_user.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
 import 'package:flutter_id_card/features/messaging/presentation/broadcast_screen.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
@@ -159,29 +160,92 @@ void main() {
     });
   });
 
-  group('BroadcastResult', () {
-    test('a clean send reports every recipient delivered', () {
-      final BroadcastResult r = BroadcastResult(
-        recipients: 12,
-        schools: 3,
-        failures: const <String>[],
-        sentAt: DateTime(2026, 9, 10),
-      );
+  group('Broadcast delivery reporting', () {
+    // The old tests here asserted a 'partial delivery' path that production
+    // could never produce: a broadcast is ONE announcement conversation
+    // written in a single batch, so it lands for everyone or throws. The
+    // screen reported a hardcoded empty failure list as though it had
+    // checked. What is actually measurable is who has OPENED it.
+    const String admin = 'uid-admin';
 
-      expect(r.isComplete, isTrue);
-      expect(r.delivered, 12);
+    Chat broadcast({
+      required List<String> members,
+      required List<String> unreadFor,
+    }) =>
+        Chat(
+          id: 'b1',
+          title: 'Holiday notice',
+          members: members,
+          kind: ChatKind.broadcast,
+          unreadFor: unreadFor,
+          lastMessage: 'School closed Monday',
+          lastMessageAt: DateTime(2026, 9, 10),
+        );
+
+    test('the sender is not counted as one of their own recipients', () {
+      final Chat c = broadcast(
+        members: <String>[admin, 'a', 'b', 'c'],
+        unreadFor: <String>['a', 'b', 'c'],
+      );
+      expect(c.recipientCount(admin), 3);
     });
 
-    test('a partial send is not rounded up to success', () {
+    test('nobody has read it the moment it goes out', () {
+      final Chat c = broadcast(
+        members: <String>[admin, 'a', 'b', 'c'],
+        unreadFor: <String>['a', 'b', 'c'],
+      );
+      expect(c.readCount(admin), 0);
+    });
+
+    test('the count rises as recipients open it', () {
+      final Chat c = broadcast(
+        members: <String>[admin, 'a', 'b', 'c'],
+        unreadFor: <String>['c'],
+      );
+      expect(c.recipientCount(admin), 3);
+      expect(c.readCount(admin), 2);
+    });
+
+    test('everyone read is the full count', () {
+      final Chat c = broadcast(
+        members: <String>[admin, 'a', 'b'],
+        unreadFor: const <String>[],
+      );
+      expect(c.readCount(admin), 2);
+      expect(c.readCount(admin), c.recipientCount(admin));
+    });
+
+    test('the sender lingering in unreadFor never skews the total', () {
+      // The admin is a member, so a stale entry for them must not be counted
+      // as an unread recipient and push the read count negative.
+      final Chat c = broadcast(
+        members: <String>[admin, 'a'],
+        unreadFor: <String>[admin, 'a'],
+      );
+      expect(c.recipientCount(admin), 1);
+      expect(c.readCount(admin), 0);
+    });
+
+    test('a broadcast addressed to nobody reports zero, not a crash', () {
+      final Chat c = broadcast(
+        members: <String>[admin],
+        unreadFor: const <String>[],
+      );
+      expect(c.recipientCount(admin), 0);
+      expect(c.readCount(admin), 0);
+    });
+
+    test('the result carries the chat id so the report can stay live', () {
       final BroadcastResult r = BroadcastResult(
-        recipients: 10,
-        schools: 2,
-        failures: const <String>['RAVI M', 'ASHA K'],
+        chatId: 'b1',
+        recipients: 12,
+        schools: 3,
         sentAt: DateTime(2026, 9, 10),
       );
-
-      expect(r.isComplete, isFalse);
-      expect(r.delivered, 8);
+      expect(r.chatId, 'b1');
+      expect(r.recipients, 12);
+      expect(r.schools, 3);
     });
   });
 

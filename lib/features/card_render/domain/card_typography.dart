@@ -43,12 +43,24 @@ class CardTypography {
     StudentField.fatherName: CardTypography(sizePt: 7, bold: false, color: _blue),
     StudentField.studentClass: CardTypography(sizePt: 8, bold: false, color: _red),
     StudentField.division: CardTypography(sizePt: 8, bold: false, color: _red),
+    // 7 pt rather than the 8 pt Class and Div carry: the register number is a
+    // secondary identifier, and the 54 x 86 card is already tight enough that
+    // an extra 8 pt row costs legibility everywhere else. Matches Mobile,
+    // which plays the same supporting role.
+    StudentField.rollNumber: CardTypography(sizePt: 7, bold: false, color: _red),
     StudentField.bloodGroup: CardTypography(sizePt: 7, bold: false, color: _blue),
     StudentField.dob: CardTypography(sizePt: 7, bold: false, color: _blue),
     StudentField.mobile: CardTypography(sizePt: 7, bold: false, color: _red),
     StudentField.address: CardTypography(sizePt: 5, bold: false, color: _red, maxLines: 2),
   };
 
+  /// Style for a field.
+  ///
+  /// The fallback exists so a field added by a newer build cannot crash an
+  /// older renderer, but relying on it is a mistake: it silently prints at a
+  /// size nobody chose. `card_fit_rollnumber_test.dart` asserts that every
+  /// printable field has a real entry above, so a missing one fails the suite
+  /// instead of shipping.
   static CardTypography forField(StudentField field) =>
       byField[field] ??
       const CardTypography(sizePt: 7, bold: false, color: _red);

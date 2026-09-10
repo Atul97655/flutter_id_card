@@ -68,6 +68,26 @@ class Chat {
 
   bool isUnreadFor(String uid) => unreadFor.contains(uid);
 
+  /// How many people an announcement was addressed to, excluding [senderUid].
+  ///
+  /// The admin is a member of their own broadcast so it appears in their list
+  /// as a record of what went out, but they are not a recipient of it.
+  int recipientCount(String senderUid) =>
+      members.where((String uid) => uid != senderUid).length;
+
+  /// How many recipients have opened it.
+  ///
+  /// This is the only honest measure of "delivery" for a broadcast. Writing
+  /// the announcement is one atomic batch - it lands for everyone or nobody -
+  /// so there is no per-recipient send failure to count. What an admin
+  /// actually wants to know is who has seen it, and [unreadFor] tracks that
+  /// live as people open the conversation.
+  int readCount(String senderUid) {
+    final int total = recipientCount(senderUid);
+    final int unread = unreadFor.where((String uid) => uid != senderUid).length;
+    return (total - unread).clamp(0, total);
+  }
+
   Chat copyWith({
     String? title,
     List<String>? members,
