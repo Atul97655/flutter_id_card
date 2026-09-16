@@ -79,3 +79,33 @@ browser would log the admin out. The mobile app already does it correctly.
 pipeline. A card specified as 54 × 86 mm has to measure 54 × 86 mm under a
 ruler, and two implementations of that is one too many. This panel shows what
 is ready and records that a batch was printed.
+
+## Deployment
+
+Hosted on Vercel as **`id-entity-admin`** under the `scorp-i-on` account,
+deployed from this repository's `main`.
+
+The six `NEXT_PUBLIC_FIREBASE_*` variables are already set on the project for
+production, preview and development. They are public client identifiers, not
+secrets — they name the Firebase project, they do not grant access to it. The
+deployed Firestore and Storage rules are what protect the data.
+
+To deploy by hand:
+
+```bash
+npx vercel deploy --prod
+```
+
+### Two settings that are not in this repo
+
+**Deployment Protection.** New Vercel projects gate every URL behind a Vercel
+login, so the panel is unreachable until it is turned off:
+Vercel → the project → Settings → Deployment Protection → disable Vercel
+Authentication. The panel has its own Firebase sign-in that only admits
+admin accounts, verified server-side, so this second gate only blocks
+legitimate use.
+
+**Authorised domains.** Firebase rejects sign-in from a domain it does not
+know. Add the deployment's hostname under Firebase Console → Authentication →
+Settings → Authorised domains, or every login attempt fails with
+`auth/unauthorized-domain`.
