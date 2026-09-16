@@ -83,7 +83,10 @@ is ready and records that a batch was printed.
 ## Deployment
 
 Hosted on Vercel as **`id-entity-admin`** under the `scorp-i-on` account,
-deployed from this repository's `main`.
+connected to this repository so a push to `main` deploys by itself. Vercel's
+Root Directory is `.` because the app sits at the root here.
+
+Live: <https://id-entity-admin.vercel.app>
 
 The six `NEXT_PUBLIC_FIREBASE_*` variables are already set on the project for
 production, preview and development. They are public client identifiers, not
