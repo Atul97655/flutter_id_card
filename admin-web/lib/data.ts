@@ -19,7 +19,7 @@ import {
   arrayRemove,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { firebaseDb } from './firebase';
 import {
   toChat,
   toChatMessage,
@@ -57,6 +57,7 @@ export function watchSchools(
   onData: (schools: SchoolConfig[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  const db = firebaseDb();
   return onSnapshot(
     query(collection(db, 'schools'), orderBy('name')),
     (snap) => onData(snap.docs.map(toSchoolConfig)),
@@ -69,6 +70,7 @@ export function watchSchool(
   onData: (school: SchoolConfig | null) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  const db = firebaseDb();
   return onSnapshot(
     doc(db, 'schools', schoolId),
     (snap) =>
@@ -85,6 +87,7 @@ export async function saveSchool(
   schoolId: string,
   patch: Partial<Omit<SchoolConfig, 'id'>>,
 ): Promise<void> {
+  const db = firebaseDb();
   await setDoc(
     doc(db, 'schools', schoolId),
     { ...patch, updatedAt: new Date().toISOString() },
@@ -96,6 +99,7 @@ export async function createSchool(
   schoolId: string,
   school: Omit<SchoolConfig, 'id' | 'updatedAt'>,
 ): Promise<void> {
+  const db = firebaseDb();
   const existing = await getDoc(doc(db, 'schools', schoolId));
   if (existing.exists()) {
     throw new Error(`A school with the code "${schoolId}" already exists.`);
@@ -115,6 +119,7 @@ export function watchEntries(
   onData: (entries: StudentEntry[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  const db = firebaseDb();
   return onSnapshot(
     collection(db, 'schools', schoolId, 'entries'),
     (snap) => onData(snap.docs.map((d) => toStudentEntry(d, schoolId))),
@@ -135,6 +140,7 @@ export function watchAllEntries(
   onData: (entries: StudentEntry[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  const db = firebaseDb();
   return onSnapshot(
     collectionGroup(db, 'entries'),
     (snap) =>
@@ -163,6 +169,7 @@ export async function reviewEntry(
   reviewerUid: string,
   reason?: string,
 ): Promise<void> {
+  const db = firebaseDb();
   if (decision === 'rejected' && !reason?.trim()) {
     throw new Error('A rejection must say why - the operator has to know what to fix.');
   }
@@ -188,6 +195,7 @@ export async function reviewMany(
   reviewerUid: string,
   reason?: string,
 ): Promise<number> {
+  const db = firebaseDb();
   if (decision === 'rejected' && !reason?.trim()) {
     throw new Error('A rejection must say why - the operator has to know what to fix.');
   }
@@ -222,6 +230,7 @@ export async function reviewMany(
 export async function markPrinted(
   entries: Pick<StudentEntry, 'id' | 'schoolId' | 'approvalStatus'>[],
 ): Promise<number> {
+  const db = firebaseDb();
   const eligible = entries.filter((e) => e.approvalStatus === 'approved');
   if (eligible.length === 0) return 0;
 
@@ -248,6 +257,7 @@ export async function updateEntry(
   entryId: string,
   patch: Partial<StudentEntry>,
 ): Promise<void> {
+  const db = firebaseDb();
   // The rules reject lowercase in any field the card prints in capitals, so
   // normalising here turns a server rejection into a non-event.
   const upper = (v: unknown) => (typeof v === 'string' ? v.toUpperCase() : v);
@@ -264,6 +274,7 @@ export async function updateEntry(
 }
 
 export async function deleteEntry(schoolId: string, entryId: string): Promise<void> {
+  const db = firebaseDb();
   await deleteDoc(doc(db, 'schools', schoolId, 'entries', entryId));
 }
 
@@ -275,6 +286,7 @@ export function watchUsers(
   onData: (users: ManagedUser[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  const db = firebaseDb();
   return onSnapshot(
     collection(db, 'users'),
     (snap) => onData(snap.docs.map(toManagedUser)),
@@ -290,6 +302,7 @@ export function watchUsers(
  * their history.
  */
 export async function setUserActive(uid: string, active: boolean): Promise<void> {
+  const db = firebaseDb();
   await updateDoc(doc(db, 'users', uid), { active });
 }
 
@@ -297,6 +310,7 @@ export async function updateUser(
   uid: string,
   patch: Partial<Pick<ManagedUser, 'displayName' | 'schoolId' | 'role'>>,
 ): Promise<void> {
+  const db = firebaseDb();
   await updateDoc(doc(db, 'users', uid), patch);
 }
 
@@ -309,6 +323,7 @@ export function watchChats(
   onData: (chats: Chat[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  const db = firebaseDb();
   return onSnapshot(
     query(collection(db, 'chats'), where('members', 'array-contains', adminUid)),
     (snap) => {
@@ -325,6 +340,7 @@ export function watchMessages(
   onData: (messages: ChatMessage[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  const db = firebaseDb();
   return onSnapshot(
     query(collection(db, 'chats', chatId, 'messages'), orderBy('sentAt')),
     (snap) => onData(snap.docs.map((d) => toChatMessage(d, chatId))),
@@ -345,6 +361,7 @@ export async function createChat(
   schoolId: string | null,
   kind: 'direct' | 'broadcast' = 'direct',
 ): Promise<string> {
+  const db = firebaseDb();
   const ref = await addDoc(collection(db, 'chats'), {
     title,
     members,
@@ -371,6 +388,7 @@ export async function sendMessage(
   senderName: string,
   body: string,
 ): Promise<void> {
+  const db = firebaseDb();
   const text = body.trim();
   if (!text) return;
 
@@ -401,6 +419,7 @@ export async function sendMessage(
 
 /** Clears the admin's own unread badge on a conversation. */
 export async function markChatRead(chatId: string, uid: string): Promise<void> {
+  const db = firebaseDb();
   await updateDoc(doc(db, 'chats', chatId), { unreadFor: arrayRemove(uid) });
 }
 
@@ -419,6 +438,7 @@ export async function sendBroadcast(
   adminUid: string,
   adminName: string,
 ): Promise<{ chatId: string; recipients: number }> {
+  const db = firebaseDb();
   if (recipientUids.length === 0) {
     throw new Error('Choose at least one recipient.');
   }
@@ -461,6 +481,7 @@ export async function sendBroadcast(
 // ---------------------------------------------------------------------------
 
 export async function fetchEntriesOnce(schoolId: string): Promise<StudentEntry[]> {
+  const db = firebaseDb();
   const snap = await getDocs(collection(db, 'schools', schoolId, 'entries'));
   return snap.docs.map((d) => toStudentEntry(d, schoolId));
 }

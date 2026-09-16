@@ -17,7 +17,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { firebaseAuth, firebaseDb } from './firebase';
 import type { ManagedUser } from './types';
 import { toManagedUser } from './converters';
 
@@ -51,6 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const auth = firebaseAuth();
+    const db = firebaseDb();
+
     // Survives a refresh so the office is not re-typing a password all day.
     void setPersistence(auth, browserLocalPersistence);
 
@@ -114,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: async (email, password) => {
         setError(null);
         try {
-          await signInWithEmailAndPassword(auth, email.trim(), password);
+          await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
         } catch (e) {
           const code = (e as { code?: string }).code ?? '';
           throw new Error(
@@ -131,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
       logOut: async () => {
-        await signOut(auth);
+        await signOut(firebaseAuth());
       },
     }),
     [phase, user, profile, error],
