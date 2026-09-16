@@ -117,11 +117,24 @@ class StudentRepository {
         ),
       );
 
+  /// Records that the student's details reached Firestore.
+  ///
+  /// Called the moment the document write succeeds, BEFORE the row's overall
+  /// outcome is known, so a later photo failure cannot erase the fact that the
+  /// office already has the record.
+  Future<void> markDetailsSynced(String id) => _patchSync(
+        id,
+        StudentEntriesCompanion(
+          detailsSyncedAt: Value<DateTime?>(DateTime.now()),
+        ),
+      );
+
   Future<void> markSynced(String id, {String? remotePhotoUrl}) => _patchSync(
         id,
         StudentEntriesCompanion(
           syncStatus: const Value<String>('synced'),
           syncError: const Value<String?>(null),
+          detailsSyncedAt: Value<DateTime?>(DateTime.now()),
           remotePhotoUrl:
               remotePhotoUrl == null ? const Value<String?>.absent() : Value<String?>(remotePhotoUrl),
         ),
@@ -422,6 +435,7 @@ class StudentRepository {
         reviewedAt: row.reviewedAt,
         createdAt: row.createdAt,
         lastSyncAttemptAt: row.lastSyncAttemptAt,
+        detailsSyncedAt: row.detailsSyncedAt,
         updatedAt: row.updatedAt,
       );
 
@@ -448,6 +462,7 @@ class StudentRepository {
         reviewedAt: Value<DateTime?>(e.reviewedAt),
         createdAt: Value<DateTime>(e.createdAt),
         lastSyncAttemptAt: Value<DateTime?>(e.lastSyncAttemptAt),
+        detailsSyncedAt: Value<DateTime?>(e.detailsSyncedAt),
         updatedAt: Value<DateTime>(e.updatedAt),
       );
 }

@@ -28,6 +28,7 @@ class StudentEntry {
     this.syncAttempts = 0,
     this.syncError,
     this.lastSyncAttemptAt,
+    this.detailsSyncedAt,
     this.approvalStatus = ApprovalStatus.pending,
     this.rejectionReason,
     this.reviewedBy,
@@ -70,6 +71,24 @@ class StudentEntry {
   ///
   /// Device-local bookkeeping: not part of [toFirestoreMap].
   final DateTime? lastSyncAttemptAt;
+
+  /// When the student's DETAILS last reached Firestore, or null if they never
+  /// have. A row can be `failed` with this set: the document landed and only
+  /// the photo is outstanding, which is a very different thing to tell an
+  /// operator than "upload failed".
+  final DateTime? detailsSyncedAt;
+
+  /// True once the office holds this student's record, whatever the photo is
+  /// doing.
+  bool get detailsReachedServer => detailsSyncedAt != null;
+
+  /// The details are up but the photo is not - the state a missing Storage
+  /// bucket produces for every submission.
+  bool get awaitingPhotoUpload =>
+      detailsReachedServer &&
+      syncStatus != SyncStatus.synced &&
+      (remotePhotoUrl == null || remotePhotoUrl!.isEmpty) &&
+      (localPhotoPath?.isNotEmpty ?? false);
 
   /// The admin's review decision. Independent of [syncStatus] - see
   /// [ApprovalStatus] for why the two are kept apart.
@@ -150,6 +169,7 @@ class StudentEntry {
     String? syncError,
     bool clearSyncError = false,
     DateTime? lastSyncAttemptAt,
+    DateTime? detailsSyncedAt,
     ApprovalStatus? approvalStatus,
     String? rejectionReason,
     bool clearRejectionReason = false,
@@ -176,6 +196,7 @@ class StudentEntry {
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: clearSyncError ? null : (syncError ?? this.syncError),
       lastSyncAttemptAt: lastSyncAttemptAt ?? this.lastSyncAttemptAt,
+      detailsSyncedAt: detailsSyncedAt ?? this.detailsSyncedAt,
       approvalStatus: approvalStatus ?? this.approvalStatus,
       rejectionReason:
           clearRejectionReason ? null : (rejectionReason ?? this.rejectionReason),

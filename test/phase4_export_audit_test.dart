@@ -9,6 +9,8 @@ import 'package:flutter_id_card/shared/services/local/print_batch_repository.dar
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'schema_version.dart';
+
 void main() {
   group('Phase 4: CSV Export Service', () {
     test('buildCsvContent starts with UTF-8 BOM and headers', () {
@@ -82,8 +84,8 @@ void main() {
       await db.close();
     });
 
-    test('database schema version is 7', () {
-      expect(db.schemaVersion, 7);
+    test('database schema version matches the declared constant', () {
+      expect(db.schemaVersion, kExpectedSchemaVersion);
     });
 
     test('logs actions and retrieves via watchRecent and listForEntity', () async {

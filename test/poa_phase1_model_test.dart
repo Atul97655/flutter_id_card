@@ -8,6 +8,8 @@ import 'package:flutter_id_card/shared/services/local/app_database.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'schema_version.dart';
+
 /// Covers the Plan-of-Action Phase 1 data model: roll number, the `printed`
 /// approval state, and the `teacher` role.
 void main() {
@@ -145,10 +147,10 @@ void main() {
   });
 
   group('Schema migration', () {
-    test('declares version 7', () {
+    test('declares the expected schema version', () {
       final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
       addTearDown(db.close);
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, kExpectedSchemaVersion);
     });
 
     test('stores and reads back a roll number', () async {

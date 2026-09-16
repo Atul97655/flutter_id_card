@@ -1,0 +1,135 @@
+@import 'tailwindcss';
+
+/*
+ * ID entity admin panel.
+ *
+ * The visual language follows the reference: a soft mint-to-lavender gradient
+ * ground, frosted translucent panels floating on it, generous rounding, and
+ * very low-contrast borders so the surfaces read as glass rather than as
+ * boxes. Colour carries meaning only in the status accents; everything else
+ * stays quiet so a long review queue is restful to read.
+ */
+
+@theme {
+  --color-mint-50: #f2fbf8;
+  --color-mint-100: #dff4ee;
+  --color-mint-200: #bfe9de;
+  --color-mint-300: #93d8c8;
+  --color-mint-400: #5bbfa9;
+  --color-mint-500: #35a48d;
+  --color-mint-600: #268573;
+  --color-mint-700: #216b5e;
+
+  --color-lilac-100: #eef0f6;
+  --color-lilac-200: #dde1ec;
+  --color-lilac-300: #b9c1d6;
+  --color-lilac-400: #8794b3;
+  --color-lilac-500: #64738f;
+
+  --color-ink-400: #7c8a96;
+  --color-ink-500: #5a6a78;
+  --color-ink-600: #3d4b58;
+  --color-ink-700: #27323d;
+  --color-ink-900: #121a22;
+
+  /* Status accents, matched to the Flutter app so a card described on the
+     phone reads the same in the office. */
+  --color-status-pending: #f57c00;
+  --color-status-approved: #2e7d32;
+  --color-status-rejected: #c62828;
+  --color-status-printed: #4527a0;
+  --color-status-syncing: #0288d1;
+
+  --radius-panel: 22px;
+  --radius-card: 16px;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-ink-700);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+
+  /* The ground the glass floats on. Fixed so panels scroll over a still
+     backdrop instead of dragging the gradient with them. */
+  /* Deliberately restrained. A single cool-grey ground with the faintest
+     mint lift at the top-left - enough to keep white panels from looking
+     flat, not enough to draw attention. Saturated gradients read as
+     decoration, and this is a tool someone stares at for a full shift. */
+  background:
+    radial-gradient(1100px 700px at 6% 0%, #e8f2ef 0%, transparent 58%),
+    linear-gradient(170deg, #f2f5f7 0%, #eef1f4 100%);
+  background-attachment: fixed;
+}
+
+@layer components {
+  /* The frosted surface everything sits on. */
+  .glass {
+    background: rgb(255 255 255 / 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgb(18 26 34 / 0.06);
+    box-shadow:
+      0 1px 2px rgb(18 26 34 / 0.03),
+      0 12px 32px -12px rgb(18 26 34 / 0.12);
+  }
+
+  .glass-soft {
+    background: rgb(255 255 255 / 0.45);
+    backdrop-filter: blur(12px) saturate(1.15);
+    -webkit-backdrop-filter: blur(12px) saturate(1.15);
+    border: 1px solid rgb(255 255 255 / 0.55);
+  }
+
+  /* Tabular figures keep columns of counts from shifting as they animate. */
+  .nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+/* Scrollbars, restrained enough not to break the glass. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(61 75 88 / 0.16);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(61 75 88 / 0.28);
+  background-clip: content-box;
+}
+
+/*
+ * Anyone who has asked the OS to reduce motion gets none of it. The animation
+ * here is decoration; the data is the point.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

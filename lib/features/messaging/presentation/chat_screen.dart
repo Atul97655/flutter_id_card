@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
@@ -175,6 +176,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  /// Turns an attachment failure into something the sender can act on.
+  ///
+  /// Cloud Storage is not provisioned on this Firebase project, so every
+  /// attachment fails with a raw `[firebase_storage/object-not-found] No object
+  /// exists at the desired reference.` Showing that verbatim reads like the app
+  /// is broken, when in fact the feature simply is not switched on yet and
+  /// nothing the sender does will change it.
+  static String _describeAttachmentFailure(Object error) {
+    if (error is FirebaseException) {
+      return switch (error.code) {
+        'object-not-found' || 'bucket-not-found' || 'project-not-found' =>
+          'Attachments are not switched on for this project yet, so the file '
+              'could not be sent. Text messages work normally.',
+        'unauthorized' || 'permission-denied' =>
+          'You do not have permission to attach files to this conversation.',
+        'unauthenticated' => 'Signed out. Sign in again to send the file.',
+        'quota-exceeded' => 'File storage is full. Tell the office.',
+        'canceled' => 'The upload was cancelled.',
+        'retry-limit-exceeded' =>
+          'The upload kept timing out. Check the connection and try again.',
+        _ => error.message ?? 'Could not send the file (${error.code}).',
+      };
+    }
+    return 'Could not send the file. Check the connection and try again.';
+  }
+
   Future<void> _attach(Chat? chat, SessionUser? session) async {
     if (chat == null || session == null) return;
 
@@ -236,7 +263,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Attachment failed: $e'),
+          content: Text(_describeAttachmentFailure(e)),
           backgroundColor: StatusColors.failed,
         ),
       );

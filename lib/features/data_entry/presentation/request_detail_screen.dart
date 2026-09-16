@@ -286,7 +286,14 @@ class _TimelineCard extends StatelessWidget {
   /// the teacher, and drawing it as progress would be a lie.
   List<_Step> _steps() {
     final bool uploaded = entry.syncStatus == SyncStatus.synced;
-    final bool failed = entry.syncStatus == SyncStatus.failed;
+
+    // "The details reached the office" is a different question to "did the
+    // whole row succeed". A missing photo fails the row while the submission
+    // itself is safely on the server, and calling that "Upload failed" sent
+    // operators back to re-shoot photos that were never the problem.
+    final bool detailsUp = entry.detailsReachedServer;
+    final bool photoPending = entry.awaitingPhotoUpload;
+    final bool failed = entry.syncStatus == SyncStatus.failed && !detailsUp;
     final ApprovalStatus status = entry.approvalStatus;
     final bool reviewed = status != ApprovalStatus.pending;
     final bool rejected = status == ApprovalStatus.rejected;
@@ -300,25 +307,44 @@ class _TimelineCard extends StatelessWidget {
         state: _StepState.done,
       ),
       _Step(
-        icon: failed ? Icons.cloud_off : Icons.cloud_done_outlined,
-        title: failed ? 'Upload failed' : 'Uploaded to the office',
-        subtitle: switch (entry.syncStatus) {
-          SyncStatus.synced => 'Received',
-          SyncStatus.failed =>
-            entry.syncError ?? 'Will retry automatically when back online',
-          SyncStatus.syncing => 'Uploading now...',
-          SyncStatus.pending => 'Waiting for a connection',
-        },
+        icon: failed
+            ? Icons.cloud_off
+            : (photoPending
+                ? Icons.cloud_sync_outlined
+                : Icons.cloud_done_outlined),
+        title: failed
+            ? 'Upload failed'
+            : (photoPending
+                ? 'Details received, photo still uploading'
+                : 'Uploaded to the office'),
+        subtitle: failed
+            ? (entry.syncError ?? 'Will retry automatically when back online')
+            : (photoPending
+                ? 'The office already has this card. The photo uploads by '
+                    'itself - there is nothing to redo.'
+                : switch (entry.syncStatus) {
+                    SyncStatus.synced => 'Received',
+                    SyncStatus.failed => 'Received',
+                    SyncStatus.syncing => 'Uploading now...',
+                    SyncStatus.pending => 'Waiting for a connection',
+                  }),
+        // Photo-pending is deliberately `active`, not `blocked`: nothing is
+        // wrong and nothing is required of the operator.
         state: uploaded
             ? _StepState.done
-            : (failed ? _StepState.blocked : _StepState.active),
+            : failed
+                ? _StepState.blocked
+                : (detailsUp || photoPending
+                    ? _StepState.active
+                    : _StepState.active),
       ),
       _Step(
         icon: rejected ? Icons.cancel_outlined : Icons.verified_outlined,
         title: rejected ? 'Sent back' : 'Reviewed by the office',
         subtitle: switch (status) {
-          ApprovalStatus.pending =>
-            uploaded ? 'Waiting for review' : 'Starts once it uploads',
+          ApprovalStatus.pending => (uploaded || detailsUp)
+              ? 'Waiting for review'
+              : 'Starts once it uploads',
           ApprovalStatus.rejected => entry.reviewedAt == null
               ? 'See the reason above'
               : stamp.format(entry.reviewedAt!),
@@ -330,7 +356,9 @@ class _TimelineCard extends StatelessWidget {
             ? _StepState.blocked
             : (reviewed
                 ? _StepState.done
-                : (uploaded ? _StepState.active : _StepState.waiting)),
+                : ((uploaded || detailsUp)
+                    ? _StepState.active
+                    : _StepState.waiting)),
       ),
       _Step(
         icon: Icons.print_outlined,

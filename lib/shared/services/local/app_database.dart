@@ -50,6 +50,19 @@ class StudentEntries extends Table {
   /// Null until the first attempt. Device-local bookkeeping - never uploaded.
   DateTimeColumn get lastSyncAttemptAt => dateTime().nullable()();
 
+  /// When this row's DETAILS last landed in Firestore.
+  ///
+  /// Distinct from [syncStatus] because a row can be `failed` while the office
+  /// already holds the student record: an upload writes the document first and
+  /// the photo separately, so a missing Storage bucket fails the photo and
+  /// nothing else. Without this marker the app could only say "upload failed",
+  /// which is alarming and wrong - the submission is safely on the server and
+  /// only the picture is outstanding.
+  ///
+  /// Null until the first successful document write. Device-local, never
+  /// uploaded.
+  DateTimeColumn get detailsSyncedAt => dateTime().nullable()();
+
   /// Stores the `ApprovalStatus` enum name - the admin's review decision,
   /// independent of whether the row has uploaded yet.
   TextColumn get approvalStatus => text().withDefault(const Constant('pending'))();
@@ -162,7 +175,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -258,6 +271,24 @@ UPDATE school_configs
             await m.addColumn(
               studentEntries,
               studentEntries.lastSyncAttemptAt as GeneratedColumn<Object>,
+            );
+          }
+
+          // v7 -> v8: remember that the details reached the server, separately
+          // from whether the whole row succeeded.
+          //
+          // Backfilled for rows already synced: those demonstrably reached
+          // Firestore, and leaving them null would make a settled submission
+          // look like it had never uploaded.
+          if (from < 8) {
+            await m.addColumn(
+              studentEntries,
+              studentEntries.detailsSyncedAt as GeneratedColumn<Object>,
+            );
+            await customStatement(
+              'UPDATE student_entries '
+              'SET details_synced_at = updated_at '
+              "WHERE sync_status = 'synced'",
             );
           }
         },

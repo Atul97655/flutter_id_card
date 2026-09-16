@@ -5,6 +5,8 @@ import 'package:flutter_id_card/shared/services/local/app_database.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'schema_version.dart';
+
 /// Sync bookkeeping: the retry backoff and the stuck-upload sweep.
 ///
 /// Both used to measure `updatedAt` - when the OPERATOR last edited the row -
@@ -24,8 +26,8 @@ void main() {
   tearDown(() async => db.close());
 
   group('Schema v7', () {
-    test('declares version 7', () {
-      expect(db.schemaVersion, 7);
+    test('declares the expected schema version', () {
+      expect(db.schemaVersion, kExpectedSchemaVersion);
     });
 
     test('a fresh entry has never been attempted', () async {

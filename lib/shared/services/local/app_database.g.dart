@@ -199,6 +199,18 @@ class $StudentEntriesTable extends StudentEntries
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _detailsSyncedAtMeta = const VerificationMeta(
+    'detailsSyncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> detailsSyncedAt =
+      GeneratedColumn<DateTime>(
+        'details_synced_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _approvalStatusMeta = const VerificationMeta(
     'approvalStatus',
   );
@@ -285,6 +297,7 @@ class $StudentEntriesTable extends StudentEntries
     syncAttempts,
     syncError,
     lastSyncAttemptAt,
+    detailsSyncedAt,
     approvalStatus,
     rejectionReason,
     reviewedBy,
@@ -422,6 +435,15 @@ class $StudentEntriesTable extends StudentEntries
         ),
       );
     }
+    if (data.containsKey('details_synced_at')) {
+      context.handle(
+        _detailsSyncedAtMeta,
+        detailsSyncedAt.isAcceptableOrUnknown(
+          data['details_synced_at']!,
+          _detailsSyncedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('approval_status')) {
       context.handle(
         _approvalStatusMeta,
@@ -545,6 +567,10 @@ class $StudentEntriesTable extends StudentEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_sync_attempt_at'],
       ),
+      detailsSyncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}details_synced_at'],
+      ),
       approvalStatus: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}approval_status'],
@@ -614,6 +640,19 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
   /// Null until the first attempt. Device-local bookkeeping - never uploaded.
   final DateTime? lastSyncAttemptAt;
 
+  /// When this row's DETAILS last landed in Firestore.
+  ///
+  /// Distinct from [syncStatus] because a row can be `failed` while the office
+  /// already holds the student record: an upload writes the document first and
+  /// the photo separately, so a missing Storage bucket fails the photo and
+  /// nothing else. Without this marker the app could only say "upload failed",
+  /// which is alarming and wrong - the submission is safely on the server and
+  /// only the picture is outstanding.
+  ///
+  /// Null until the first successful document write. Device-local, never
+  /// uploaded.
+  final DateTime? detailsSyncedAt;
+
   /// Stores the `ApprovalStatus` enum name - the admin's review decision,
   /// independent of whether the row has uploaded yet.
   final String approvalStatus;
@@ -646,6 +685,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     required this.syncAttempts,
     this.syncError,
     this.lastSyncAttemptAt,
+    this.detailsSyncedAt,
     required this.approvalStatus,
     this.rejectionReason,
     this.reviewedBy,
@@ -682,6 +722,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     }
     if (!nullToAbsent || lastSyncAttemptAt != null) {
       map['last_sync_attempt_at'] = Variable<DateTime>(lastSyncAttemptAt);
+    }
+    if (!nullToAbsent || detailsSyncedAt != null) {
+      map['details_synced_at'] = Variable<DateTime>(detailsSyncedAt);
     }
     map['approval_status'] = Variable<String>(approvalStatus);
     if (!nullToAbsent || rejectionReason != null) {
@@ -725,6 +768,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       lastSyncAttemptAt: lastSyncAttemptAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastSyncAttemptAt),
+      detailsSyncedAt: detailsSyncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(detailsSyncedAt),
       approvalStatus: Value(approvalStatus),
       rejectionReason: rejectionReason == null && nullToAbsent
           ? const Value.absent()
@@ -765,6 +811,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       lastSyncAttemptAt: serializer.fromJson<DateTime?>(
         json['lastSyncAttemptAt'],
       ),
+      detailsSyncedAt: serializer.fromJson<DateTime?>(json['detailsSyncedAt']),
       approvalStatus: serializer.fromJson<String>(json['approvalStatus']),
       rejectionReason: serializer.fromJson<String?>(json['rejectionReason']),
       reviewedBy: serializer.fromJson<String?>(json['reviewedBy']),
@@ -794,6 +841,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       'syncAttempts': serializer.toJson<int>(syncAttempts),
       'syncError': serializer.toJson<String?>(syncError),
       'lastSyncAttemptAt': serializer.toJson<DateTime?>(lastSyncAttemptAt),
+      'detailsSyncedAt': serializer.toJson<DateTime?>(detailsSyncedAt),
       'approvalStatus': serializer.toJson<String>(approvalStatus),
       'rejectionReason': serializer.toJson<String?>(rejectionReason),
       'reviewedBy': serializer.toJson<String?>(reviewedBy),
@@ -821,6 +869,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     int? syncAttempts,
     Value<String?> syncError = const Value.absent(),
     Value<DateTime?> lastSyncAttemptAt = const Value.absent(),
+    Value<DateTime?> detailsSyncedAt = const Value.absent(),
     String? approvalStatus,
     Value<String?> rejectionReason = const Value.absent(),
     Value<String?> reviewedBy = const Value.absent(),
@@ -851,6 +900,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     lastSyncAttemptAt: lastSyncAttemptAt.present
         ? lastSyncAttemptAt.value
         : this.lastSyncAttemptAt,
+    detailsSyncedAt: detailsSyncedAt.present
+        ? detailsSyncedAt.value
+        : this.detailsSyncedAt,
     approvalStatus: approvalStatus ?? this.approvalStatus,
     rejectionReason: rejectionReason.present
         ? rejectionReason.value
@@ -897,6 +949,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       lastSyncAttemptAt: data.lastSyncAttemptAt.present
           ? data.lastSyncAttemptAt.value
           : this.lastSyncAttemptAt,
+      detailsSyncedAt: data.detailsSyncedAt.present
+          ? data.detailsSyncedAt.value
+          : this.detailsSyncedAt,
       approvalStatus: data.approvalStatus.present
           ? data.approvalStatus.value
           : this.approvalStatus,
@@ -934,6 +989,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
           ..write('lastSyncAttemptAt: $lastSyncAttemptAt, ')
+          ..write('detailsSyncedAt: $detailsSyncedAt, ')
           ..write('approvalStatus: $approvalStatus, ')
           ..write('rejectionReason: $rejectionReason, ')
           ..write('reviewedBy: $reviewedBy, ')
@@ -963,6 +1019,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     syncAttempts,
     syncError,
     lastSyncAttemptAt,
+    detailsSyncedAt,
     approvalStatus,
     rejectionReason,
     reviewedBy,
@@ -991,6 +1048,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           other.syncAttempts == this.syncAttempts &&
           other.syncError == this.syncError &&
           other.lastSyncAttemptAt == this.lastSyncAttemptAt &&
+          other.detailsSyncedAt == this.detailsSyncedAt &&
           other.approvalStatus == this.approvalStatus &&
           other.rejectionReason == this.rejectionReason &&
           other.reviewedBy == this.reviewedBy &&
@@ -1017,6 +1075,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
   final Value<int> syncAttempts;
   final Value<String?> syncError;
   final Value<DateTime?> lastSyncAttemptAt;
+  final Value<DateTime?> detailsSyncedAt;
   final Value<String> approvalStatus;
   final Value<String?> rejectionReason;
   final Value<String?> reviewedBy;
@@ -1042,6 +1101,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
     this.lastSyncAttemptAt = const Value.absent(),
+    this.detailsSyncedAt = const Value.absent(),
     this.approvalStatus = const Value.absent(),
     this.rejectionReason = const Value.absent(),
     this.reviewedBy = const Value.absent(),
@@ -1068,6 +1128,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
     this.lastSyncAttemptAt = const Value.absent(),
+    this.detailsSyncedAt = const Value.absent(),
     this.approvalStatus = const Value.absent(),
     this.rejectionReason = const Value.absent(),
     this.reviewedBy = const Value.absent(),
@@ -1097,6 +1158,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Expression<int>? syncAttempts,
     Expression<String>? syncError,
     Expression<DateTime>? lastSyncAttemptAt,
+    Expression<DateTime>? detailsSyncedAt,
     Expression<String>? approvalStatus,
     Expression<String>? rejectionReason,
     Expression<String>? reviewedBy,
@@ -1123,6 +1185,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       if (syncAttempts != null) 'sync_attempts': syncAttempts,
       if (syncError != null) 'sync_error': syncError,
       if (lastSyncAttemptAt != null) 'last_sync_attempt_at': lastSyncAttemptAt,
+      if (detailsSyncedAt != null) 'details_synced_at': detailsSyncedAt,
       if (approvalStatus != null) 'approval_status': approvalStatus,
       if (rejectionReason != null) 'rejection_reason': rejectionReason,
       if (reviewedBy != null) 'reviewed_by': reviewedBy,
@@ -1151,6 +1214,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Value<int>? syncAttempts,
     Value<String?>? syncError,
     Value<DateTime?>? lastSyncAttemptAt,
+    Value<DateTime?>? detailsSyncedAt,
     Value<String>? approvalStatus,
     Value<String?>? rejectionReason,
     Value<String?>? reviewedBy,
@@ -1177,6 +1241,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: syncError ?? this.syncError,
       lastSyncAttemptAt: lastSyncAttemptAt ?? this.lastSyncAttemptAt,
+      detailsSyncedAt: detailsSyncedAt ?? this.detailsSyncedAt,
       approvalStatus: approvalStatus ?? this.approvalStatus,
       rejectionReason: rejectionReason ?? this.rejectionReason,
       reviewedBy: reviewedBy ?? this.reviewedBy,
@@ -1241,6 +1306,9 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     if (lastSyncAttemptAt.present) {
       map['last_sync_attempt_at'] = Variable<DateTime>(lastSyncAttemptAt.value);
     }
+    if (detailsSyncedAt.present) {
+      map['details_synced_at'] = Variable<DateTime>(detailsSyncedAt.value);
+    }
     if (approvalStatus.present) {
       map['approval_status'] = Variable<String>(approvalStatus.value);
     }
@@ -1285,6 +1353,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
           ..write('lastSyncAttemptAt: $lastSyncAttemptAt, ')
+          ..write('detailsSyncedAt: $detailsSyncedAt, ')
           ..write('approvalStatus: $approvalStatus, ')
           ..write('rejectionReason: $rejectionReason, ')
           ..write('reviewedBy: $reviewedBy, ')
@@ -3299,6 +3368,7 @@ typedef $$StudentEntriesTableCreateCompanionBuilder =
       Value<int> syncAttempts,
       Value<String?> syncError,
       Value<DateTime?> lastSyncAttemptAt,
+      Value<DateTime?> detailsSyncedAt,
       Value<String> approvalStatus,
       Value<String?> rejectionReason,
       Value<String?> reviewedBy,
@@ -3326,6 +3396,7 @@ typedef $$StudentEntriesTableUpdateCompanionBuilder =
       Value<int> syncAttempts,
       Value<String?> syncError,
       Value<DateTime?> lastSyncAttemptAt,
+      Value<DateTime?> detailsSyncedAt,
       Value<String> approvalStatus,
       Value<String?> rejectionReason,
       Value<String?> reviewedBy,
@@ -3426,6 +3497,11 @@ class $$StudentEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get lastSyncAttemptAt => $composableBuilder(
     column: $table.lastSyncAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get detailsSyncedAt => $composableBuilder(
+    column: $table.detailsSyncedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3554,6 +3630,11 @@ class $$StudentEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get detailsSyncedAt => $composableBuilder(
+    column: $table.detailsSyncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get approvalStatus => $composableBuilder(
     column: $table.approvalStatus,
     builder: (column) => ColumnOrderings(column),
@@ -3663,6 +3744,11 @@ class $$StudentEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get detailsSyncedAt => $composableBuilder(
+    column: $table.detailsSyncedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get approvalStatus => $composableBuilder(
     column: $table.approvalStatus,
     builder: (column) => column,
@@ -3744,6 +3830,7 @@ class $$StudentEntriesTableTableManager
                 Value<int> syncAttempts = const Value.absent(),
                 Value<String?> syncError = const Value.absent(),
                 Value<DateTime?> lastSyncAttemptAt = const Value.absent(),
+                Value<DateTime?> detailsSyncedAt = const Value.absent(),
                 Value<String> approvalStatus = const Value.absent(),
                 Value<String?> rejectionReason = const Value.absent(),
                 Value<String?> reviewedBy = const Value.absent(),
@@ -3769,6 +3856,7 @@ class $$StudentEntriesTableTableManager
                 syncAttempts: syncAttempts,
                 syncError: syncError,
                 lastSyncAttemptAt: lastSyncAttemptAt,
+                detailsSyncedAt: detailsSyncedAt,
                 approvalStatus: approvalStatus,
                 rejectionReason: rejectionReason,
                 reviewedBy: reviewedBy,
@@ -3796,6 +3884,7 @@ class $$StudentEntriesTableTableManager
                 Value<int> syncAttempts = const Value.absent(),
                 Value<String?> syncError = const Value.absent(),
                 Value<DateTime?> lastSyncAttemptAt = const Value.absent(),
+                Value<DateTime?> detailsSyncedAt = const Value.absent(),
                 Value<String> approvalStatus = const Value.absent(),
                 Value<String?> rejectionReason = const Value.absent(),
                 Value<String?> reviewedBy = const Value.absent(),
@@ -3821,6 +3910,7 @@ class $$StudentEntriesTableTableManager
                 syncAttempts: syncAttempts,
                 syncError: syncError,
                 lastSyncAttemptAt: lastSyncAttemptAt,
+                detailsSyncedAt: detailsSyncedAt,
                 approvalStatus: approvalStatus,
                 rejectionReason: rejectionReason,
                 reviewedBy: reviewedBy,

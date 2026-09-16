@@ -477,6 +477,9 @@ class SyncService {
           .doc(entry.id)
           .set(toWrite.toFirestoreMap(), SetOptions(merge: true));
 
+      // The office has the record from here on, whatever the photo did.
+      await _students.markDetailsSynced(entry.id);
+
       if (photoError != null) {
         // The details are on the server; only the photo is outstanding. Keep
         // the row queued so the photo is retried, and tell the operator which

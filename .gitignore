@@ -77,3 +77,11 @@ ui-debug.log
 android/key.properties
 *.jks
 *.keystore
+
+# Admin web dashboard
+admin-web/node_modules/
+admin-web/.next/
+admin-web/out/
+admin-web/.env.local
+admin-web/next-env.d.ts
+admin-web/.turbo/
