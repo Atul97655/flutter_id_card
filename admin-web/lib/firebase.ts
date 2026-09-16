@@ -24,35 +24,50 @@ import { getStorage, type FirebaseStorage } from 'firebase/storage';
  * docs/SECURITY_RULES.md in the Flutter repo.
  */
 
-const REQUIRED = [
-  'NEXT_PUBLIC_FIREBASE_API_KEY',
-  'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
-  'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-  'NEXT_PUBLIC_FIREBASE_APP_ID',
-] as const;
-
+/**
+ * Reads the config, naming anything missing.
+ *
+ * Every variable is accessed as a LITERAL property of `process.env`. That is
+ * not a style choice: Next replaces `process.env.NEXT_PUBLIC_FOO` with its
+ * value at build time by matching that exact syntax, and a computed lookup -
+ * `process.env[name]` - is left untouched. There is no real `process.env` in
+ * a browser, so a computed read is always `undefined`.
+ *
+ * An earlier version validated with `REQUIRED.filter(k => !process.env[k])`,
+ * which meant the check reported all six as missing and threw on every page
+ * load, while the values were sitting correctly inlined a few lines below.
+ * The dashboard died with the very error written to make misconfiguration
+ * obvious.
+ */
 function readConfig() {
-  const config = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  };
+  const entries: [string, string | undefined][] = [
+    ['NEXT_PUBLIC_FIREBASE_API_KEY', process.env.NEXT_PUBLIC_FIREBASE_API_KEY],
+    ['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN],
+    ['NEXT_PUBLIC_FIREBASE_PROJECT_ID', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID],
+    ['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET],
+    ['NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID],
+    ['NEXT_PUBLIC_FIREBASE_APP_ID', process.env.NEXT_PUBLIC_FIREBASE_APP_ID],
+  ];
 
-  const missing = REQUIRED.filter((k) => !process.env[k]);
+  const missing = entries.filter(([, v]) => !v).map(([k]) => k);
   if (missing.length > 0) {
     throw new Error(
       `Firebase is not configured. Missing: ${missing.join(', ')}. ` +
         'Copy admin-web/.env.example to .env.local and fill it in, or set ' +
-        'these in your hosting provider’s environment variables.',
+        'these in your hosting provider’s environment variables. On ' +
+        'Vercel these must NOT be marked Sensitive - sensitive variables are ' +
+        'never inlined into the browser bundle.',
     );
   }
 
-  return config;
+  return {
+    apiKey: entries[0][1],
+    authDomain: entries[1][1],
+    projectId: entries[2][1],
+    storageBucket: entries[3][1],
+    messagingSenderId: entries[4][1],
+    appId: entries[5][1],
+  };
 }
 
 let cachedApp: FirebaseApp | null = null;
