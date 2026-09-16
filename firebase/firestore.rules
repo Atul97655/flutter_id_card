@@ -149,6 +149,22 @@ service cloud.firestore {
       }
     }
 
+    // --- entries, as a collection group -------------------------------
+    //
+    // The admin panel reads every submission across every school in one query
+    // (`collectionGroup('entries')`) rather than opening one subscription per
+    // school. A collection group query does NOT match the nested
+    // `/schools/{id}/entries/{id}` rule above - Firestore requires a rule
+    // whose path matches the collection group itself, or the whole query is
+    // refused with "Missing or insufficient permissions" even for an admin.
+    //
+    // Deliberately admin-only. The query spans every school at once, which is
+    // exactly what an operator must never be able to do; operators read their
+    // own school through the scoped path above, which still applies.
+    match /{path=**}/entries/{entryId} {
+      allow read: if isAdmin();
+    }
+
     // --- messaging (Phase 5) -----------------------------------------
 
     match /chats/{chatId} {

@@ -1,3 +1,4 @@
+const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const {
@@ -5,7 +6,9 @@ const {
   assertFails,
   assertSucceeds,
 } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, deleteDoc } = require('firebase/firestore');
+const {
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collectionGroup, getDocs,
+} = require('firebase/firestore');
 
 // Teacher A and Teacher B belong to DIFFERENT schools - that is the whole
 // point of the cross-tenant tests below.
@@ -107,6 +110,38 @@ describe('Cross-teacher isolation (Plan of Action, Section 4)', () => {
     await assertFails(getDoc(doc(anon(), 'schools', SCHOOL_A, 'entries', 'entry-a')));
     await assertFails(getDoc(doc(anon(), 'chats', 'chat-a')));
   });
+});
+
+// ---------------------------------------------------------------------------
+// The admin panel reads every school's submissions in one query.
+// ---------------------------------------------------------------------------
+describe('Entries as a collection group', () => {
+  it('the admin CAN read every entry across every school at once', async () => {
+    // Regression guard. A collectionGroup query does not match the nested
+    // /schools/{id}/entries/{id} rule, so without a rule matching the
+    // collection group itself this was refused even for an admin - the
+    // dashboard loaded with "Could not load entries: Missing or insufficient
+    // permissions" while schools and accounts loaded fine.
+    const snap = await assertSucceeds(
+      getDocs(collectionGroup(as(ADMIN), 'entries')),
+    );
+    assert.strictEqual(snap.size, 2);
+  });
+
+  it('a teacher CANNOT - it would span every school', async () => {
+    await assertFails(getDocs(collectionGroup(as(TEACHER_A), 'entries')));
+  });
+
+  it('an unauthenticated caller cannot either', async () => {
+    await assertFails(getDocs(collectionGroup(anon(), 'entries')));
+  });
+
+  it('a teacher can still read their OWN school through the scoped path',
+    async () => {
+      await assertSucceeds(
+        getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'entry-a')),
+      );
+    });
 });
 
 // ---------------------------------------------------------------------------
