@@ -57,29 +57,45 @@ class StudentRepository {
 
   /// Rows the sync worker should attempt, oldest first so the backlog drains
   /// in the order it was created.
-  /// Rows whose details are on the server but whose photo never made it.
+  /// Rows that hold a photo this device has never managed to send.
   ///
-  /// These are not "due for upload" in the ordinary sense - most are `synced`
-  /// or have exhausted their retries - so the normal queue will never look at
-  /// them again. They exist because photos used to have exactly one route off
-  /// the device, Cloud Storage, and that route does not exist on this project:
-  /// every submission made before photos could travel inside Firestore left
-  /// its picture stranded on the capturing phone.
+  /// These are not "due for upload" in the ordinary sense, which is the whole
+  /// reason this exists. Photos used to have exactly one route off the device,
+  /// Cloud Storage, and that route does not exist on this project - so every
+  /// submission made before photos could travel inside Firestore left its
+  /// picture stranded on the capturing phone.
   ///
-  /// Deliberately keyed on `detailsSyncedAt` rather than on sync status. The
-  /// point is that the office already holds the record, so the backfill has to
-  /// send nothing but the photo - it must not re-push the student's details or
-  /// the review decision, which an operator is not allowed to change.
-  Future<List<StudentEntry>> needingPhotoBackfill({int limit = 5}) async {
+  /// Those rows land in one of two states, and an earlier version of this
+  /// query only covered the first:
+  ///
+  ///   * **Settled.** The document write succeeded, the photo did not, and the
+  ///     row reads `synced` with `detailsSyncedAt` set.
+  ///   * **Parked.** The photo failure marked the row `failed`; after
+  ///     [maxAttempts] retries it stopped being eligible for upload at all.
+  ///     Worse, the v8 migration only stamped `detailsSyncedAt` on rows that
+  ///     were `synced`, so a parked row has no record that its details ever
+  ///     reached the office even though they did.
+  ///
+  /// Gating on `detailsSyncedAt` alone therefore missed exactly the rows that
+  /// needed this most: a parked row was invisible to the upload queue *and* to
+  /// the backfill, which is as stuck as a record can get. Parked rows are now
+  /// included, and the caller confirms against the server that the record is
+  /// really there before sending anything - see `SyncService._backfillPhotos`.
+  Future<List<StudentEntry>> needingPhotoBackfill({
+    int limit = 5,
+    int maxAttempts = 8,
+  }) async {
     final List<StudentEntryRow> rows =
         await (_db.select(_db.studentEntries)
               ..where(
                 (StudentEntries t) =>
-                    t.detailsSyncedAt.isNotNull() &
                     t.localPhotoPath.isNotNull() &
                     t.localPhotoPath.isNotValue('') &
                     (t.photoThumb.isNull() | t.photoThumb.equals('')) &
-                    (t.remotePhotoUrl.isNull() | t.remotePhotoUrl.equals('')),
+                    (t.remotePhotoUrl.isNull() | t.remotePhotoUrl.equals('')) &
+                    (t.detailsSyncedAt.isNotNull() |
+                        t.syncStatus.equals('synced') |
+                        t.syncAttempts.isBiggerOrEqualValue(maxAttempts)),
               )
               ..orderBy(<OrderClauseGenerator<StudentEntries>>[
                 (StudentEntries t) => OrderingTerm(expression: t.createdAt),

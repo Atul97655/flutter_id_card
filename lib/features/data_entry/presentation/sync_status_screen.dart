@@ -31,6 +31,10 @@ class SyncStatusScreen extends ConsumerWidget {
             .where((StudentEntry e) => e.syncStatus == SyncStatus.failed)
             .toList();
 
+    final List<StudentEntry> photosPending = ref.watch(
+      photosAwaitingUploadProvider,
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Sync Status')),
       body: ListView(
@@ -38,6 +42,14 @@ class SyncStatusScreen extends ConsumerWidget {
         children: <Widget>[
           FadeSlideIn(child: _ConnectionBanner(backendUp: backendUp)),
           const SizedBox(height: AppTheme.gutter),
+          SmoothSwitcher(
+            child: photosPending.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: AppTheme.gutter),
+                    child: _PhotosPendingCard(count: photosPending.length),
+                  ),
+          ),
           FadeSlideIn(
             index: 1,
             child: GridView.count(
@@ -199,6 +211,72 @@ class _CountTile extends StatelessWidget {
                   Text(
                     status.label,
                     style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Photos the office does not have yet.
+///
+/// Deliberately separate from the failed-upload list. These records ARE at the
+/// office and nothing needs re-entering - only the picture is outstanding, and
+/// telling an operator "upload failed" for that sends them off to retake a
+/// photo that was never the problem.
+class _PhotosPendingCard extends StatelessWidget {
+  const _PhotosPendingCard({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      color: StatusColors.pending.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.cornerRadius),
+        side: BorderSide(color: StatusColors.pending.withValues(alpha: 0.35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.gutter),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Icon(
+              Icons.image_outlined,
+              color: StatusColors.pending,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    count == 1
+                        ? '1 photo still to send'
+                        : '$count photos still to send',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: StatusColors.pending,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'The office already has these students. Only the picture '
+                    'is outstanding, and it uploads by itself - keep the app '
+                    'open on Wi-Fi for a minute. Do not retake the photo.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),

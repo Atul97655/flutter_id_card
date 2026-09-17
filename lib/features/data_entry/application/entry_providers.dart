@@ -83,6 +83,29 @@ final Provider<List<StudentEntry>> needsAttentionProvider =
       .toList();
 });
 
+/// Entries holding a photo the office does not have.
+///
+/// Worth showing on its own rather than folding into the failed-upload count,
+/// because it is a different problem with a different remedy: the student's
+/// record IS at the office and nothing needs re-entering - only the picture is
+/// outstanding. Telling an operator "upload failed" for this state sends them
+/// to retake a photo that was never wrong.
+///
+/// It is also the readout that answers "why is this card still not printable",
+/// which without it is only answerable with a debugger.
+final Provider<List<StudentEntry>> photosAwaitingUploadProvider =
+    Provider<List<StudentEntry>>((Ref ref) {
+      final List<StudentEntry> all =
+          ref.watch(entriesProvider).value ?? const <StudentEntry>[];
+      return all
+          .where(
+            (StudentEntry e) =>
+                (e.localPhotoPath?.isNotEmpty ?? false) &&
+                !e.photoReachedServer,
+          )
+          .toList();
+    });
+
 /// A single entry by id, for the edit and preview flows.
 ///
 /// Derived from [entriesProvider] rather than issuing its own query, so the

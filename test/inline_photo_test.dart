@@ -432,6 +432,133 @@ void main() {
       );
     });
 
+    /// The state the two real cards on the client's phone were actually in.
+    ///
+    /// Not a hypothetical: a photo failure marks the row `failed`, eight
+    /// retries against a bucket that does not exist park it, and the v8
+    /// migration only stamped `detailsSyncedAt` on rows that finished
+    /// `synced`. So the record WAS at the office and the row had no idea.
+    Future<void> seedParkedEntry() async {
+      final DateTime then = DateTime(2026, 9, 13);
+
+      await firestore
+          .collection('schools')
+          .doc('school-a')
+          .collection('entries')
+          .doc('parked')
+          .set(<String, Object?>{
+            'schoolId': 'school-a',
+            'name': 'ATUL',
+            'approvalStatus': 'approved',
+            'reviewedBy': 'admin-uid',
+            'createdAt': then.toUtc().toIso8601String(),
+            'updatedAt': then.toUtc().toIso8601String(),
+          });
+
+      await students.save(
+        StudentEntry(
+          id: 'parked',
+          schoolId: 'school-a',
+          name: 'ATUL',
+          approvalStatus: ApprovalStatus.approved,
+          reviewedBy: 'admin-uid',
+          localPhotoPath: photoFile.path,
+          syncStatus: SyncStatus.failed,
+          syncAttempts: 8,
+          syncError: 'Details uploaded, but photo storage is not set up yet.',
+          // detailsSyncedAt deliberately null. This is the whole trap.
+          createdAt: then,
+          updatedAt: then,
+        ),
+      );
+    }
+
+    test('a PARKED row is picked up, not just a settled one', () async {
+      await seedParkedEntry();
+
+      expect(
+        await students.dueForUpload(),
+        isEmpty,
+        reason: 'out of retries - the ordinary queue is done with it',
+      );
+      expect(
+        (await students.needingPhotoBackfill()).single.id,
+        'parked',
+        reason:
+            'gating on detailsSyncedAt alone left this row invisible to BOTH '
+            'paths, which is as stuck as a record can get',
+      );
+    });
+
+    test('and its photo is sent, with the missing stamp healed', () async {
+      await seedParkedEntry();
+      final SyncService sync = build();
+      addTearDown(sync.dispose);
+
+      await sync.syncNow(schoolId: 'school-a');
+
+      final Map<String, Object?> doc =
+          (await firestore
+                  .collection('schools')
+                  .doc('school-a')
+                  .collection('entries')
+                  .doc('parked')
+                  .get())
+              .data() ??
+          <String, Object?>{};
+
+      expect(doc['photoThumb'], isA<String>());
+      expect(doc['approvalStatus'], 'approved');
+      expect(doc['reviewedBy'], 'admin-uid');
+
+      final StudentEntry after = (await students.findById('parked'))!;
+      expect(
+        after.detailsReachedServer,
+        isTrue,
+        reason:
+            'confirmed against the server, so the row stops being a special '
+            'case from here on',
+      );
+      expect(after.photoReachedServer, isTrue);
+    });
+
+    test(
+      'a parked row whose record never landed gets NO photo-only document',
+      () async {
+        // Nothing seeded into Firestore: the details never made it. Merging a
+        // photoThumb would CREATE the document - a student with a face and no
+        // name, sitting in the review queue.
+        await students.save(
+          StudentEntry(
+            id: 'never-landed',
+            schoolId: 'school-a',
+            name: 'GHOST',
+            localPhotoPath: photoFile.path,
+            syncStatus: SyncStatus.failed,
+            syncAttempts: 8,
+            createdAt: DateTime(2026, 9, 13),
+            updatedAt: DateTime(2026, 9, 13),
+          ),
+        );
+
+        final SyncService sync = build();
+        addTearDown(sync.dispose);
+        await sync.syncNow(schoolId: 'school-a');
+
+        expect(
+          (await firestore
+                  .collection('schools')
+                  .doc('school-a')
+                  .collection('entries')
+                  .doc('never-landed')
+                  .get())
+              .exists,
+          isFalse,
+          reason: 'the backfill must never conjure a record into existence',
+        );
+      },
+    );
+
     test(
       'a row whose details never synced is left to the normal queue',
       () async {

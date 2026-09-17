@@ -509,10 +509,23 @@ class SyncService {
   /// record the admin may have approved in the meantime, where re-pushing the
   /// whole document would be refused by the rules.
   ///
-  /// Small batches: encoding is cheap but each row is two writes, and there is
-  /// no hurry - the backlog drains over a few passes.
+  /// **The existence check is not defensive padding.** A parked row has no
+  /// reliable local record that its details ever reached the server - the
+  /// column that would say so was only ever stamped on rows that finished
+  /// `synced` - so the local state cannot answer "is there a document to
+  /// attach this photo to". Asking the server is the only honest answer, and
+  /// without it a merge would happily *create* a document holding nothing but
+  /// a photo: a student with a face and no name, sitting in the review queue.
+  ///
+  /// Confirming it also heals the missing stamp, so the row stops being a
+  /// special case from here on.
+  ///
+  /// Small batches: encoding is cheap, but each row is a read plus two writes
+  /// and there is no hurry - the backlog drains over a few passes.
   Future<int> _backfillPhotos() async {
-    final List<StudentEntry> rows = await _students.needingPhotoBackfill();
+    final List<StudentEntry> rows = await _students.needingPhotoBackfill(
+      maxAttempts: _maxAttempts,
+    );
     if (rows.isEmpty) return 0;
 
     int done = 0;
@@ -524,6 +537,22 @@ class SyncService {
       if (!file.existsSync()) continue;
 
       try {
+        final DocumentReference<Map<String, Object?>> entryDoc = _db
+            .collection('schools')
+            .doc(entry.schoolId)
+            .collection('entries')
+            .doc(entry.id);
+
+        // See the note above: without this, a parked row whose details never
+        // landed would have a photo-only document created for it.
+        if (!(await entryDoc.get()).exists) continue;
+
+        // The details demonstrably are on the server, whatever the local row
+        // remembered. Record that now so this row is ordinary from here on.
+        if (!entry.detailsReachedServer) {
+          await _students.markDetailsSynced(entry.id);
+        }
+
         final InlinePhoto? inline = await encodeInlinePhoto(
           await file.readAsBytes(),
         );
@@ -538,14 +567,9 @@ class SyncService {
           'updatedAt': DateTime.now().toUtc().toIso8601String(),
         });
 
-        await _db
-            .collection('schools')
-            .doc(entry.schoolId)
-            .collection('entries')
-            .doc(entry.id)
-            .set(<String, Object?>{
-              'photoThumb': inline.thumbBase64,
-            }, SetOptions(merge: true));
+        await entryDoc.set(<String, Object?>{
+          'photoThumb': inline.thumbBase64,
+        }, SetOptions(merge: true));
 
         await _students.markPhotoSynced(entry.id, inline.thumbBase64);
         done++;
