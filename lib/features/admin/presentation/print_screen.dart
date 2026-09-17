@@ -14,6 +14,7 @@ import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/print/print_units.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -70,88 +71,116 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
-          _ReadinessCard(
-            printable: printable.length,
-            total: all.length,
-            approvedWithoutPhoto: approvedWithoutPhoto,
-            size: size,
+          FadeSlideIn(
+            child: _ReadinessCard(
+              printable: printable.length,
+              total: all.length,
+              approvedWithoutPhoto: approvedWithoutPhoto,
+              size: size,
+            ),
           ),
           const SizedBox(height: AppTheme.gutter),
 
-          _OptionsCard(
-            cropMarks: _cropMarks,
-            bleed: _bleed,
-            onCropMarks: (bool v) => setState(() => _cropMarks = v),
-            onBleed: (bool v) => setState(() => _bleed = v),
+          FadeSlideIn(
+            index: 1,
+            child: _OptionsCard(
+              cropMarks: _cropMarks,
+              bleed: _bleed,
+              onCropMarks: (bool v) => setState(() => _cropMarks = v),
+              onBleed: (bool v) => setState(() => _bleed = v),
+            ),
           ),
           const SizedBox(height: AppTheme.gutter),
 
-          _SheetCard(
-            title: '12 x 18 in Sheets',
-            subtitle: grid12x18.isUsable
-                ? '${grid12x18.columns} x ${grid12x18.rows} = '
-                      '${grid12x18.capacity} cards per sheet  -  '
-                      '${grid12x18.sheetsFor(printable.length)} sheet(s)'
-                : 'This card size does not fit',
-            warnings: grid12x18.warnings,
-            enabled: !_busy && printable.isNotEmpty && grid12x18.isUsable,
-            onGenerate: () => _generateSheets(
-              school: school,
-              entries: printable,
-              sheet: SheetSpec.sheet12x18,
-              subfolder: ExportService.sheets12x18Dir,
-              namePrefix: 'sheet',
+          FadeSlideIn(
+            index: 2,
+            child: _SheetCard(
+              title: '12 x 18 in Sheets',
+              subtitle: grid12x18.isUsable
+                  ? '${grid12x18.columns} x ${grid12x18.rows} = '
+                        '${grid12x18.capacity} cards per sheet  -  '
+                        '${grid12x18.sheetsFor(printable.length)} sheet(s)'
+                  : 'This card size does not fit',
+              warnings: grid12x18.warnings,
+              enabled: !_busy && printable.isNotEmpty && grid12x18.isUsable,
+              onGenerate: () => _generateSheets(
+                school: school,
+                entries: printable,
+                sheet: SheetSpec.sheet12x18,
+                subfolder: ExportService.sheets12x18Dir,
+                namePrefix: 'sheet',
+              ),
             ),
           ),
           const SizedBox(height: 10),
 
-          _SheetCard(
-            title: 'A4 Landscape Sheets',
-            subtitle: gridA4.isUsable
-                ? '${gridA4.columns} x ${gridA4.rows} = ${gridA4.capacity} '
-                      'cards per sheet  -  '
-                      '${gridA4.sheetsFor(printable.length)} sheet(s)'
-                : 'This card size does not fit',
-            warnings: gridA4.warnings,
-            enabled: !_busy && printable.isNotEmpty && gridA4.isUsable,
-            onGenerate: () => _generateSheets(
-              school: school,
-              entries: printable,
-              sheet: SheetSpec.a4Landscape,
-              subfolder: ExportService.sheetsA4Dir,
-              namePrefix: 'a4',
+          FadeSlideIn(
+            index: 3,
+            child: _SheetCard(
+              title: 'A4 Landscape Sheets',
+              subtitle: gridA4.isUsable
+                  ? '${gridA4.columns} x ${gridA4.rows} = ${gridA4.capacity} '
+                        'cards per sheet  -  '
+                        '${gridA4.sheetsFor(printable.length)} sheet(s)'
+                  : 'This card size does not fit',
+              warnings: gridA4.warnings,
+              enabled: !_busy && printable.isNotEmpty && gridA4.isUsable,
+              onGenerate: () => _generateSheets(
+                school: school,
+                entries: printable,
+                sheet: SheetSpec.a4Landscape,
+                subfolder: ExportService.sheetsA4Dir,
+                namePrefix: 'a4',
+              ),
             ),
           ),
           const SizedBox(height: 10),
 
-          _SheetCard(
-            title: 'Single Cards',
-            subtitle:
-                'One PDF per student, named STUDENTNAME_CLASS.pdf '
-                '(${printable.length} file(s))',
-            warnings: const <String>[],
-            enabled: !_busy && printable.isNotEmpty,
-            onGenerate: () =>
-                _generateSingles(school: school, entries: printable),
+          FadeSlideIn(
+            index: 4,
+            child: _SheetCard(
+              title: 'Single Cards',
+              subtitle:
+                  'One PDF per student, named STUDENTNAME_CLASS.pdf '
+                  '(${printable.length} file(s))',
+              warnings: const <String>[],
+              enabled: !_busy && printable.isNotEmpty,
+              onGenerate: () =>
+                  _generateSingles(school: school, entries: printable),
+            ),
           ),
 
-          if (_status != null) ...<Widget>[
-            const SizedBox(height: AppTheme.gutter),
-            _StatusCard(message: _status!),
-          ],
+          // Both of these appear mid-run, under the button the admin just
+          // pressed. Sliding them in is what ties the result to the press;
+          // appearing in one frame reads as the page having jumped.
+          SmoothSwitcher(
+            child: _status == null
+                ? const SizedBox.shrink()
+                : Padding(
+                    key: ValueKey<String>(_status!),
+                    padding: const EdgeInsets.only(top: AppTheme.gutter),
+                    child: _StatusCard(message: _status!),
+                  ),
+          ),
 
-          if (_lastResult != null) ...<Widget>[
-            const SizedBox(height: AppTheme.gutter),
-            _OutputCard(
-              result: _lastResult!,
-              onOpenFolder: _openFolder,
-              onPrintFile: _printFile,
-              onPrintAll: ExportService.canPrintDirectly ? _printAll : null,
-            ),
-          ],
+          SmoothSwitcher(
+            child: _lastResult == null
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(top: AppTheme.gutter),
+                    child: _OutputCard(
+                      result: _lastResult!,
+                      onOpenFolder: _openFolder,
+                      onPrintFile: _printFile,
+                      onPrintAll: ExportService.canPrintDirectly
+                          ? _printAll
+                          : null,
+                    ),
+                  ),
+          ),
 
           const SizedBox(height: AppTheme.gutter),
-          const _PlatformNoteCard(),
+          const FadeSlideIn(index: 5, child: _PlatformNoteCard()),
         ],
       ),
     );

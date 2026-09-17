@@ -78,27 +78,42 @@ class FadeSlideIn extends StatefulWidget {
 
 class _FadeSlideInState extends State<FadeSlideIn>
     with SingleTickerProviderStateMixin {
+  /// The stagger is baked into the controller rather than delaying the start.
+  ///
+  /// The controller runs for delay + duration and the curve is an [Interval]
+  /// that holds it at zero for the delay portion. The obvious alternative -
+  /// `Future.delayed(delay, _controller.forward)` - works on device but leaves
+  /// a live timer behind, and a widget test that finishes before it fires
+  /// fails with "a Timer is still pending even after the widget tree was
+  /// disposed". Every screen in this app staggers something, so that would
+  /// mean every widget test had to know how long to wait. This way the stagger
+  /// is part of the animation and disposing the controller ends it.
+  late final Duration _delay =
+      AppMotion.stagger * widget.index.clamp(0, AppMotion.maxStaggerIndex);
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: widget.duration,
+    duration: _delay + widget.duration,
+  );
+
+  late final Animation<double> _eased = CurvedAnimation(
+    parent: _controller,
+    curve: Interval(
+      // Guard against a zero total: `widget.duration` is caller-supplied and
+      // Interval requires begin <= end <= 1.
+      _delay.inMicroseconds == 0
+          ? 0
+          : _delay.inMicroseconds /
+                (_delay + widget.duration).inMicroseconds.clamp(1, 1 << 40),
+      1,
+      curve: AppMotion.decelerate,
+    ),
   );
 
   @override
   void initState() {
     super.initState();
-    final int step = widget.index.clamp(0, AppMotion.maxStaggerIndex);
-    final Duration delay = AppMotion.stagger * step;
-
-    if (delay == Duration.zero) {
-      _controller.forward();
-    } else {
-      // Not `Future.delayed(...).then` - if the widget is disposed mid-delay
-      // (a fast scroll unmounting the row) forwarding a dead controller
-      // throws. The mounted check is the guard.
-      Future<void>.delayed(delay, () {
-        if (mounted) _controller.forward();
-      });
-    }
+    _controller.forward();
   }
 
   @override
@@ -109,17 +124,12 @@ class _FadeSlideInState extends State<FadeSlideIn>
 
   @override
   Widget build(BuildContext context) {
-    final Animation<double> eased = CurvedAnimation(
-      parent: _controller,
-      curve: AppMotion.decelerate,
-    );
-
     return AnimatedBuilder(
-      animation: eased,
+      animation: _eased,
       builder: (BuildContext context, Widget? child) => Opacity(
-        opacity: eased.value,
+        opacity: _eased.value,
         child: Transform.translate(
-          offset: Offset(0, widget.offset * (1 - eased.value)),
+          offset: Offset(0, widget.offset * (1 - _eased.value)),
           child: child,
         ),
       ),

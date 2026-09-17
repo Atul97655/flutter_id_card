@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/admin/application/admin_providers.dart';
 import 'package:flutter_id_card/shared/services/local/audit_repository.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -68,52 +69,64 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
 
           // ── Log List ─────────────────────────────────────────────
           Expanded(
-            child: logsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object e, StackTrace s) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text('Failed to load audit log: $e'),
+            child: SmoothSwitcher(
+              alignment: Alignment.center,
+              child: logsAsync.when(
+                loading: () => const Center(
+                  key: ValueKey<String>('loading'),
+                  child: CircularProgressIndicator(),
                 ),
-              ),
-              data: (List<AuditEntry> logs) {
-                if (logs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(
-                          Icons.history,
-                          size: 48,
-                          color: theme.colorScheme.outline,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No audit entries yet',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Actions like approvals, exports, and print runs\n'
-                          'will appear here as they happen.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                error: (Object e, StackTrace s) => Center(
+                  key: const ValueKey<String>('error'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('Failed to load audit log: $e'),
+                  ),
+                ),
+                data: (List<AuditEntry> logs) {
+                  if (logs.isEmpty) {
+                    return Center(
+                      key: const ValueKey<String>('empty'),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            Icons.history,
+                            size: 48,
+                            color: theme.colorScheme.outline,
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+                          const SizedBox(height: 12),
+                          Text(
+                            'No audit entries yet',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Actions like approvals, exports, and print runs\n'
+                            'will appear here as they happen.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.all(AppTheme.gutter),
-                  itemCount: logs.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 4),
-                  itemBuilder: (BuildContext context, int index) =>
-                      _AuditTile(entry: logs[index]),
-                );
-              },
+                  return ListView.separated(
+                    key: ValueKey<int>(logs.length),
+                    padding: const EdgeInsets.all(AppTheme.gutter),
+                    itemCount: logs.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    itemBuilder: (BuildContext context, int index) =>
+                        FadeSlideIn(
+                          index: index,
+                          child: _AuditTile(entry: logs[index]),
+                        ),
+                  );
+                },
+              ),
             ),
           ),
         ],

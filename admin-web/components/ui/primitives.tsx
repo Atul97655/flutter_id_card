@@ -201,18 +201,17 @@ export function AnimatedNumber({
     const to = value;
     if (from === to) return;
 
-    // Respect the OS setting - jump straight to the value.
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      fromRef.current = to;
-      setShown(to);
-      return;
-    }
+    // Respect the OS setting by running the same loop with no duration, so it
+    // lands on the value on its first frame. Setting the value straight from
+    // the effect body would be a synchronous state update during an effect,
+    // which cascades an extra render for every tile on the dashboard at once.
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const start = performance.now();
-    const ms = MOTION.slow * 1000;
+    const ms = reduced ? 0 : MOTION.slow * 1000;
 
     const tick = (now: number) => {
-      const t = Math.min((now - start) / ms, 1);
+      const t = ms === 0 ? 1 : Math.min((now - start) / ms, 1);
       const eased = 1 - Math.pow(1 - t, 3);
       setShown(from + (to - from) * eased);
       if (t < 1) {

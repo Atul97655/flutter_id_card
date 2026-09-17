@@ -13,7 +13,7 @@ import {
   Skeleton,
   staggerDelay,
 } from '@/components/ui/primitives';
-import { useSchoolName, useStore } from '@/lib/store';
+import { useStore } from '@/lib/store';
 import { setUserActive, updateUser } from '@/lib/data';
 import type { ManagedUser } from '@/lib/types';
 
@@ -29,7 +29,6 @@ import type { ManagedUser } from '@/lib/types';
  */
 export default function AccountsPage() {
   const { users, schools, entries, loading } = useStore();
-  const schoolName = useSchoolName();
 
   const [search, setSearch] = useState('');
   const [busyUid, setBusyUid] = useState<string | null>(null);

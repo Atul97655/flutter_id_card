@@ -26,9 +26,29 @@ import 'package:flutter_id_card/features/messaging/presentation/chat_list_screen
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/notifications/presentation/notifications_screen.dart';
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/widgets/app_shell.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+/// Wraps a screen in the app's own push transition.
+///
+/// Every pushed route goes through this. Without it go_router falls back to
+/// the platform default, and the helper that defines how this app is supposed
+/// to move between screens - [buildAppPageTransition] - was written but never
+/// reachable, so every navigation in the app used Flutter's stock animation
+/// while the design said otherwise.
+///
+/// The reverse is shorter than the forward: going back is a dismissal, and
+/// matching the forward duration makes returning to a list feel slow.
+Page<void> _page(GoRouterState state, Widget child) =>
+    CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: AppMotion.slow,
+      reverseTransitionDuration: AppMotion.normal,
+      transitionsBuilder: buildAppPageTransition,
+    );
 
 /// Routes that an unauthenticated visitor is allowed to sit on.
 const Set<String> _publicRoutes = <String>{'/', '/login'};
@@ -82,16 +102,22 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: LoginScreen.routePath,
         name: LoginScreen.routeName,
-        builder: (BuildContext c, GoRouterState s) => const LoginScreen(),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const LoginScreen()),
       ),
       // The operator's three tabs. Each branch keeps its own stack, so
       // switching to Chats and back does not reset a scrolled list.
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         builder: (
           BuildContext c,
           GoRouterState s,
           StatefulNavigationShell shell,
         ) => AppShell(navigationShell: shell),
+        // Not `.indexedStack`: that swaps tabs in a single frame, and tab
+        // switching is the navigation an operator makes most. This keeps every
+        // branch alive - the whole point of a stateful shell - and cross-fades
+        // between them. See AppShell.animatedBranchContainer.
+        navigatorContainerBuilder: AppShell.animatedBranchContainer,
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
             routes: <RouteBase>[
@@ -129,120 +155,130 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       // half-entered work.
       GoRoute(
         path: '/messages/:chatId',
-        builder: (BuildContext c, GoRouterState s) =>
-            ChatScreen(chatId: s.pathParameters['chatId'] ?? ''),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, ChatScreen(chatId: s.pathParameters['chatId'] ?? '')),
       ),
       GoRoute(
         path: '/notifications',
-        builder: (BuildContext c, GoRouterState s) =>
-            const NotificationsScreen(),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const NotificationsScreen()),
       ),
       GoRoute(
         path: '/entry/new',
-        builder: (BuildContext c, GoRouterState s) => const DataEntryScreen(),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const DataEntryScreen()),
       ),
       GoRoute(
         path: '/entry/:id',
-        builder: (BuildContext c, GoRouterState s) =>
-            DataEntryScreen(entryId: s.pathParameters['id']),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, DataEntryScreen(entryId: s.pathParameters['id'])),
       ),
       GoRoute(
         path: '/entries',
-        builder: (BuildContext c, GoRouterState s) =>
-            const SavedEntriesScreen(),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const SavedEntriesScreen()),
       ),
       GoRoute(
         path: '/submitted/:id',
-        builder: (BuildContext c, GoRouterState s) =>
-            SubmissionSuccessScreen(entryId: s.pathParameters['id']!),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, SubmissionSuccessScreen(entryId: s.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/submissions/:id',
-        builder: (BuildContext c, GoRouterState s) =>
-            RequestDetailScreen(entryId: s.pathParameters['id']!),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, RequestDetailScreen(entryId: s.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/sync',
-        builder: (BuildContext c, GoRouterState s) => const SyncStatusScreen(),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const SyncStatusScreen()),
       ),
       GoRoute(
         path: '/photo',
-        builder: (BuildContext c, GoRouterState s) =>
-            PhotoCaptureScreen(existingPath: s.extra as String?),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, PhotoCaptureScreen(existingPath: s.extra as String?)),
       ),
       GoRoute(
         path: '/preview/:id',
-        builder: (BuildContext c, GoRouterState s) =>
-            CardPreviewScreen(entryId: s.pathParameters['id'] ?? ''),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, CardPreviewScreen(entryId: s.pathParameters['id'] ?? '')),
       ),
 
       // --- admin (role-gated by the redirect above) ---------------------
       GoRoute(
         path: '/admin',
-        builder: (BuildContext c, GoRouterState s) =>
-            const AdminDashboardScreen(),
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const AdminDashboardScreen()),
         routes: <RouteBase>[
           GoRoute(
             path: 'users',
-            builder: (BuildContext c, GoRouterState s) =>
-                const AdminUsersScreen(),
+            pageBuilder: (BuildContext c, GoRouterState s) =>
+                _page(s, const AdminUsersScreen()),
           ),
           GoRoute(
             // Literal 'new' is declared before the ':schoolId' pattern so it is
             // matched as the create route rather than as a school whose id
             // happens to be "new".
             path: 'schools/new',
-            builder: (BuildContext c, GoRouterState s) =>
-                const SchoolSettingsScreen(),
+            pageBuilder: (BuildContext c, GoRouterState s) =>
+                _page(s, const SchoolSettingsScreen()),
           ),
           GoRoute(
             path: 'schools/:schoolId',
-            builder: (BuildContext c, GoRouterState s) => SchoolDetailScreen(
-              schoolId: s.pathParameters['schoolId'] ?? '',
+            pageBuilder: (BuildContext c, GoRouterState s) => _page(
+              s,
+              SchoolDetailScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
             ),
             routes: <RouteBase>[
               GoRoute(
                 path: 'settings',
-                builder: (BuildContext c, GoRouterState s) =>
-                    SchoolSettingsScreen(
-                      schoolId: s.pathParameters['schoolId'],
-                    ),
+                pageBuilder: (BuildContext c, GoRouterState s) => _page(
+                  s,
+                  SchoolSettingsScreen(schoolId: s.pathParameters['schoolId']),
+                ),
               ),
               GoRoute(
                 path: 'print',
-                builder: (BuildContext c, GoRouterState s) =>
-                    PrintScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
+                pageBuilder: (BuildContext c, GoRouterState s) => _page(
+                  s,
+                  PrintScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
+                ),
               ),
               GoRoute(
                 path: 'export',
-                builder: (BuildContext c, GoRouterState s) =>
-                    ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
+                pageBuilder: (BuildContext c, GoRouterState s) => _page(
+                  s,
+                  ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
+                ),
               ),
             ],
           ),
           GoRoute(
             path: 'requests',
-            builder: (BuildContext c, GoRouterState s) =>
-                const RequestsQueueScreen(),
+            pageBuilder: (BuildContext c, GoRouterState s) =>
+                _page(s, const RequestsQueueScreen()),
           ),
           GoRoute(
             path: 'broadcast',
-            builder: (BuildContext c, GoRouterState s) =>
-                const BroadcastScreen(),
+            pageBuilder: (BuildContext c, GoRouterState s) =>
+                _page(s, const BroadcastScreen()),
           ),
           GoRoute(
             path: 'audit',
-            builder: (BuildContext c, GoRouterState s) =>
-                const AuditLogScreen(),
+            pageBuilder: (BuildContext c, GoRouterState s) =>
+                _page(s, const AuditLogScreen()),
           ),
           GoRoute(
             path: 'reports',
-            builder: (BuildContext c, GoRouterState s) => const ReportsScreen(),
+            pageBuilder: (BuildContext c, GoRouterState s) =>
+                _page(s, const ReportsScreen()),
           ),
           GoRoute(
             path: 'export/:schoolId',
-            builder: (BuildContext c, GoRouterState s) =>
-                ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
+            pageBuilder: (BuildContext c, GoRouterState s) => _page(
+              s,
+              ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
+            ),
           ),
         ],
       ),

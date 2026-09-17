@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/app_logo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,31 +84,47 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const AppLogo(size: 108, onDark: true),
+            // The first thing anyone sees of the app. It used to appear fully
+            // formed in one frame, which is the moment that set the tone for
+            // the whole thing feeling static.
+            const FadeSlideIn(
+              offset: 22,
+              duration: AppMotion.slow,
+              child: AppLogo(size: 108, onDark: true),
+            ),
             const SizedBox(height: AppTheme.gutter * 1.5),
-            Text(
-              'ID ENTITY',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
+            FadeSlideIn(
+              index: 2,
+              child: Text(
+                'ID ENTITY',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                ),
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              'School Identity Management',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.white70,
-                letterSpacing: 0.5,
+            FadeSlideIn(
+              index: 4,
+              child: Text(
+                'School Identity Management',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white70,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
             const SizedBox(height: 40),
-            const SizedBox(
-              width: 26,
-              height: 26,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+            const FadeSlideIn(
+              index: 6,
+              child: SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                ),
               ),
             ),
           ],

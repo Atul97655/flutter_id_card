@@ -9,6 +9,7 @@ import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -170,6 +171,12 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
       bundledTemplatesProvider,
     );
 
+    // Reset before the tree is built, not after: [_section] increments this as
+    // it is called, and without the reset a rebuild would start from wherever
+    // the last one finished, run straight past the stagger cap, and give every
+    // heading the same maximum delay.
+    _sectionsBuilt = 0;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isNew ? 'Add School' : 'School Settings'),
@@ -281,37 +288,41 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
                   setState(() => _cardSizeId = v ?? _cardSizeId),
             ),
             const SizedBox(height: 14),
-            templates.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (Object e, StackTrace s) =>
-                  Text('Templates unavailable: $e'),
-              data: (List<CardTemplate> list) => DropdownButtonFormField<String>(
-                key: ValueKey<String>(_templateId),
-                initialValue: list.any((CardTemplate t) => t.id == _templateId)
-                    ? _templateId
-                    : list.firstOrNull?.id,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Layout template',
-                  prefixIcon: Icon(Icons.dashboard_outlined),
-                ),
-                items: list
-                    .map(
-                      (CardTemplate t) => DropdownMenuItem<String>(
-                        value: t.id,
-                        // Ellipsised rather than clipped: the size suffix makes
-                        // some names longer than the field, and a hard clip
-                        // drops the closing bracket mid-word.
-                        child: Text(
-                          '${t.name} - ${t.authoredSize.label}',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
+            SmoothSwitcher(
+              child: templates.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (Object e, StackTrace s) =>
+                    Text('Templates unavailable: $e'),
+                data: (List<CardTemplate> list) =>
+                    DropdownButtonFormField<String>(
+                      key: ValueKey<String>(_templateId),
+                      initialValue:
+                          list.any((CardTemplate t) => t.id == _templateId)
+                          ? _templateId
+                          : list.firstOrNull?.id,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Layout template',
+                        prefixIcon: Icon(Icons.dashboard_outlined),
                       ),
-                    )
-                    .toList(),
-                onChanged: (String? v) =>
-                    setState(() => _templateId = v ?? _templateId),
+                      items: list
+                          .map(
+                            (CardTemplate t) => DropdownMenuItem<String>(
+                              value: t.id,
+                              // Ellipsised rather than clipped: the size suffix makes
+                              // some names longer than the field, and a hard clip
+                              // drops the closing bracket mid-word.
+                              child: Text(
+                                '${t.name} - ${t.authoredSize.label}',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (String? v) =>
+                          setState(() => _templateId = v ?? _templateId),
+                    ),
               ),
             ),
 
@@ -408,14 +419,30 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
     );
   }
 
-  Widget _section(String title) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Text(
-      title,
-      style: Theme.of(context).textTheme.titleMedium
-          ?.copyWith(fontWeight: FontWeight.w700),
-    ),
-  );
+  /// How many section headings this build has produced so far, so each one
+  /// enters a beat after the last. Reset at the top of `build`.
+  int _sectionsBuilt = 0;
+
+  /// A section heading, staggered by its position in the form.
+  ///
+  /// This form is long enough that every heading landing in the same frame
+  /// reads as a wall of text; letting them arrive in sequence gives the eye
+  /// somewhere to start.
+
+  Widget _section(String title) {
+    final int order = _sectionsBuilt++;
+    return FadeSlideIn(
+      index: order,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
 
   Widget _assetCard({
     required String title,

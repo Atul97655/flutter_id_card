@@ -8,6 +8,7 @@ import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
@@ -64,8 +65,9 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
   List<StudentEntry> _applyFilters(List<StudentEntry> all) {
     final String needle = _search.text.trim().toUpperCase();
     final List<StudentEntry> filtered = all.where((StudentEntry e) {
-      if (_statusFilter != null && e.approvalStatus != _statusFilter)
+      if (_statusFilter != null && e.approvalStatus != _statusFilter) {
         return false;
+      }
       if (_classFilter != null && e.studentClass != _classFilter) return false;
       if (_divFilter != null && e.division != _divFilter) return false;
       if (needle.isEmpty) return true;
@@ -153,34 +155,54 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
           _filterBar(all),
           const Divider(height: 1),
           Expanded(
-            child: entriesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object e, StackTrace s) => Center(child: Text('$e')),
-              data: (_) => filtered.isEmpty
-                  ? _EmptyState(hasAny: all.isNotEmpty, filter: _statusFilter)
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(AppTheme.gutter),
-                      itemCount: paged.length,
-                      separatorBuilder: (BuildContext _, int _) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (BuildContext context, int i) {
-                        final StudentEntry entry = paged[i];
-                        return _SubmissionTile(
-                          entry: entry,
-                          selected: _selected.contains(entry.id),
-                          onSelectedChanged: (bool v) => setState(() {
-                            if (v) {
-                              _selected.add(entry.id);
-                            } else {
-                              _selected.remove(entry.id);
-                            }
-                          }),
-                          onApprove: () => _approve(<String>[entry.id]),
-                          onReject: () => _promptReject(entry),
-                          onPreview: () => context.push('/preview/${entry.id}'),
-                        );
-                      },
-                    ),
+            child: SmoothSwitcher(
+              alignment: Alignment.center,
+              child: entriesAsync.when(
+                loading: () => const Center(
+                  key: ValueKey<String>('loading'),
+                  child: CircularProgressIndicator(),
+                ),
+                error: (Object e, StackTrace s) => Center(
+                  key: const ValueKey<String>('error'),
+                  child: Text('$e'),
+                ),
+                data: (_) => filtered.isEmpty
+                    ? _EmptyState(hasAny: all.isNotEmpty, filter: _statusFilter)
+                    : ListView.separated(
+                        // Re-keyed when the filter changes the result count, so
+                        // switching from "all" to "pending" replays the entry
+                        // animation instead of silently swapping rows under the
+                        // admin's cursor.
+                        key: ValueKey<String>(
+                          '${_statusFilter}_${paged.length}',
+                        ),
+                        padding: const EdgeInsets.all(AppTheme.gutter),
+                        itemCount: paged.length,
+                        separatorBuilder: (BuildContext _, int _) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (BuildContext context, int i) {
+                          final StudentEntry entry = paged[i];
+                          return FadeSlideIn(
+                            index: i,
+                            child: _SubmissionTile(
+                              entry: entry,
+                              selected: _selected.contains(entry.id),
+                              onSelectedChanged: (bool v) => setState(() {
+                                if (v) {
+                                  _selected.add(entry.id);
+                                } else {
+                                  _selected.remove(entry.id);
+                                }
+                              }),
+                              onApprove: () => _approve(<String>[entry.id]),
+                              onReject: () => _promptReject(entry),
+                              onPreview: () =>
+                                  context.push('/preview/${entry.id}'),
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ),
           if (totalPages > 1)

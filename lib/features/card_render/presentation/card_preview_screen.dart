@@ -9,6 +9,7 @@ import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/print/print_units.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -176,9 +177,15 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
     }
   }
 
-  Widget _body(StudentEntry entry, SchoolConfig? config) {
+  Widget _body(StudentEntry entry, SchoolConfig? config) => SmoothSwitcher(
+    alignment: Alignment.center,
+    child: _bodyContent(entry, config),
+  );
+
+  Widget _bodyContent(StudentEntry entry, SchoolConfig? config) {
     if (_error != null) {
       return Center(
+        key: const ValueKey<String>('error'),
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(
@@ -199,23 +206,41 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
 
     final Uint8List? png = _rasterPng;
     if (png == null || config == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        key: ValueKey<String>('rendering'),
+        child: CircularProgressIndicator(),
+      );
     }
 
     return ListView(
+      key: const ValueKey<String>('card'),
       padding: const EdgeInsets.all(AppTheme.gutter),
       children: <Widget>[
-        Center(child: _card(png, config.cardSize)),
+        // The card itself gets a longer, larger entrance than the rows below
+        // it: this screen exists to show the operator one thing, and it should
+        // arrive rather than simply be there.
+        FadeSlideIn(
+          offset: 20,
+          duration: AppMotion.slow,
+          child: Center(child: _card(png, config.cardSize)),
+        ),
         const SizedBox(height: 12),
-        Center(child: _sizeCaption(config.cardSize)),
+        FadeSlideIn(
+          index: 1,
+          child: Center(child: _sizeCaption(config.cardSize)),
+        ),
         const SizedBox(height: AppTheme.gutter),
-        Center(child: SyncStatusChip(status: entry.syncStatus)),
+        FadeSlideIn(
+          index: 2,
+          child: Center(child: SyncStatusChip(status: entry.syncStatus)),
+        ),
         if (_plan?.hasWarnings ?? false) ...<Widget>[
           const SizedBox(height: AppTheme.gutter),
-          for (final String w in _plan!.warnings) _warning(w),
+          for (int i = 0; i < _plan!.warnings.length; i++)
+            FadeSlideIn(index: 3 + i, child: _warning(_plan!.warnings[i])),
         ],
         const SizedBox(height: AppTheme.gutter),
-        _summary(entry),
+        FadeSlideIn(index: 4, child: _summary(entry)),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/admin/application/admin_providers.dart';
 import 'package:flutter_id_card/features/admin/data/reports_service.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,91 +28,104 @@ class ReportsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: reportAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (Object err, StackTrace stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: theme.colorScheme.error,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Failed to load reports: $err',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                FilledButton.tonal(
-                  onPressed: () => ref.refresh(systemReportProvider),
-                  child: const Text('Retry'),
-                ),
-              ],
+      body: SmoothSwitcher(
+        alignment: Alignment.center,
+        child: reportAsync.when(
+          loading: () => const Center(
+            key: ValueKey<String>('loading'),
+            child: CircularProgressIndicator(),
+          ),
+          error: (Object err, StackTrace stack) => Center(
+            key: const ValueKey<String>('error'),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Failed to load reports: $err',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.tonal(
+                    onPressed: () => ref.refresh(systemReportProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        data: (SystemReport report) => ListView(
-          padding: const EdgeInsets.all(AppTheme.gutter),
-          children: <Widget>[
-            // ── Headline Metric Tiles ──────────────────────────────
-            _HeadlineMetrics(report: report),
-            const SizedBox(height: AppTheme.gutter * 1.5),
-
-            // ── Monthly Submission Trends ──────────────────────────
-            if (report.monthlyTrend.isNotEmpty) ...<Widget>[
-              Text(
-                'Monthly Submissions',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _MonthlyTrendCard(items: report.monthlyTrend),
+          data: (SystemReport report) => ListView(
+            key: const ValueKey<String>('report'),
+            padding: const EdgeInsets.all(AppTheme.gutter),
+            children: <Widget>[
+              // ── Headline Metric Tiles ──────────────────────────────
+              FadeSlideIn(child: _HeadlineMetrics(report: report)),
               const SizedBox(height: AppTheme.gutter * 1.5),
-            ],
 
-            // ── School Breakdown ───────────────────────────────────
-            Row(
-              children: <Widget>[
+              // ── Monthly Submission Trends ──────────────────────────
+              if (report.monthlyTrend.isNotEmpty) ...<Widget>[
                 Text(
-                  'School Breakdown',
+                  'Monthly Submissions',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '${report.schoolReports.length} school(s)',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                const SizedBox(height: 8),
+                FadeSlideIn(
+                  index: 1,
+                  child: _MonthlyTrendCard(items: report.monthlyTrend),
                 ),
+                const SizedBox(height: AppTheme.gutter * 1.5),
               ],
-            ),
-            const SizedBox(height: 8),
-            if (report.schoolReports.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: Text(
-                      'No schools configured yet.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+
+              // ── School Breakdown ───────────────────────────────────
+              Row(
+                children: <Widget>[
+                  Text(
+                    'School Breakdown',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${report.schoolReports.length} school(s)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (report.schoolReports.isEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'No schools configured yet.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
-            else
-              ...report.schoolReports.map(
-                (SchoolReportItem s) => _SchoolReportCard(item: s),
-              ),
-          ],
+                )
+              else
+                for (int i = 0; i < report.schoolReports.length; i++)
+                  FadeSlideIn(
+                    index: i + 2,
+                    child: _SchoolReportCard(item: report.schoolReports[i]),
+                  ),
+            ],
+          ),
         ),
       ),
     );
@@ -204,12 +218,19 @@ class _MetricTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    value,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      height: 1.1,
-                    ),
+                  // Counts up when the figure changes, which is what draws
+                  // the eye on a screen whose whole job is showing numbers.
+                  // Falls back to plain text for anything non-numeric (a
+                  // percentage or a ratio), so no value is ever mangled.
+                  Builder(
+                    builder: (BuildContext context) {
+                      final int? n = int.tryParse(value);
+                      final TextStyle? style = theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w700, height: 1.1);
+                      return n == null
+                          ? Text(value, style: style)
+                          : AnimatedCount(value: n, style: style);
+                    },
                   ),
                   const SizedBox(height: 2),
                   Text(

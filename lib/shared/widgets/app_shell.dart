@@ -20,6 +20,20 @@ class AppShell extends ConsumerWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  /// Lays the branch navigators out so they can cross-fade.
+  ///
+  /// Passed to `StatefulShellRoute.navigatorContainerBuilder`; see
+  /// [_AnimatedBranchContainer] for why it is done this way rather than with
+  /// an `AnimatedSwitcher`.
+  static Widget animatedBranchContainer(
+    BuildContext context,
+    StatefulNavigationShell navigationShell,
+    List<Widget> children,
+  ) => _AnimatedBranchContainer(
+    currentIndex: navigationShell.currentIndex,
+    children: children,
+  );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final int unreadChats = ref.watch(unreadChatCountProvider);
@@ -71,6 +85,48 @@ class AppShell extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Cross-fades between the three tabs instead of swapping them in one frame.
+///
+/// Every branch stays mounted and keeps its state - that is the entire reason
+/// for a `StatefulShellRoute`, and an `AnimatedSwitcher` around the shell would
+/// throw it away. Instead each branch navigator is laid out in a Stack and only
+/// its opacity changes, which is the pattern go_router itself documents.
+///
+/// [TickerMode] is what stops the hidden branches costing anything: without it
+/// every animation on all three tabs keeps running forever behind the one the
+/// operator is looking at. [IgnorePointer] stops a fully transparent branch
+/// swallowing taps meant for the visible one.
+class _AnimatedBranchContainer extends StatelessWidget {
+  const _AnimatedBranchContainer({
+    required this.currentIndex,
+    required this.children,
+  });
+
+  final int currentIndex;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        for (int i = 0; i < children.length; i++)
+          AnimatedOpacity(
+            opacity: i == currentIndex ? 1 : 0,
+            duration: AppMotion.fast,
+            curve: AppMotion.standard,
+            child: TickerMode(
+              enabled: i == currentIndex,
+              child: IgnorePointer(
+                ignoring: i != currentIndex,
+                child: children[i],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

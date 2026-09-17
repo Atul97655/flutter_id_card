@@ -14,6 +14,7 @@ import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -426,11 +427,19 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
             ),
           ],
         ),
-        body: configAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (Object e, StackTrace s) =>
-              Center(child: Text('Settings error: $e')),
-          data: _form,
+        body: SmoothSwitcher(
+          alignment: Alignment.center,
+          child: configAsync.when(
+            loading: () => const Center(
+              key: ValueKey<String>('loading'),
+              child: CircularProgressIndicator(),
+            ),
+            error: (Object e, StackTrace s) => Center(
+              key: const ValueKey<String>('error'),
+              child: Text('Settings error: $e'),
+            ),
+            data: _form,
+          ),
         ),
         bottomNavigationBar: configAsync.hasValue
             ? _saveBar(configAsync.requireValue)
@@ -455,28 +464,36 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
           AppTheme.gutter * 2,
         ),
         children: <Widget>[
-          _PhotoTile(path: _photoPath, onTap: _capturePhoto),
+          FadeSlideIn(
+            child: _PhotoTile(path: _photoPath, onTap: _capturePhoto),
+          ),
           const SizedBox(height: 20),
+          // Staggered so the form assembles itself rather than appearing all
+          // at once - which on a school's enabled-field set can be a dozen
+          // identical boxes landing in one frame.
           for (int i = 0; i < fields.length; i++) ...<Widget>[
-            DynamicFormField(
-              field: fields[i],
-              controller: _ctrl(fields[i]),
-              selectedDate: _dob,
-              options: fields[i] == StudentField.studentClass
-                  ? config.classes
-                  : (fields[i] == StudentField.division
-                        ? config.divisions
-                        : null),
-              onDateChanged: (DateTime? d) {
-                setState(() {
-                  _dob = d;
-                  _dirty = true;
-                });
-                // DOB does not go through a text controller, so autosave has
-                // to be triggered explicitly here.
-                _scheduleAutosave();
-              },
-              autofocus: i == 0 && widget.entryId == null,
+            FadeSlideIn(
+              index: i + 1,
+              child: DynamicFormField(
+                field: fields[i],
+                controller: _ctrl(fields[i]),
+                selectedDate: _dob,
+                options: fields[i] == StudentField.studentClass
+                    ? config.classes
+                    : (fields[i] == StudentField.division
+                          ? config.divisions
+                          : null),
+                onDateChanged: (DateTime? d) {
+                  setState(() {
+                    _dob = d;
+                    _dirty = true;
+                  });
+                  // DOB does not go through a text controller, so autosave has
+                  // to be triggered explicitly here.
+                  _scheduleAutosave();
+                },
+                autofocus: i == 0 && widget.entryId == null,
+              ),
             ),
             const SizedBox(height: 14),
           ],
@@ -495,17 +512,30 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       ),
       child: FilledButton.icon(
         onPressed: _saving ? null : () => _save(config),
-        icon: _saving
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        icon: AnimatedSwitcher(
+          duration: AppMotion.fast,
+          child: _saving
+              ? const SizedBox(
+                  key: ValueKey<bool>(true),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Icon(
+                  Icons.visibility_outlined,
+                  key: ValueKey<bool>(false),
                 ),
-              )
-            : const Icon(Icons.visibility_outlined),
-        label: Text(_saving ? 'Saving...' : 'Save & Preview Card'),
+        ),
+        label: AnimatedSwitcher(
+          duration: AppMotion.fast,
+          child: Text(
+            _saving ? 'Saving...' : 'Save & Preview Card',
+            key: ValueKey<bool>(_saving),
+          ),
+        ),
       ),
     );
   }
@@ -528,10 +558,12 @@ class _PhotoTile extends StatelessWidget {
     return Center(
       child: Column(
         children: <Widget>[
-          InkWell(
+          PressableSurface(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
+            scale: 0.96,
+            child: AnimatedContainer(
+              duration: AppMotion.normal,
+              curve: AppMotion.decelerate,
               width: 132,
               height: 165, // 1.2 : 1.5
               decoration: BoxDecoration(
@@ -545,46 +577,55 @@ class _PhotoTile extends StatelessWidget {
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: hasPhoto
-                  ? Image.file(
-                      File(path!),
-                      fit: BoxFit.cover,
-                      cacheWidth: 360,
-                      cacheHeight: 450,
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Icon(
-                          Icons.add_a_photo_outlined,
-                          size: 34,
-                          color: theme.colorScheme.outline,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Add Photo',
-                          style: TextStyle(color: theme.colorScheme.outline),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '1.2 x 1.5 in',
-                          style: TextStyle(
-                            fontSize: 11,
+              child: AnimatedSwitcher(
+                duration: AppMotion.normal,
+                child: hasPhoto
+                    ? Image.file(
+                        key: ValueKey<String>(path!),
+                        File(path!),
+                        fit: BoxFit.cover,
+                        cacheWidth: 360,
+                        cacheHeight: 450,
+                      )
+                    : Column(
+                        key: const ValueKey<String>('empty'),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(
+                            Icons.add_a_photo_outlined,
+                            size: 34,
                             color: theme.colorScheme.outline,
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add Photo',
+                            style: TextStyle(color: theme.colorScheme.outline),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '1.2 x 1.5 in',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
             ),
           ),
-          if (hasPhoto) ...<Widget>[
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: onTap,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retake / Edit'),
-            ),
-          ],
+          SmoothSwitcher(
+            child: hasPhoto
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: TextButton.icon(
+                      onPressed: onTap,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Retake / Edit'),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );

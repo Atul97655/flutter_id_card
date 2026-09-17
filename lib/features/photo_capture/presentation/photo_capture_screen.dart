@@ -11,6 +11,7 @@ import 'package:flutter_id_card/features/photo_capture/domain/photo_adjustments.
 import 'package:flutter_id_card/features/photo_capture/presentation/widgets/crop_guide_overlay.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/print/print_units.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -504,12 +505,24 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
             Navigator.of(context).pop();
           }
         },
-        child: switch (_stage) {
-          _Stage.permission => _permissionView(),
-          _Stage.camera => _cameraView(),
-          _Stage.processing => _processingView(),
-          _Stage.review => _reviewView(),
-        },
+        // The four stages used to cut between each other in one frame - and
+        // two of them (processing, then review) land back to back, so taking a
+        // photo flashed twice. Cross-fading makes it read as one continuous
+        // action. Keyed by stage, because the views are different shapes.
+        child: AnimatedSwitcher(
+          duration: AppMotion.normal,
+          switchInCurve: AppMotion.decelerate,
+          switchOutCurve: AppMotion.accelerate,
+          child: KeyedSubtree(
+            key: ValueKey<_Stage>(_stage),
+            child: switch (_stage) {
+              _Stage.permission => _permissionView(),
+              _Stage.camera => _cameraView(),
+              _Stage.processing => _processingView(),
+              _Stage.review => _reviewView(),
+            },
+          ),
+        ),
       ),
     );
   }
@@ -609,9 +622,15 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
                     onPressed: _editExistingPhoto,
                     icon: const Icon(Icons.auto_fix_high),
                   ),
-                GestureDetector(
+                // The shutter is the one control on this screen that has to
+                // feel physical - there is no other confirmation that the tap
+                // registered until the next stage appears.
+                PressableSurface(
                   onTap: _capture,
-                  child: Container(
+                  scale: 0.88,
+                  child: AnimatedContainer(
+                    duration: AppMotion.normal,
+                    curve: AppMotion.decelerate,
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(

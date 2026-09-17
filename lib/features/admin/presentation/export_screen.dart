@@ -8,6 +8,7 @@ import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 
 import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -53,10 +54,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
           // ── Quick Stats ──────────────────────────────────────────
-          _QuickStatsCard(
-            total: allEntries.length,
-            filtered: filtered.length,
-            filterLabel: _filterLabel,
+          FadeSlideIn(
+            child: _QuickStatsCard(
+              total: allEntries.length,
+              filtered: filtered.length,
+              filterLabel: _filterLabel,
+            ),
           ),
           const SizedBox(height: AppTheme.gutter),
 
@@ -68,17 +71,20 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          _FilterSection(
-            statusFilter: _statusFilter,
-            classFilter: _classFilter,
-            divisionFilter: _divisionFilter,
-            classes: school?.classes ?? SchoolConfig.defaultClasses,
-            divisions: school?.divisions ?? SchoolConfig.defaultDivisions,
-            onStatusChanged: (ApprovalStatus? v) =>
-                setState(() => _statusFilter = v),
-            onClassChanged: (String? v) => setState(() => _classFilter = v),
-            onDivisionChanged: (String? v) =>
-                setState(() => _divisionFilter = v),
+          FadeSlideIn(
+            index: 1,
+            child: _FilterSection(
+              statusFilter: _statusFilter,
+              classFilter: _classFilter,
+              divisionFilter: _divisionFilter,
+              classes: school?.classes ?? SchoolConfig.defaultClasses,
+              divisions: school?.divisions ?? SchoolConfig.defaultDivisions,
+              onStatusChanged: (ApprovalStatus? v) =>
+                  setState(() => _statusFilter = v),
+              onClassChanged: (String? v) => setState(() => _classFilter = v),
+              onDivisionChanged: (String? v) =>
+                  setState(() => _divisionFilter = v),
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -87,27 +93,42 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             onPressed: _busy || filtered.isEmpty
                 ? null
                 : () => _exportCsv(school, filtered),
-            icon: _busy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.download_outlined),
-            label: Text(
-              _busy
-                  ? 'Exporting...'
-                  : 'Export ${filtered.length} record(s) as CSV',
+            icon: AnimatedSwitcher(
+              duration: AppMotion.fast,
+              child: _busy
+                  ? const SizedBox(
+                      key: ValueKey<bool>(true),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.download_outlined,
+                      key: ValueKey<bool>(false),
+                    ),
+            ),
+            label: AnimatedSwitcher(
+              duration: AppMotion.fast,
+              child: Text(
+                _busy
+                    ? 'Exporting...'
+                    : 'Export ${filtered.length} record(s) as CSV',
+                key: ValueKey<String>('$_busy${filtered.length}'),
+              ),
             ),
           ),
 
-          if (_lastResult != null) ...<Widget>[
-            const SizedBox(height: 12),
-            _ExportResultCard(
-              result: _lastResult!,
-              onOpen: () => OpenFilex.open(_lastResult!.file.path),
-            ),
-          ],
+          SmoothSwitcher(
+            child: _lastResult == null
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _ExportResultCard(
+                      result: _lastResult!,
+                      onOpen: () => OpenFilex.open(_lastResult!.file.path),
+                    ),
+                  ),
+          ),
 
           const SizedBox(height: AppTheme.gutter * 1.5),
 
@@ -142,37 +163,44 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
               ),
             )
           else
-            ...batches.map(
-              (PrintBatch b) => Card(
-                child: ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.print_outlined,
-                      color: theme.colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    '${b.cardCount} cards · ${b.sheetTypeLabel}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    '${b.sheetCount} sheet(s) · ${_dateFmt.format(b.createdAt)}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    color: theme.colorScheme.outline,
-                  ),
+            for (int bi = 0; bi < batches.length; bi++)
+              FadeSlideIn(
+                index: bi + 2,
+                child: Builder(
+                  builder: (BuildContext context) {
+                    final PrintBatch b = batches[bi];
+                    return Card(
+                      child: ListTile(
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.print_outlined,
+                            color: theme.colorScheme.primary,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          '${b.cardCount} cards · ${b.sheetTypeLabel}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          '${b.sheetCount} sheet(s) · ${_dateFmt.format(b.createdAt)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
         ],
       ),
     );

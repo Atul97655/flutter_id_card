@@ -8,6 +8,7 @@ import 'package:flutter_id_card/features/messaging/application/chat_providers.da
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,30 +37,43 @@ class ChatListScreen extends ConsumerWidget {
               label: const Text('New'),
             )
           : null,
-      body: !FirebaseBootstrap.instance.isReady
-          ? const _OfflineNotice()
-          : chats.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object e, StackTrace s) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Text('Could not load conversations: $e'),
+      body: SmoothSwitcher(
+        alignment: Alignment.center,
+        child: !FirebaseBootstrap.instance.isReady
+            ? const _OfflineNotice()
+            : chats.when(
+                loading: () => const Center(
+                  key: ValueKey<String>('loading'),
+                  child: CircularProgressIndicator(),
                 ),
-              ),
-              data: (List<Chat> list) => list.isEmpty
-                  ? _EmptyState(isAdmin: isAdmin)
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(AppTheme.gutter),
-                      itemCount: list.length,
-                      separatorBuilder: (BuildContext _, int _) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (BuildContext context, int i) => _ChatTile(
-                        chat: list[i],
-                        uid: session?.uid ?? '',
-                        onTap: () => context.push('/messages/${list[i].id}'),
+                error: (Object e, StackTrace s) => Center(
+                  key: const ValueKey<String>('error'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Text('Could not load conversations: $e'),
+                  ),
+                ),
+                data: (List<Chat> list) => list.isEmpty
+                    ? _EmptyState(isAdmin: isAdmin)
+                    : ListView.separated(
+                        key: ValueKey<int>(list.length),
+                        padding: const EdgeInsets.all(AppTheme.gutter),
+                        itemCount: list.length,
+                        separatorBuilder: (BuildContext _, int _) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (BuildContext context, int i) =>
+                            FadeSlideIn(
+                              index: i,
+                              child: _ChatTile(
+                                chat: list[i],
+                                uid: session?.uid ?? '',
+                                onTap: () =>
+                                    context.push('/messages/${list[i].id}'),
+                              ),
+                            ),
                       ),
-                    ),
-            ),
+              ),
+      ),
     );
   }
 
@@ -155,63 +169,73 @@ class _ChatTile extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final bool unread = chat.isUnreadFor(uid);
 
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: chat.kind == ChatKind.broadcast
-              ? theme.colorScheme.tertiaryContainer
-              : theme.colorScheme.primaryContainer,
-          child: Icon(
-            chat.kind == ChatKind.broadcast
-                ? Icons.campaign_outlined
-                : Icons.forum_outlined,
-            size: 20,
-            color: chat.kind == ChatKind.broadcast
-                ? theme.colorScheme.onTertiaryContainer
-                : theme.colorScheme.onPrimaryContainer,
+    return PressableSurface(
+      onTap: onTap,
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          onTap: onTap,
+          leading: CircleAvatar(
+            backgroundColor: chat.kind == ChatKind.broadcast
+                ? theme.colorScheme.tertiaryContainer
+                : theme.colorScheme.primaryContainer,
+            child: Icon(
+              chat.kind == ChatKind.broadcast
+                  ? Icons.campaign_outlined
+                  : Icons.forum_outlined,
+              size: 20,
+              color: chat.kind == ChatKind.broadcast
+                  ? theme.colorScheme.onTertiaryContainer
+                  : theme.colorScheme.onPrimaryContainer,
+            ),
           ),
-        ),
-        title: Text(
-          chat.title,
-          style: TextStyle(
-            fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
+          title: Text(
+            chat.title,
+            style: TextStyle(
+              fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          chat.lastMessage.isEmpty ? 'No messages yet' : chat.lastMessage,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 12.5,
-            color: unread
-                ? theme.colorScheme.onSurface
-                : theme.colorScheme.onSurfaceVariant,
+          subtitle: Text(
+            chat.lastMessage.isEmpty ? 'No messages yet' : chat.lastMessage,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: unread
+                  ? theme.colorScheme.onSurface
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            if (chat.lastMessageAt != null)
-              Text(
-                _relative(chat.lastMessageAt!),
-                style: const TextStyle(fontSize: 11),
-              ),
-            if (unread) ...<Widget>[
-              const SizedBox(height: 6),
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  shape: BoxShape.circle,
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              if (chat.lastMessageAt != null)
+                Text(
+                  _relative(chat.lastMessageAt!),
+                  style: const TextStyle(fontSize: 11),
+                ),
+              // Scales rather than appears: a dot popping into a row the
+              // operator is already looking at is the one moment in this list
+              // where motion is carrying information.
+              AnimatedScale(
+                scale: unread ? 1 : 0,
+                duration: AppMotion.normal,
+                curve: AppMotion.emphasized,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.only(top: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Megaphone, MessageSquare, Plus, Send } from 'lucide-react';
 import Link from 'next/link';
 import { Topbar } from '@/components/layout/topbar';
@@ -36,16 +36,17 @@ import type { Chat, ChatMessage } from '@/lib/types';
 export default function MessagesPage() {
   const { profile } = useAuth();
   const { chats, schools, users, loading } = useStore();
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [picked, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const direct = useMemo(() => chats.filter((c) => c.kind === 'direct'), [chats]);
-  const active = chats.find((c) => c.id === activeId) ?? null;
 
-  // Open the first conversation so the pane is never empty on arrival.
-  useEffect(() => {
-    if (!activeId && direct.length > 0) setActiveId(direct[0].id);
-  }, [activeId, direct]);
+  // The pane is never empty on arrival: with nothing picked it falls through
+  // to the first conversation. Derived rather than seeded by an effect - an
+  // effect would render once with no selection, then again with one, and the
+  // conversations arrive asynchronously so that flash is guaranteed, not rare.
+  const activeId = picked ?? direct[0]?.id ?? null;
+  const active = chats.find((c) => c.id === activeId) ?? null;
 
   /** Schools that have an operator but no conversation yet. */
   const missing = useMemo(() => {
@@ -236,8 +237,10 @@ function Thread({ chat }: { chat: Chat }) {
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
+  // No need to clear on a chat change: the parent keys this component by chat
+  // id, so switching conversations mounts a fresh one rather than reusing this
+  // one with another thread's messages still in state.
   useEffect(() => {
-    setMessages(null);
     return watchMessages(
       chat.id,
       (m) => setMessages(m),

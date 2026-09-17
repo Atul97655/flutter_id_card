@@ -5,6 +5,7 @@ import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,21 +36,24 @@ class SyncStatusScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
-          _ConnectionBanner(backendUp: backendUp),
+          FadeSlideIn(child: _ConnectionBanner(backendUp: backendUp)),
           const SizedBox(height: AppTheme.gutter),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.9,
-            children: SyncStatus.values
-                .map(
-                  (SyncStatus s) =>
-                      _CountTile(status: s, count: counts.value?[s] ?? 0),
-                )
-                .toList(),
+          FadeSlideIn(
+            index: 1,
+            child: GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.9,
+              children: SyncStatus.values
+                  .map(
+                    (SyncStatus s) =>
+                        _CountTile(status: s, count: counts.value?[s] ?? 0),
+                  )
+                  .toList(),
+            ),
           ),
           const SizedBox(height: AppTheme.gutter),
           if (problems.isNotEmpty) ...<Widget>[
@@ -66,20 +70,10 @@ class SyncStatusScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            for (final StudentEntry e in problems) ...<Widget>[
-              Card(
-                child: ListTile(
-                  title: Text(e.name.isEmpty ? 'UNNAMED' : e.name),
-                  subtitle: Text(
-                    e.syncError ?? 'Unknown error',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: Text(
-                    '${e.syncAttempts} tries',
-                    style: const TextStyle(fontSize: 11.5),
-                  ),
-                ),
+            for (int i = 0; i < problems.length; i++) ...<Widget>[
+              FadeSlideIn(
+                index: i + 2,
+                child: _ProblemCard(entry: problems[i]),
               ),
               const SizedBox(height: 8),
             ],
@@ -90,7 +84,7 @@ class SyncStatusScreen extends ConsumerWidget {
               label: Text('Retry ${problems.length} failed uploads'),
             ),
           ] else
-            const _AllClearCard(),
+            const FadeSlideIn(index: 2, child: _AllClearCard()),
           const SizedBox(height: AppTheme.gutter),
           Card(
             child: Padding(
@@ -194,8 +188,8 @@ class _CountTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  Text(
-                    '$count',
+                  AnimatedCount(
+                    value: count,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -210,6 +204,32 @@ class _CountTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One upload that has not made it, and why.
+class _ProblemCard extends StatelessWidget {
+  const _ProblemCard({required this.entry});
+
+  final StudentEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        title: Text(entry.name.isEmpty ? 'UNNAMED' : entry.name),
+        subtitle: Text(
+          entry.syncError ?? 'Unknown error',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Text(
+          '${entry.syncAttempts} tries',
+          style: const TextStyle(fontSize: 11.5),
         ),
       ),
     );

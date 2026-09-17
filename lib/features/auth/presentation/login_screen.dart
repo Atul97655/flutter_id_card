@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/widgets/app_logo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -109,21 +110,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     const SizedBox(height: 12),
-                    const Center(child: AppLogo(size: 84)),
+                    const FadeSlideIn(
+                      offset: 18,
+                      child: Center(child: AppLogo(size: 84)),
+                    ),
                     const SizedBox(height: 18),
-                    Text(
-                      'ID entity',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    FadeSlideIn(
+                      index: 1,
+                      child: Text(
+                        'ID entity',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'Sign in to continue',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    FadeSlideIn(
+                      index: 2,
+                      child: Text(
+                        'Sign in to continue',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -133,7 +143,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onChanged: _switchTab,
                     ),
                     const SizedBox(height: 20),
-                    _identifierField(busy),
+                    // The field swaps shape between the two tabs - an email box
+                    // for an admin, a school picker for an operator. Without a
+                    // transition the whole form jumps by the height difference
+                    // the instant the tab is tapped.
+                    SmoothSwitcher(
+                      child: KeyedSubtree(
+                        key: ValueKey<bool>(_isAdminTab),
+                        child: _identifierField(busy),
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _password,
@@ -156,25 +175,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? 'Enter your password'
                           : null,
                     ),
-                    if (errorText != null) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _ErrorBanner(message: errorText),
-                    ],
+                    // A sign-in error appearing with no transition reads as a
+                    // layout glitch; sliding it in reads as an answer.
+                    SmoothSwitcher(
+                      child: errorText == null
+                          ? const SizedBox(width: double.infinity)
+                          : Padding(
+                              key: ValueKey<String>(errorText),
+                              padding: const EdgeInsets.only(top: 14),
+                              child: _ErrorBanner(message: errorText),
+                            ),
+                    ),
                     const SizedBox(height: 22),
                     FilledButton(
                       onPressed: busy ? null : _submit,
-                      child: busy
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                      child: AnimatedSwitcher(
+                        duration: AppMotion.fast,
+                        child: busy
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
+                              )
+                            : Text(
+                                _isAdminTab ? 'Sign in as Admin' : 'Sign in',
+                                key: ValueKey<bool>(_isAdminTab),
                               ),
-                            )
-                          : Text(_isAdminTab ? 'Sign in as Admin' : 'Sign in'),
+                      ),
                     ),
                     if (!FirebaseBootstrap.instance.isReady) ...<Widget>[
                       const SizedBox(height: 18),

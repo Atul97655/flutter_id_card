@@ -8,6 +8,7 @@ import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/messaging/application/chat_providers.dart';
 import 'package:flutter_id_card/features/messaging/data/chat_repository.dart';
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -99,30 +100,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: <Widget>[
           if (chat?.kind == ChatKind.broadcast) const _BroadcastBanner(),
           Expanded(
-            child: messagesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object e, StackTrace s) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Text('Could not load messages: $e'),
+            child: SmoothSwitcher(
+              alignment: Alignment.center,
+              child: messagesAsync.when(
+                loading: () => const Center(
+                  key: ValueKey<String>('loading'),
+                  child: CircularProgressIndicator(),
                 ),
+                error: (Object e, StackTrace s) => Center(
+                  key: const ValueKey<String>('error'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Text('Could not load messages: $e'),
+                  ),
+                ),
+                data: (_) => visible.isEmpty
+                    ? _EmptyMessages(searching: _searching)
+                    : ListView.builder(
+                        key: const ValueKey<String>('messages'),
+                        // Newest at the bottom, which is what a chat should do,
+                        // achieved by reversing both the list and the query
+                        // order rather than scrolling after every frame.
+                        reverse: true,
+                        padding: const EdgeInsets.all(AppTheme.gutter),
+                        itemCount: visible.length,
+                        itemBuilder: (BuildContext context, int i) =>
+                            _MessageBubble(
+                              // Keyed by message id so a bubble arriving at the
+                              // bottom animates in on its own rather than the whole
+                              // reversed list shuffling up.
+                              key: ValueKey<String>(visible[i].id),
+                              message: visible[i],
+                              isMine: visible[i].senderId == session?.uid,
+                              memberCount: chat?.members.length ?? 2,
+                            ),
+                      ),
               ),
-              data: (_) => visible.isEmpty
-                  ? _EmptyMessages(searching: _searching)
-                  : ListView.builder(
-                      // Newest at the bottom, which is what a chat should do,
-                      // achieved by reversing both the list and the query
-                      // order rather than scrolling after every frame.
-                      reverse: true,
-                      padding: const EdgeInsets.all(AppTheme.gutter),
-                      itemCount: visible.length,
-                      itemBuilder: (BuildContext context, int i) =>
-                          _MessageBubble(
-                            message: visible[i],
-                            isMine: visible[i].senderId == session?.uid,
-                            memberCount: chat?.members.length ?? 2,
-                          ),
-                    ),
             ),
           ),
           if (canPost)
@@ -289,6 +302,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.isMine,
     required this.memberCount,
@@ -304,95 +318,102 @@ class _MessageBubble extends StatelessWidget {
     // Everyone except the sender has seen it.
     final bool readByAll = message.readBy.length >= memberCount;
 
-    return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
-        ),
-        decoration: BoxDecoration(
-          color: isMine
-              ? theme.colorScheme.primaryContainer
-              : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isMine ? 14 : 4),
-            bottomRight: Radius.circular(isMine ? 4 : 14),
+    return FadeSlideIn(
+      // Slides in from the side it belongs to, which is the direction a
+      // message actually travels. Zero stagger: in a chat every bubble is
+      // already on screen, and a delay would make scrolling back feel laggy.
+      offset: 6,
+      duration: AppMotion.fast,
+      child: Align(
+        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.78,
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: isMine
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: <Widget>[
-            if (!isMine)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(
-                  message.senderName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ),
-            if (message.hasAttachment) ...<Widget>[
-              if (message.kind == MessageKind.image)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    message.attachmentUrl!,
-                    width: 200,
-                    fit: BoxFit.cover,
-                    errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
-                        const _AttachmentChip(
-                          label: 'Image unavailable',
-                          icon: Icons.broken_image_outlined,
-                        ),
-                  ),
-                )
-              else
-                _AttachmentChip(
-                  label: message.attachmentName ?? 'Document',
-                  icon: Icons.insert_drive_file_outlined,
-                ),
-              if (message.body.isNotEmpty) const SizedBox(height: 6),
-            ],
-            if (message.body.isNotEmpty)
-              Text(
-                message.body,
-                style: const TextStyle(fontSize: 14, height: 1.35),
-              ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  DateFormat('HH:mm').format(message.sentAt),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (isMine) ...<Widget>[
-                  const SizedBox(width: 4),
-                  Icon(
-                    message.pending
-                        ? Icons.schedule
-                        : (readByAll ? Icons.done_all : Icons.done),
-                    size: 13,
-                    color: readByAll
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                ],
-              ],
+          decoration: BoxDecoration(
+            color: isMine
+                ? theme.colorScheme.primaryContainer
+                : theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(14),
+              topRight: const Radius.circular(14),
+              bottomLeft: Radius.circular(isMine ? 14 : 4),
+              bottomRight: Radius.circular(isMine ? 4 : 14),
             ),
-          ],
+          ),
+          child: Column(
+            crossAxisAlignment: isMine
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: <Widget>[
+              if (!isMine)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    message.senderName,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              if (message.hasAttachment) ...<Widget>[
+                if (message.kind == MessageKind.image)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      message.attachmentUrl!,
+                      width: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
+                          const _AttachmentChip(
+                            label: 'Image unavailable',
+                            icon: Icons.broken_image_outlined,
+                          ),
+                    ),
+                  )
+                else
+                  _AttachmentChip(
+                    label: message.attachmentName ?? 'Document',
+                    icon: Icons.insert_drive_file_outlined,
+                  ),
+                if (message.body.isNotEmpty) const SizedBox(height: 6),
+              ],
+              if (message.body.isNotEmpty)
+                Text(
+                  message.body,
+                  style: const TextStyle(fontSize: 14, height: 1.35),
+                ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    DateFormat('HH:mm').format(message.sentAt),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (isMine) ...<Widget>[
+                    const SizedBox(width: 4),
+                    Icon(
+                      message.pending
+                          ? Icons.schedule
+                          : (readByAll ? Icons.done_all : Icons.done),
+                      size: 13,
+                      color: readByAll
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -475,16 +496,22 @@ class _Composer extends StatelessWidget {
             const SizedBox(width: 6),
             IconButton.filled(
               onPressed: sending ? null : onSend,
-              icon: sending
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.send),
+              icon: AnimatedSwitcher(
+                duration: AppMotion.fast,
+                child: sending
+                    ? const SizedBox(
+                        key: ValueKey<bool>(true),
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Icon(Icons.send, key: ValueKey<bool>(false)),
+              ),
             ),
           ],
         ),

@@ -4,6 +4,7 @@ import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/managed_user.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
+import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -129,156 +130,168 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: usersAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object e, StackTrace s) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppTheme.gutter),
-                  child: Text('Failed to load users: $e'),
+            child: SmoothSwitcher(
+              alignment: Alignment.center,
+              child: usersAsync.when(
+                loading: () => const Center(
+                  key: ValueKey<String>('loading'),
+                  child: CircularProgressIndicator(),
                 ),
-              ),
-              data: (List<ManagedUser> all) {
-                final List<ManagedUser> list = _filterUsers(all);
-                if (list.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(
-                          Icons.people_outline,
-                          size: 48,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          all.isEmpty
-                              ? 'No user accounts created yet.'
-                              : 'No matching users found.',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        if (all.isEmpty) ...<Widget>[
+                error: (Object e, StackTrace s) => Center(
+                  key: const ValueKey<String>('error'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTheme.gutter),
+                    child: Text('Failed to load users: $e'),
+                  ),
+                ),
+                data: (List<ManagedUser> all) {
+                  final List<ManagedUser> list = _filterUsers(all);
+                  if (list.isEmpty) {
+                    return Center(
+                      key: const ValueKey<String>('empty'),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            Icons.people_outline,
+                            size: 48,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: () =>
-                                _openCreateUserDialog(context, schools),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Create First Account'),
+                          Text(
+                            all.isEmpty
+                                ? 'No user accounts created yet.'
+                                : 'No matching users found.',
+                            style: theme.textTheme.titleMedium,
                           ),
+                          if (all.isEmpty) ...<Widget>[
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: () =>
+                                  _openCreateUserDialog(context, schools),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Create First Account'),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.all(AppTheme.gutter),
-                  itemCount: list.length,
-                  separatorBuilder: (BuildContext _, int _) =>
-                      const SizedBox(height: 8),
-                  itemBuilder: (BuildContext ctx, int i) {
-                    final ManagedUser user = list[i];
-                    final SchoolConfig? school = schools
-                        .where((SchoolConfig s) => s.id == user.schoolId)
-                        .firstOrNull;
-
-                    return Card(
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: user.isAdmin
-                              ? theme.colorScheme.primaryContainer
-                              : theme.colorScheme.secondaryContainer,
-                          child: Icon(
-                            user.isAdmin
-                                ? Icons.admin_panel_settings
-                                : Icons.school,
-                            color: user.isAdmin
-                                ? theme.colorScheme.onPrimaryContainer
-                                : theme.colorScheme.onSecondaryContainer,
-                          ),
-                        ),
-                        title: Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                user.displayName.isEmpty
-                                    ? user.email
-                                    : user.displayName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: user.active
-                                    ? Colors.green.shade50
-                                    : Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: user.active
-                                      ? Colors.green.shade300
-                                      : Colors.red.shade300,
-                                ),
-                              ),
-                              child: Text(
-                                user.active ? 'ACTIVE' : 'DISABLED',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: user.active
-                                      ? Colors.green.shade800
-                                      : Colors.red.shade800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const SizedBox(height: 2),
-                            Text(
-                              user.email,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            if (user.role == UserRole.school) ...<Widget>[
-                              const SizedBox(height: 4),
-                              Text(
-                                'School: ${school?.name ?? user.schoolId ?? "None"}',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                            if (user.lastLoginDate != null) ...<Widget>[
-                              const SizedBox(height: 2),
-                              Text(
-                                'Last Login: ${DateFormat.yMMMd().add_jm().format(user.lastLoginDate!)}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        trailing: Switch(
-                          value: user.active,
-                          activeThumbColor: Colors.green,
-                          onChanged: (bool nextActive) =>
-                              _toggleActive(user, nextActive),
-                        ),
                       ),
                     );
-                  },
-                );
-              },
+                  }
+
+                  return ListView.separated(
+                    key: ValueKey<int>(list.length),
+                    padding: const EdgeInsets.all(AppTheme.gutter),
+                    itemCount: list.length,
+                    separatorBuilder: (BuildContext _, int _) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (BuildContext ctx, int i) {
+                      final ManagedUser user = list[i];
+                      final SchoolConfig? school = schools
+                          .where((SchoolConfig s) => s.id == user.schoolId)
+                          .firstOrNull;
+
+                      return FadeSlideIn(
+                        index: i,
+                        child: Card(
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: user.isAdmin
+                                  ? theme.colorScheme.primaryContainer
+                                  : theme.colorScheme.secondaryContainer,
+                              child: Icon(
+                                user.isAdmin
+                                    ? Icons.admin_panel_settings
+                                    : Icons.school,
+                                color: user.isAdmin
+                                    ? theme.colorScheme.onPrimaryContainer
+                                    : theme.colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                            title: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(
+                                    user.displayName.isEmpty
+                                        ? user.email
+                                        : user.displayName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: user.active
+                                        ? Colors.green.shade50
+                                        : Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: user.active
+                                          ? Colors.green.shade300
+                                          : Colors.red.shade300,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    user.active ? 'ACTIVE' : 'DISABLED',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: user.active
+                                          ? Colors.green.shade800
+                                          : Colors.red.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.email,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                if (user.role == UserRole.school) ...<Widget>[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'School: ${school?.name ?? user.schoolId ?? "None"}',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                                if (user.lastLoginDate != null) ...<Widget>[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Last Login: ${DateFormat.yMMMd().add_jm().format(user.lastLoginDate!)}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme.colorScheme.outline,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: Switch(
+                              value: user.active,
+                              activeThumbColor: Colors.green,
+                              onChanged: (bool nextActive) =>
+                                  _toggleActive(user, nextActive),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -454,8 +467,9 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   onPressed: busy
                       ? null
                       : () async {
-                          if (!(formKey.currentState?.validate() ?? false))
+                          if (!(formKey.currentState?.validate() ?? false)) {
                             return;
+                          }
                           setDialogState(() => busy = true);
 
                           try {
