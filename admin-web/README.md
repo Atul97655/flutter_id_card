@@ -75,6 +75,18 @@ the mobile app has been holding each photo and retrying.
 `createUser` signs the caller out of their own session, so doing it from a
 browser would log the admin out. The mobile app already does it correctly.
 
+**Student photos.** Cloud Storage is not provisioned on this Firebase project,
+so photos travel inside Firestore: a ~4 KB base64 thumbnail on the entry
+document, and the full frame in `entries/{id}/media/photo`. `EntryPhoto`
+renders the thumbnail immediately everywhere, and fetches the full frame only
+where one is actually needed (the review screen). List rows deliberately do
+not — one extra read and tens of kilobytes per name, for a picture drawn at
+36 px, is how you make a table of submissions expensive to open.
+
+Entries submitted before this shipped have no photo on the server at all. They
+are not lost and need no re-entry: the phone that captured each one sends its
+photo up by itself on the next sync. Until then they show as "No photo yet".
+
 **Generating print sheets.** The Flutter app owns the millimetre-accurate PDF
 pipeline. A card specified as 54 × 86 mm has to measure 54 × 86 mm under a
 ruler, and two implementations of that is one too many. This panel shows what

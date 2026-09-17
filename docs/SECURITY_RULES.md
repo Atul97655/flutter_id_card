@@ -23,11 +23,11 @@ runs entirely on this machine. Needs Node and Java, both already installed here.
 cd firebase/rules-tests && npm install && npm test
 ```
 
-Expected: **31 Firestore + 12 Storage tests passing.**
+Expected: **44 Firestore + 12 Storage tests passing.**
 
 | File | Covers |
 |---|---|
-| `firestore.test.js` | Cross-teacher isolation, hub-and-spoke messaging, the review workflow, the login write, privilege escalation |
+| `firestore.test.js` | Cross-teacher isolation, entries as a collection group, inline photos, hub-and-spoke messaging, the review workflow, the login write, privilege escalation |
 | `storage.test.js` | Student photos per school, chat attachment membership, file-type allowlist |
 
 The suite runs the two files as **separate mocha processes** on purpose. Mocha
@@ -55,15 +55,10 @@ would have locked that account out of everything.
 project.** The deploy fails with *"Firebase Storage has not been set up on
 project id-cardx"*.
 
-This matters well beyond the rules. `google-services.json` names a bucket
-(`id-cardx.firebasestorage.app`) that does not exist, so **student photo upload
-and chat attachments have never worked against this project.**
-
-Provisioning Storage on a project this recent requires the **Blaze** plan,
-because it creates a Google Cloud Storage bucket. Blaze has a free tier (5 GB
-stored, 1 GB/day downloaded) that a few hundred 300 KB photos sits well inside,
-but it does require a card on the account. Until then the app degrades on
-purpose — see below.
+`google-services.json` names a bucket (`id-cardx.firebasestorage.app`) that
+does not exist. Provisioning it requires the **Blaze** plan, because it creates
+a Google Cloud Storage bucket. Blaze has a free tier that this workload sits
+well inside, but it does require a card on the account.
 
 The Storage rules are written and tested (12 passing); they deploy in one
 command the moment the bucket exists:
@@ -72,23 +67,58 @@ command the moment the bucket exists:
 cd firebase/rules-tests && npx firebase deploy --only storage --config ../firebase.json --project id-cardx
 ```
 
-### How the app behaves without Storage
+### How photos get to the office without Storage
 
-A photo upload failure does **not** block the student record any more. Before
-this change a failed photo aborted the whole row, which meant that with no
-bucket **not one submission reached the office** — the review queue stayed
-empty and an operator's day of work looked lost, when only the picture was
-missing.
+They travel inside Firestore.
 
-Now the details still reach Firestore with a null `photoUrl`, the entry appears
-in the admin review queue, and the row stays queued so the photo is retried by
-itself once the bucket exists. The operator is told plainly that the details
-uploaded and **not** to retake the photo.
+This is not a workaround around a cosmetic gap. With Storage as the only route,
+the photo never left the capturing phone: the office saw every approved card as
+"no photo — cannot print", and the only machine that could print a card was the
+one that took the picture. Details-only submissions are not a product.
 
-The print path already excludes approved entries that have no photo and reports
-the count, so a card can never be printed with an empty photo box.
+Firestore is provisioned, has rules, and a document may hold just under 1 MiB.
+A 360×450 card portrait re-encodes to a few tens of kilobytes. So:
 
-Covered by `test/sync_photo_degradation_test.dart`.
+| Where | What | Size |
+|---|---|---|
+| `schools/{id}/entries/{id}` | `photoThumb`, a base64 JPEG thumbnail | ~4 KB |
+| `schools/{id}/entries/{id}/media/photo` | `data`, the full base64 JPEG frame | ~30–60 KB |
+
+The split is the reason this is affordable. The admin panel lists every
+submission across every school in **one** collection-group query; a full photo
+on each entry would mean downloading tens of megabytes to render a table of
+names. The thumbnail is cheap enough to carry on every row, and the full frame
+is fetched only when something renders or prints it.
+
+Storage is still tried first, so nothing has to be migrated the day the project
+moves to Blaze.
+
+Two rules govern this:
+
+* `match /{path=**}/entries/{entryId}` — **admin-only.** A collection-group
+  query does not match the nested `/schools/{id}/entries/{id}` rule, so without
+  this the panel was refused outright even for an admin. Admin-only because the
+  query spans every school at once, which is exactly what an operator must
+  never be able to do; operators still read their own school through the scoped
+  path.
+
+* `match /media/{mediaId}` — same audience as the entry it belongs to, plus a
+  hard **800 KB** cap on the photo field. The cap is why this rule is written
+  out rather than inherited: an unbounded base64 field is the one thing a
+  client could use to push a document to Firestore's limit, at which point the
+  entry stops being writable at all and the student's record is stuck.
+
+Records submitted before this existed are settled or out of retries, so the
+ordinary upload queue would never look at them again. A separate backfill pass
+finds them and sends the photo **alone** — it does not re-push the student's
+details or the review decision, which an operator may not change and which the
+rules would refuse on any card the admin had already approved.
+
+The print path still excludes approved entries with no photo and reports the
+count, so a card can never be printed with an empty photo box.
+
+Covered by `test/inline_photo_test.dart` and
+`test/sync_photo_degradation_test.dart`.
 
 ---
 
@@ -135,7 +165,9 @@ They cannot grant themselves `role: "Admin"`, move themselves to another school,
 create accounts, or read anyone else's profile. A deactivated account keeps its
 credentials but loses all access.
 
-**Storage** — student photos are scoped per school and must be images under 3 MB.
+**Storage** — student photos are scoped per school and must be images under
+3 MB. While Storage is unprovisioned the photo lives in Firestore instead,
+under the same audience and an 800 KB cap; see section 2.
 Chat attachments require membership of that conversation, checked against the
 `members` array in Firestore, and are limited to images, PDF, text, Word and
 Excel under 10 MB.
