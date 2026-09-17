@@ -116,7 +116,9 @@ class ChatListScreen extends ConsumerWidget {
         .read(authRepositoryProvider)
         .operatorUidsForSchool(school.id);
 
-    final Chat chat = await ref.read(chatRepositoryProvider).createChat(
+    final Chat chat = await ref
+        .read(chatRepositoryProvider)
+        .createChat(
           title: school.name,
           members: <String>{admin.uid, ...operators}.toList(),
           schoolId: school.id,
@@ -239,7 +241,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(Icons.forum_outlined, size: 52, color: theme.colorScheme.outline),
+            Icon(
+              Icons.forum_outlined,
+              size: 52,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: 14),
             Text('No conversations yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
@@ -247,10 +253,11 @@ class _EmptyState extends StatelessWidget {
               isAdmin
                   ? 'Start one with a school using the button below.'
                   : 'The admin office will start a conversation when they need '
-                      'to reach you.',
+                        'to reach you.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -273,14 +280,18 @@ class _OfflineNotice extends StatelessWidget {
           children: <Widget>[
             Icon(Icons.cloud_off, size: 48, color: theme.colorScheme.outline),
             const SizedBox(height: 14),
-            Text('Messaging needs a connection', style: theme.textTheme.titleMedium),
+            Text(
+              'Messaging needs a connection',
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 6),
             Text(
               'Unlike card entry, chat is not stored offline - messages live on '
               'the server. Card capture keeps working without a connection.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

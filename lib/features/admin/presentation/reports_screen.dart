@@ -11,7 +11,9 @@ class ReportsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final AsyncValue<SystemReport> reportAsync = ref.watch(systemReportProvider);
+    final AsyncValue<SystemReport> reportAsync = ref.watch(
+      systemReportProvider,
+    );
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
@@ -33,9 +35,16 @@ class ReportsScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: theme.colorScheme.error,
+                ),
                 const SizedBox(height: 12),
-                Text('Failed to load reports: $err', textAlign: TextAlign.center),
+                Text(
+                  'Failed to load reports: $err',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton.tonal(
                   onPressed: () => ref.refresh(systemReportProvider),
@@ -56,7 +65,9 @@ class ReportsScreen extends ConsumerWidget {
             if (report.monthlyTrend.isNotEmpty) ...<Widget>[
               Text(
                 'Monthly Submissions',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 8),
               _MonthlyTrendCard(items: report.monthlyTrend),
@@ -68,12 +79,16 @@ class ReportsScreen extends ConsumerWidget {
               children: <Widget>[
                 Text(
                   'School Breakdown',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   '${report.schoolReports.length} school(s)',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -85,7 +100,9 @@ class ReportsScreen extends ConsumerWidget {
                   child: Center(
                     child: Text(
                       'No schools configured yet.',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -125,7 +142,8 @@ class _HeadlineMetrics extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             _MetricTile(
-              label: 'Approved (${report.overallApprovalPercentage.toStringAsFixed(0)}%)',
+              label:
+                  'Approved (${report.overallApprovalPercentage.toStringAsFixed(0)}%)',
               value: '${report.totalApproved}',
               icon: Icons.verified_outlined,
               color: StatusColors.synced,
@@ -217,7 +235,10 @@ class _MonthlyTrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int maxCount = items.fold<int>(0, (int m, MonthlySummaryItem i) => i.count > m ? i.count : m);
+    final int maxCount = items.fold<int>(
+      0,
+      (int m, MonthlySummaryItem i) => i.count > m ? i.count : m,
+    );
     final ThemeData theme = Theme.of(context);
 
     return Card(
@@ -235,7 +256,10 @@ class _MonthlyTrendCard extends StatelessWidget {
                       width: 75,
                       child: Text(
                         item.label,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -244,8 +268,11 @@ class _MonthlyTrendCard extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: maxCount > 0 ? (item.count / maxCount) : 0,
                           minHeight: 12,
-                          backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.colorScheme.primary,
+                          ),
                         ),
                       ),
                     ),
@@ -255,7 +282,10 @@ class _MonthlyTrendCard extends StatelessWidget {
                       child: Text(
                         '${item.count}',
                         textAlign: TextAlign.end,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -294,7 +324,11 @@ class _SchoolReportCard extends StatelessWidget {
                     color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.school_outlined, color: theme.colorScheme.primary, size: 20),
+                  child: Icon(
+                    Icons.school_outlined,
+                    color: theme.colorScheme.primary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -303,11 +337,16 @@ class _SchoolReportCard extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         item.schoolName,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
                       ),
                       Text(
                         '${item.totalCount} total students · ${item.cardSizeLabel}',
-                        style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -315,7 +354,8 @@ class _SchoolReportCard extends StatelessWidget {
                 IconButton(
                   tooltip: 'Export CSV',
                   icon: const Icon(Icons.download_outlined, size: 20),
-                  onPressed: () => context.push('/admin/export/${item.schoolId}'),
+                  onPressed: () =>
+                      context.push('/admin/export/${item.schoolId}'),
                 ),
               ],
             ),
@@ -323,20 +363,40 @@ class _SchoolReportCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: item.totalCount > 0 ? (item.approvedCount / item.totalCount) : 0,
+                value: item.totalCount > 0
+                    ? (item.approvedCount / item.totalCount)
+                    : 0,
                 minHeight: 6,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                valueColor: const AlwaysStoppedAnimation<Color>(StatusColors.synced),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  StatusColors.synced,
+                ),
               ),
             ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                _CountBadge(label: 'Approved', count: item.approvedCount, color: StatusColors.synced),
-                _CountBadge(label: 'Pending', count: item.pendingCount, color: StatusColors.pending),
-                _CountBadge(label: 'Rejected', count: item.rejectedCount, color: StatusColors.failed),
-                _CountBadge(label: 'Printable', count: item.printableCount, color: theme.colorScheme.primary),
+                _CountBadge(
+                  label: 'Approved',
+                  count: item.approvedCount,
+                  color: StatusColors.synced,
+                ),
+                _CountBadge(
+                  label: 'Pending',
+                  count: item.pendingCount,
+                  color: StatusColors.pending,
+                ),
+                _CountBadge(
+                  label: 'Rejected',
+                  count: item.rejectedCount,
+                  color: StatusColors.failed,
+                ),
+                _CountBadge(
+                  label: 'Printable',
+                  count: item.printableCount,
+                  color: theme.colorScheme.primary,
+                ),
               ],
             ),
           ],

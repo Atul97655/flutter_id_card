@@ -53,31 +53,31 @@ class _NotificationTile extends StatelessWidget {
   }
 
   static (Color, IconData) _visuals(NotificationKind kind) => switch (kind) {
-        NotificationKind.cardApproved => (
-            StatusColors.synced,
-            Icons.verified_outlined,
-          ),
-        NotificationKind.cardRejected => (
-            StatusColors.failed,
-            Icons.assignment_late_outlined,
-          ),
-        NotificationKind.cardPrinted => (
-            StatusColors.printed,
-            Icons.print_outlined,
-          ),
-        NotificationKind.newMessage => (
-            const Color(0xFFAD1457),
-            Icons.forum_outlined,
-          ),
-        NotificationKind.broadcast => (
-            const Color(0xFF00695C),
-            Icons.campaign_outlined,
-          ),
-        NotificationKind.syncFailed => (
-            StatusColors.failed,
-            Icons.cloud_off_outlined,
-          ),
-      };
+    NotificationKind.cardApproved => (
+      StatusColors.synced,
+      Icons.verified_outlined,
+    ),
+    NotificationKind.cardRejected => (
+      StatusColors.failed,
+      Icons.assignment_late_outlined,
+    ),
+    NotificationKind.cardPrinted => (
+      StatusColors.printed,
+      Icons.print_outlined,
+    ),
+    NotificationKind.newMessage => (
+      const Color(0xFFAD1457),
+      Icons.forum_outlined,
+    ),
+    NotificationKind.broadcast => (
+      const Color(0xFF00695C),
+      Icons.campaign_outlined,
+    ),
+    NotificationKind.syncFailed => (
+      StatusColors.failed,
+      Icons.cloud_off_outlined,
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -183,8 +183,9 @@ class _Empty extends StatelessWidget {
               'Approvals, returned cards and messages from the office will '
               'show up here.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

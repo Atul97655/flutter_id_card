@@ -37,28 +37,23 @@ class SchoolSettingsScreen extends ConsumerWidget {
       return const _SchoolSettingsForm(existing: null);
     }
 
-    final AsyncValue<SchoolConfig?> schoolAsync =
-        ref.watch(schoolByIdProvider(schoolId!));
+    final AsyncValue<SchoolConfig?> schoolAsync = ref.watch(
+      schoolByIdProvider(schoolId!),
+    );
 
     return schoolAsync.when(
       loading: () => Scaffold(
-        appBar: AppBar(
-          title: const Text('School Settings'),
-        ),
+        appBar: AppBar(title: const Text('School Settings')),
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (Object e, StackTrace s) => Scaffold(
-        appBar: AppBar(
-          title: const Text('School Settings'),
-        ),
+        appBar: AppBar(title: const Text('School Settings')),
         body: Center(child: Text('Error: $e')),
       ),
       data: (SchoolConfig? school) {
         if (school == null) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('School Settings'),
-            ),
+            appBar: AppBar(title: const Text('School Settings')),
             body: const Center(child: Text('School not found')),
           );
         }
@@ -76,7 +71,8 @@ class _SchoolSettingsForm extends ConsumerStatefulWidget {
   bool get isNew => existing == null;
 
   @override
-  ConsumerState<_SchoolSettingsForm> createState() => _SchoolSettingsFormState();
+  ConsumerState<_SchoolSettingsForm> createState() =>
+      _SchoolSettingsFormState();
 }
 
 class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
@@ -145,12 +141,16 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
 
     final Directory dir = await getApplicationDocumentsDirectory();
     final String schoolId =
-        widget.existing?.id ?? (_id.text.trim().isEmpty ? 'new_school' : _id.text.trim());
+        widget.existing?.id ??
+        (_id.text.trim().isEmpty ? 'new_school' : _id.text.trim());
     final String folder = '${dir.path}/school_assets';
     await Directory(folder).create(recursive: true);
 
-    final String ext = p.extension(file.path).isEmpty ? '.png' : p.extension(file.path);
-    final String dest = '$folder/${schoolId}_${isLogo ? "logo" : "signature"}$ext';
+    final String ext = p.extension(file.path).isEmpty
+        ? '.png'
+        : p.extension(file.path);
+    final String dest =
+        '$folder/${schoolId}_${isLogo ? "logo" : "signature"}$ext';
 
     await File(file.path).copy(dest);
 
@@ -166,8 +166,9 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<List<CardTemplate>> templates =
-        ref.watch(bundledTemplatesProvider);
+    final AsyncValue<List<CardTemplate>> templates = ref.watch(
+      bundledTemplatesProvider,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -282,7 +283,8 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
             const SizedBox(height: 14),
             templates.when(
               loading: () => const LinearProgressIndicator(),
-              error: (Object e, StackTrace s) => Text('Templates unavailable: $e'),
+              error: (Object e, StackTrace s) =>
+                  Text('Templates unavailable: $e'),
               data: (List<CardTemplate> list) => DropdownButtonFormField<String>(
                 key: ValueKey<String>(_templateId),
                 initialValue: list.any((CardTemplate t) => t.id == _templateId)
@@ -319,8 +321,8 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
               'Switch off anything this school does not want printed. Name and '
               'Photo are always on.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 6),
             Card(
@@ -331,18 +333,22 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
                       dense: true,
                       title: Text(field.formLabel),
                       subtitle: field.alwaysEnabled
-                          ? const Text('Always on', style: TextStyle(fontSize: 11.5))
+                          ? const Text(
+                              'Always on',
+                              style: TextStyle(fontSize: 11.5),
+                            )
                           : null,
-                      value: field.alwaysEnabled || _enabled.contains(field.key),
+                      value:
+                          field.alwaysEnabled || _enabled.contains(field.key),
                       onChanged: field.alwaysEnabled
                           ? null
                           : (bool v) => setState(() {
-                                if (v) {
-                                  _enabled.add(field.key);
-                                } else {
-                                  _enabled.remove(field.key);
-                                }
-                              }),
+                              if (v) {
+                                _enabled.add(field.key);
+                              } else {
+                                _enabled.remove(field.key);
+                              }
+                            }),
                     ),
                 ],
               ),
@@ -378,7 +384,12 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
         ),
       ),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(AppTheme.gutter, 0, AppTheme.gutter, 12),
+        minimum: const EdgeInsets.fromLTRB(
+          AppTheme.gutter,
+          0,
+          AppTheme.gutter,
+          12,
+        ),
         child: FilledButton.icon(
           onPressed: _saving ? null : _save,
           icon: _saving
@@ -398,15 +409,13 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
   }
 
   Widget _section(String title) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(
-          title,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w700),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(
+      title,
+      style: Theme.of(context).textTheme.titleMedium
+          ?.copyWith(fontWeight: FontWeight.w700),
+    ),
+  );
 
   Widget _assetCard({
     required String title,
@@ -448,7 +457,10 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
                 children: <Widget>[
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -462,11 +474,20 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
                     children: <Widget>[
                       OutlinedButton.icon(
                         onPressed: onUpload,
-                        icon: Icon(hasFile ? Icons.swap_horiz : Icons.upload, size: 16),
-                        label: Text(hasFile ? 'Change' : 'Upload', style: const TextStyle(fontSize: 12)),
+                        icon: Icon(
+                          hasFile ? Icons.swap_horiz : Icons.upload,
+                          size: 16,
+                        ),
+                        label: Text(
+                          hasFile ? 'Change' : 'Upload',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         style: OutlinedButton.styleFrom(
                           minimumSize: Size.zero,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
@@ -474,10 +495,20 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
                         const SizedBox(width: 8),
                         TextButton.icon(
                           onPressed: onRemove,
-                          icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                          label: const Text('Remove', style: TextStyle(fontSize: 12, color: Colors.red)),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          label: const Text(
+                            'Remove',
+                            style: TextStyle(fontSize: 12, color: Colors.red),
+                          ),
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             visualDensity: VisualDensity.compact,
                           ),
                         ),
@@ -509,7 +540,9 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
           decoration: BoxDecoration(
             color: Color(value),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
         ),
         onTap: () => _pickColor(label, value, onChanged),
@@ -525,8 +558,9 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
     int current,
     ValueChanged<int> onChanged,
   ) async {
-    final TextEditingController field =
-        TextEditingController(text: _hex(current));
+    final TextEditingController field = TextEditingController(
+      text: _hex(current),
+    );
 
     final int? picked = await showDialog<int>(
       context: context,
@@ -539,25 +573,35 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: <int>[
-                0xFFD32F2F, 0xFF1565C0, 0xFF2E7D32, 0xFFF57C00,
-                0xFF7B1FA2, 0xFF00838F, 0xFFAD1457, 0xFF1A3D7C,
-                0xFF111111, 0xFF9C1AB1, 0xFFE01B1B, 0xFF14A05A,
-              ]
-                  .map(
-                    (int c) => InkWell(
-                      onTap: () => Navigator.of(ctx).pop(c),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Color(c),
-                          borderRadius: BorderRadius.circular(8),
+              children:
+                  <int>[
+                        0xFFD32F2F,
+                        0xFF1565C0,
+                        0xFF2E7D32,
+                        0xFFF57C00,
+                        0xFF7B1FA2,
+                        0xFF00838F,
+                        0xFFAD1457,
+                        0xFF1A3D7C,
+                        0xFF111111,
+                        0xFF9C1AB1,
+                        0xFFE01B1B,
+                        0xFF14A05A,
+                      ]
+                      .map(
+                        (int c) => InkWell(
+                          onTap: () => Navigator.of(ctx).pop(c),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Color(c),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  )
-                  .toList(),
+                      )
+                      .toList(),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -575,9 +619,9 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(
-              SchoolConfig.parseHex(field.text, current),
-            ),
+            onPressed: () =>
+                Navigator.of(ctx)
+                    .pop(SchoolConfig.parseHex(field.text, current)),
             child: const Text('Use'),
           ),
         ],
@@ -615,9 +659,8 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
       await ref.read(schoolRepositoryProvider).save(config);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Settings saved')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Settings saved')));
       context.pop();
     } on Object catch (e) {
       if (!mounted) return;
@@ -641,8 +684,12 @@ class _DivisionColourEditor extends StatelessWidget {
   final ValueChanged<Map<String, int>> onChanged;
 
   static const List<int> _palette = <int>[
-    0xFFE01B1B, 0xFF1A1AE0, 0xFFE0189C,
-    0xFF14A05A, 0xFFF07A16, 0xFF7B1FA2,
+    0xFFE01B1B,
+    0xFF1A1AE0,
+    0xFFE0189C,
+    0xFF14A05A,
+    0xFFF07A16,
+    0xFF7B1FA2,
   ];
 
   @override
@@ -665,8 +712,9 @@ class _DivisionColourEditor extends StatelessWidget {
               'Optional. When set, a student\'s Div picks the accent colour '
               'instead of the school colour - one template produces a whole '
               'colour-coded set.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             if (divisions.isEmpty)
@@ -691,8 +739,9 @@ class _DivisionColourEditor extends StatelessWidget {
                         ),
                         label: Text('Div $d'),
                         onDeleted: () {
-                          final Map<String, int> next = Map<String, int>.of(colors)
-                            ..remove(d);
+                          final Map<String, int> next = Map<String, int>.of(
+                            colors,
+                          )..remove(d);
                           onChanged(next);
                         },
                       ),
@@ -708,7 +757,10 @@ class _DivisionColourEditor extends StatelessWidget {
                   label: const Text('Add division'),
                   style: OutlinedButton.styleFrom(
                     minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

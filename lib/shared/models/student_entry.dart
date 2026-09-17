@@ -115,23 +115,25 @@ class StudentEntry {
 
   String get formattedDob => dob == null ? '' : dobFormat.format(dob!);
 
-  bool get hasPhoto => (localPhotoPath?.isNotEmpty ?? false) || (remotePhotoUrl?.isNotEmpty ?? false);
+  bool get hasPhoto =>
+      (localPhotoPath?.isNotEmpty ?? false) ||
+      (remotePhotoUrl?.isNotEmpty ?? false);
 
   /// Reads a field generically. The card renderer walks the school's enabled
   /// field list and calls this, so adding a field to the layout never requires
   /// a switch statement in the drawing code.
   String valueOf(StudentField field) => switch (field) {
-        StudentField.name => name,
-        StudentField.fatherName => fatherName,
-        StudentField.studentClass => studentClass,
-        StudentField.division => division,
-        StudentField.rollNumber => rollNumber,
-        StudentField.bloodGroup => bloodGroup,
-        StudentField.dob => formattedDob,
-        StudentField.mobile => mobile,
-        StudentField.address => address,
-        StudentField.photo => localPhotoPath ?? remotePhotoUrl ?? '',
-      };
+    StudentField.name => name,
+    StudentField.fatherName => fatherName,
+    StudentField.studentClass => studentClass,
+    StudentField.division => division,
+    StudentField.rollNumber => rollNumber,
+    StudentField.bloodGroup => bloodGroup,
+    StudentField.dob => formattedDob,
+    StudentField.mobile => mobile,
+    StudentField.address => address,
+    StudentField.photo => localPhotoPath ?? remotePhotoUrl ?? '',
+  };
 
   /// Filename-safe identifier used for single-card PDF exports:
   /// `STUDENTNAME_CLASS.pdf`.
@@ -190,7 +192,9 @@ class StudentEntry {
       dob: clearDob ? null : (dob ?? this.dob),
       mobile: mobile ?? this.mobile,
       address: address ?? this.address,
-      localPhotoPath: clearLocalPhotoPath ? null : (localPhotoPath ?? this.localPhotoPath),
+      localPhotoPath: clearLocalPhotoPath
+          ? null
+          : (localPhotoPath ?? this.localPhotoPath),
       remotePhotoUrl: remotePhotoUrl ?? this.remotePhotoUrl,
       syncStatus: syncStatus ?? this.syncStatus,
       syncAttempts: syncAttempts ?? this.syncAttempts,
@@ -198,8 +202,9 @@ class StudentEntry {
       lastSyncAttemptAt: lastSyncAttemptAt ?? this.lastSyncAttemptAt,
       detailsSyncedAt: detailsSyncedAt ?? this.detailsSyncedAt,
       approvalStatus: approvalStatus ?? this.approvalStatus,
-      rejectionReason:
-          clearRejectionReason ? null : (rejectionReason ?? this.rejectionReason),
+      rejectionReason: clearRejectionReason
+          ? null
+          : (rejectionReason ?? this.rejectionReason),
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -211,24 +216,24 @@ class StudentEntry {
   /// rather than a Timestamp so that a card printed in one timezone can never
   /// show a different birth date than the one that was typed.
   Map<String, Object?> toFirestoreMap() => <String, Object?>{
-        'schoolId': schoolId,
-        'name': name,
-        'fatherName': fatherName,
-        'studentClass': studentClass,
-        'division': division,
-        'rollNumber': rollNumber,
-        'bloodGroup': bloodGroup,
-        'dob': dob == null ? null : DateFormat('yyyy-MM-dd').format(dob!),
-        'mobile': mobile,
-        'address': address,
-        'photoUrl': remotePhotoUrl,
-        'approvalStatus': approvalStatus.name,
-        'rejectionReason': rejectionReason,
-        'reviewedBy': reviewedBy,
-        'reviewedAt': reviewedAt?.toUtc().toIso8601String(),
-        'createdAt': createdAt.toUtc().toIso8601String(),
-        'updatedAt': updatedAt.toUtc().toIso8601String(),
-      };
+    'schoolId': schoolId,
+    'name': name,
+    'fatherName': fatherName,
+    'studentClass': studentClass,
+    'division': division,
+    'rollNumber': rollNumber,
+    'bloodGroup': bloodGroup,
+    'dob': dob == null ? null : DateFormat('yyyy-MM-dd').format(dob!),
+    'mobile': mobile,
+    'address': address,
+    'photoUrl': remotePhotoUrl,
+    'approvalStatus': approvalStatus.name,
+    'rejectionReason': rejectionReason,
+    'reviewedBy': reviewedBy,
+    'reviewedAt': reviewedAt?.toUtc().toIso8601String(),
+    'createdAt': createdAt.toUtc().toIso8601String(),
+    'updatedAt': updatedAt.toUtc().toIso8601String(),
+  };
 
   static StudentEntry fromFirestoreMap(String id, Map<String, Object?> map) {
     return StudentEntry(

@@ -119,8 +119,14 @@ void main() {
 
       expect(feed.first.id, 'entry-stuck-syncfail');
       expect(feed.first.kind, NotificationKind.syncFailed);
-      expect(feed.map((AppNotification n) => n.id), contains('entry-new-rejected'));
-      expect(feed.map((AppNotification n) => n.id), contains('entry-old-approved'));
+      expect(
+        feed.map((AppNotification n) => n.id),
+        contains('entry-new-rejected'),
+      );
+      expect(
+        feed.map((AppNotification n) => n.id),
+        contains('entry-old-approved'),
+      );
 
       // Rejected + failed upload both need action; the approval does not.
       expect(feed.where((AppNotification n) => n.unread).length, 2);

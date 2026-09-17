@@ -44,8 +44,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final SessionUser? session = ref.watch(currentSessionProvider);
-    final AsyncValue<List<ChatMessage>> messagesAsync =
-        ref.watch(messagesProvider(widget.chatId));
+    final AsyncValue<List<ChatMessage>> messagesAsync = ref.watch(
+      messagesProvider(widget.chatId),
+    );
     final Chat? chat = ref
         .watch(myChatsProvider)
         .value
@@ -53,15 +54,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .firstOrNull;
 
     final List<ChatMessage> all = messagesAsync.value ?? const <ChatMessage>[];
-    final List<ChatMessage> visible =
-        _searching ? ChatRepository.search(all, _search.text) : all;
+    final List<ChatMessage> visible = _searching
+        ? ChatRepository.search(all, _search.text)
+        : all;
 
     if (!_markedRead && all.isNotEmpty && session != null) {
       _markedRead = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _markRead(all, session));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _markRead(all, session),
+      );
     }
 
-    final bool canPost = chat == null ||
+    final bool canPost =
+        chat == null ||
         chat.kind != ChatKind.broadcast ||
         (session?.isAdmin ?? false);
 
@@ -111,11 +116,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       reverse: true,
                       padding: const EdgeInsets.all(AppTheme.gutter),
                       itemCount: visible.length,
-                      itemBuilder: (BuildContext context, int i) => _MessageBubble(
-                        message: visible[i],
-                        isMine: visible[i].senderId == session?.uid,
-                        memberCount: chat?.members.length ?? 2,
-                      ),
+                      itemBuilder: (BuildContext context, int i) =>
+                          _MessageBubble(
+                            message: visible[i],
+                            isMine: visible[i].senderId == session?.uid,
+                            memberCount: chat?.members.length ?? 2,
+                          ),
                     ),
             ),
           ),
@@ -133,13 +139,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Future<void> _markRead(List<ChatMessage> messages, SessionUser session) async {
+  Future<void> _markRead(
+    List<ChatMessage> messages,
+    SessionUser session,
+  ) async {
     try {
-      await ref.read(chatRepositoryProvider).markRead(
-            chatId: widget.chatId,
-            uid: session.uid,
-            visible: messages,
-          );
+      await ref
+          .read(chatRepositoryProvider)
+          .markRead(chatId: widget.chatId, uid: session.uid, visible: messages);
     } on Object {
       // A failed read receipt is cosmetic - never interrupt the reader for it.
     }
@@ -154,7 +161,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _composer.clear();
 
     try {
-      await ref.read(chatRepositoryProvider).sendMessage(
+      await ref
+          .read(chatRepositoryProvider)
+          .sendMessage(
             chat: chat,
             senderId: session.uid,
             senderName: session.displayName.isEmpty
@@ -237,16 +246,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     setState(() => _sending = true);
     try {
-      final String url = await ref.read(chatRepositoryProvider).uploadAttachment(
-            chatId: chat.id,
-            file: file,
-            fileName: name,
-          );
+      final String url = await ref
+          .read(chatRepositoryProvider)
+          .uploadAttachment(chatId: chat.id, file: file, fileName: name);
 
-      final bool isImage = <String>['.png', '.jpg', '.jpeg', '.gif', '.webp']
-          .any((String ext) => name.toLowerCase().endsWith(ext));
+      final bool isImage = <String>[
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.gif',
+        '.webp',
+      ].any((String ext) => name.toLowerCase().endsWith(ext));
 
-      await ref.read(chatRepositoryProvider).sendMessage(
+      await ref
+          .read(chatRepositoryProvider)
+          .sendMessage(
             chat: chat,
             senderId: session.uid,
             senderName: session.displayName.isEmpty
@@ -310,8 +324,9 @@ class _MessageBubble extends StatelessWidget {
           ),
         ),
         child: Column(
-          crossAxisAlignment:
-              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: <Widget>[
             if (!isMine)
               Padding(
@@ -335,9 +350,9 @@ class _MessageBubble extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
                         const _AttachmentChip(
-                      label: 'Image unavailable',
-                      icon: Icons.broken_image_outlined,
-                    ),
+                          label: 'Image unavailable',
+                          icon: Icons.broken_image_outlined,
+                        ),
                   ),
                 )
               else
@@ -348,7 +363,10 @@ class _MessageBubble extends StatelessWidget {
               if (message.body.isNotEmpty) const SizedBox(height: 6),
             ],
             if (message.body.isNotEmpty)
-              Text(message.body, style: const TextStyle(fontSize: 14, height: 1.35)),
+              Text(
+                message.body,
+                style: const TextStyle(fontSize: 14, height: 1.35),
+              ),
             const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -428,7 +446,9 @@ class _Composer extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           border: Border(
-            top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
         ),
         child: Row(

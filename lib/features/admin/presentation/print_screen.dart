@@ -41,17 +41,19 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final SchoolConfig? school =
-        ref.watch(schoolByIdProvider(widget.schoolId)).value;
+    final SchoolConfig? school = ref
+        .watch(schoolByIdProvider(widget.schoolId))
+        .value;
     final List<StudentEntry> all =
         ref.watch(entriesForSchoolProvider(widget.schoolId)).value ??
-            const <StudentEntry>[];
+        const <StudentEntry>[];
 
     final List<StudentEntry> printable = all
         .where((StudentEntry e) => e.isPrintable && e.hasPhoto)
         .toList();
-    final int approvedWithoutPhoto =
-        all.where((StudentEntry e) => e.isPrintable && !e.hasPhoto).length;
+    final int approvedWithoutPhoto = all
+        .where((StudentEntry e) => e.isPrintable && !e.hasPhoto)
+        .length;
 
     final CardSize size = school?.cardSize ?? CardSize.defaultSize;
     final ImpositionGrid grid12x18 = ImpositionGrid.compute(
@@ -88,8 +90,8 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
             title: '12 x 18 in Sheets',
             subtitle: grid12x18.isUsable
                 ? '${grid12x18.columns} x ${grid12x18.rows} = '
-                    '${grid12x18.capacity} cards per sheet  -  '
-                    '${grid12x18.sheetsFor(printable.length)} sheet(s)'
+                      '${grid12x18.capacity} cards per sheet  -  '
+                      '${grid12x18.sheetsFor(printable.length)} sheet(s)'
                 : 'This card size does not fit',
             warnings: grid12x18.warnings,
             enabled: !_busy && printable.isNotEmpty && grid12x18.isUsable,
@@ -107,8 +109,8 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
             title: 'A4 Landscape Sheets',
             subtitle: gridA4.isUsable
                 ? '${gridA4.columns} x ${gridA4.rows} = ${gridA4.capacity} '
-                    'cards per sheet  -  '
-                    '${gridA4.sheetsFor(printable.length)} sheet(s)'
+                      'cards per sheet  -  '
+                      '${gridA4.sheetsFor(printable.length)} sheet(s)'
                 : 'This card size does not fit',
             warnings: gridA4.warnings,
             enabled: !_busy && printable.isNotEmpty && gridA4.isUsable,
@@ -124,11 +126,13 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
 
           _SheetCard(
             title: 'Single Cards',
-            subtitle: 'One PDF per student, named STUDENTNAME_CLASS.pdf '
+            subtitle:
+                'One PDF per student, named STUDENTNAME_CLASS.pdf '
                 '(${printable.length} file(s))',
             warnings: const <String>[],
             enabled: !_busy && printable.isNotEmpty,
-            onGenerate: () => _generateSingles(school: school, entries: printable),
+            onGenerate: () =>
+                _generateSingles(school: school, entries: printable),
           ),
 
           if (_status != null) ...<Widget>[
@@ -158,17 +162,16 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
   // ------------------------------------------------------------------
 
   Future<
-      ({
-        SchoolConfig config,
-        CardTemplate template,
-        ImpositionService service,
-      })?> _prepare(SchoolConfig? school) async {
+    ({SchoolConfig config, CardTemplate template, ImpositionService service})?
+  >
+  _prepare(SchoolConfig? school) async {
     if (school == null) {
       _fail('School settings have not loaded yet.');
       return null;
     }
-    final ImpositionService service =
-        await ref.read(impositionServiceProvider.future);
+    final ImpositionService service = await ref.read(
+      impositionServiceProvider.future,
+    );
     final TemplateRepository repo = ref.read(templateRepositoryProvider);
     final CardTemplate template = await repo.resolve(
       templateId: school.templateId,
@@ -212,22 +215,27 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
         return;
       }
 
-      final ExportResult result = await ref.read(exportServiceProvider).write(
+      final ExportResult result = await ref
+          .read(exportServiceProvider)
+          .write(
             schoolName: prepared.config.name,
             subfolder: subfolder,
             pdfs: pdfs,
           );
 
       final String actor = ref.read(currentSessionProvider)?.uid ?? 'admin';
-      final String batchId =
-          await ref.read(printBatchRepositoryProvider).create(
-                schoolId: widget.schoolId,
-                cardCount: entries.length,
-                sheetType: sheet == SheetSpec.sheet12x18 ? '12x18' : 'a4',
-                sheetCount: result.fileCount,
-                generatedBy: actor,
-              );
-      await ref.read(auditRepositoryProvider).log(
+      final String batchId = await ref
+          .read(printBatchRepositoryProvider)
+          .create(
+            schoolId: widget.schoolId,
+            cardCount: entries.length,
+            sheetType: sheet == SheetSpec.sheet12x18 ? '12x18' : 'a4',
+            sheetCount: result.fileCount,
+            generatedBy: actor,
+          );
+      await ref
+          .read(auditRepositoryProvider)
+          .log(
             action: 'print_batch',
             entityType: 'print_batch',
             entityId: batchId,
@@ -247,7 +255,8 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
       if (!mounted) return;
       setState(() {
         _lastResult = result;
-        _status = 'Wrote ${result.fileCount} file(s) to $subfolder.'
+        _status =
+            'Wrote ${result.fileCount} file(s) to $subfolder.'
             '${marked > 0 ? ' $marked card(s) marked as printed.' : ''}';
       });
     } on Object catch (e) {
@@ -280,22 +289,27 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
         cropMarks: _cropMarks,
       );
 
-      final ExportResult result = await ref.read(exportServiceProvider).write(
+      final ExportResult result = await ref
+          .read(exportServiceProvider)
+          .write(
             schoolName: prepared.config.name,
             subfolder: ExportService.singleCardsDir,
             pdfs: pdfs,
           );
 
       final String actor = ref.read(currentSessionProvider)?.uid ?? 'admin';
-      final String batchId =
-          await ref.read(printBatchRepositoryProvider).create(
-                schoolId: widget.schoolId,
-                cardCount: entries.length,
-                sheetType: 'single',
-                sheetCount: result.fileCount,
-                generatedBy: actor,
-              );
-      await ref.read(auditRepositoryProvider).log(
+      final String batchId = await ref
+          .read(printBatchRepositoryProvider)
+          .create(
+            schoolId: widget.schoolId,
+            cardCount: entries.length,
+            sheetType: 'single',
+            sheetCount: result.fileCount,
+            generatedBy: actor,
+          );
+      await ref
+          .read(auditRepositoryProvider)
+          .log(
             action: 'print_batch',
             entityType: 'print_batch',
             entityId: batchId,
@@ -314,7 +328,8 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
       if (!mounted) return;
       setState(() {
         _lastResult = result;
-        _status = 'Wrote ${result.fileCount} single card(s).'
+        _status =
+            'Wrote ${result.fileCount} single card(s).'
             '${marked > 0 ? ' $marked card(s) marked as printed.' : ''}';
       });
     } on Object catch (e) {
@@ -332,9 +347,9 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
   /// update a status must not read as "the print run failed".
   Future<int> _markPrinted(List<StudentEntry> entries) async {
     try {
-      return await ref.read(studentRepositoryProvider).markPrinted(
-            entries.map((StudentEntry e) => e.id).toList(),
-          );
+      return await ref
+          .read(studentRepositoryProvider)
+          .markPrinted(entries.map((StudentEntry e) => e.id).toList());
     } on Object {
       return 0;
     }
@@ -354,7 +369,9 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
     final ExportResult? result = _lastResult;
     if (result == null) return;
 
-    final bool ok = await ref.read(exportServiceProvider).openFolder(result.directory);
+    final bool ok = await ref
+        .read(exportServiceProvider)
+        .openFolder(result.directory);
     if (!mounted || ok) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -363,7 +380,7 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
           ExportService.canOpenFolder
               ? 'Could not open the folder.'
               : 'Opening a folder is only supported on the desktop build. '
-                  'Files are at ${result.directory.path}',
+                    'Files are at ${result.directory.path}',
         ),
       ),
     );
@@ -374,9 +391,8 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
       await ref.read(exportServiceProvider).printOne(file);
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Print failed: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Print failed: $e')));
     }
   }
 
@@ -410,7 +426,7 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
         _status = all
             ? 'Sent all ${files.length} file(s) to ${printer.name}.'
             : 'Sent $printed of ${files.length} file(s) to ${printer.name}; '
-                'the spooler rejected the rest.';
+                  'the spooler rejected the rest.';
       });
       if (!all) {
         ScaffoldMessenger.of(context)
@@ -466,8 +482,9 @@ class _ReadinessCard extends StatelessWidget {
                     ready
                         ? '$printable card(s) ready to print'
                         : 'Nothing is ready to print yet',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -476,22 +493,23 @@ class _ReadinessCard extends StatelessWidget {
             Text(
               'Only approved entries with a photo are printed. '
               '$total total in this school.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             if (approvedWithoutPhoto > 0) ...<Widget>[
               const SizedBox(height: 8),
               Text(
                 '$approvedWithoutPhoto approved entr(ies) have no photo and are '
                 'excluded - a card with an empty photo box would waste the sheet.',
-                style: const TextStyle(fontSize: 12, color: StatusColors.pending),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: StatusColors.pending,
+                ),
               ),
             ],
             const SizedBox(height: 8),
-            Text(
-              'Card size: ${size.label}',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text('Card size: ${size.label}', style: theme.textTheme.bodySmall),
           ],
         ),
       ),
@@ -571,14 +589,16 @@ class _SheetCard extends StatelessWidget {
           children: <Widget>[
             Text(
               title,
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             for (final String w in warnings) ...<Widget>[
               const SizedBox(height: 8),
@@ -631,7 +651,9 @@ class _StatusCard extends StatelessWidget {
           children: <Widget>[
             const Icon(Icons.info_outline, size: 18),
             const SizedBox(width: 10),
-            Expanded(child: Text(message, style: const TextStyle(fontSize: 13))),
+            Expanded(
+              child: Text(message, style: const TextStyle(fontSize: 13)),
+            ),
           ],
         ),
       ),
@@ -667,8 +689,9 @@ class _OutputCard extends StatelessWidget {
           children: <Widget>[
             Text(
               'Generated files',
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 4),
             SelectableText(
@@ -686,7 +709,9 @@ class _OutputCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 10),
-            ...result.files.take(12).map(
+            ...result.files
+                .take(12)
+                .map(
                   (File f) => ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -764,12 +789,12 @@ class _PlatformNoteCard extends StatelessWidget {
               child: Text(
                 desktop
                     ? 'Desktop build: "Open folder" and direct printing are '
-                        'available.'
+                          'available.'
                     : 'On Android there is no file manager intent for a folder '
-                        'and no default printer, so "Open folder" and bulk '
-                        'printing are unavailable. Files are still written to '
-                        'app storage, and each file can be printed or shared '
-                        'individually. Use the Windows build for print runs.',
+                          'and no default printer, so "Open folder" and bulk '
+                          'printing are unavailable. Files are still written to '
+                          'app storage, and each file can be printed or shared '
+                          'individually. Use the Windows build for print runs.',
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.4,

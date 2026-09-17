@@ -63,34 +63,34 @@ class AppNotification {
     return switch (status) {
       ApprovalStatus.pending => null,
       ApprovalStatus.approved => AppNotification(
-          id: 'entry-$entryId-approved',
-          kind: NotificationKind.cardApproved,
-          title: 'Card approved',
-          body: '$name was approved by the office.',
-          at: at,
-          route: route,
-        ),
+        id: 'entry-$entryId-approved',
+        kind: NotificationKind.cardApproved,
+        title: 'Card approved',
+        body: '$name was approved by the office.',
+        at: at,
+        route: route,
+      ),
       ApprovalStatus.rejected => AppNotification(
-          id: 'entry-$entryId-rejected',
-          kind: NotificationKind.cardRejected,
-          title: 'Card sent back',
-          body: reason == null || reason.trim().isEmpty
-              ? '$name needs a correction.'
-              : '$name: $reason',
-          at: at,
-          route: route,
-          // A returned card is the one state that needs the operator to act,
-          // so it stays highlighted until they deal with it.
-          unread: true,
-        ),
+        id: 'entry-$entryId-rejected',
+        kind: NotificationKind.cardRejected,
+        title: 'Card sent back',
+        body: reason == null || reason.trim().isEmpty
+            ? '$name needs a correction.'
+            : '$name: $reason',
+        at: at,
+        route: route,
+        // A returned card is the one state that needs the operator to act,
+        // so it stays highlighted until they deal with it.
+        unread: true,
+      ),
       ApprovalStatus.printed => AppNotification(
-          id: 'entry-$entryId-printed',
-          kind: NotificationKind.cardPrinted,
-          title: 'Card printed',
-          body: "$name's card has been printed.",
-          at: at,
-          route: route,
-        ),
+        id: 'entry-$entryId-printed',
+        kind: NotificationKind.cardPrinted,
+        title: 'Card printed',
+        body: "$name's card has been printed.",
+        at: at,
+        route: route,
+      ),
     };
   }
 }

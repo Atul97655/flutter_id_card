@@ -53,14 +53,14 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
 
   FaceDetector? _liveFaceDetector;
   FaceDetector get _liveDetector => _liveFaceDetector ??= FaceDetector(
-        options: FaceDetectorOptions(
-          performanceMode: FaceDetectorMode.fast,
-          enableLandmarks: false,
-          enableClassification: false,
-          enableTracking: false,
-          minFaceSize: 0.15,
-        ),
-      );
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.fast,
+      enableLandmarks: false,
+      enableClassification: false,
+      enableTracking: false,
+      minFaceSize: 0.15,
+    ),
+  );
 
   bool _isDetecting = false;
   DateTime _lastDetectionTime = DateTime.now();
@@ -126,9 +126,9 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
       _stage = _Stage.permission;
       _error = status.isPermanentlyDenied
           ? 'Camera access is blocked. Enable it in Settings, or pick an '
-              'existing photo from the gallery.'
+                'existing photo from the gallery.'
           : 'Camera access is needed to take the student photo. You can also '
-              'pick an existing photo from the gallery.';
+                'pick an existing photo from the gallery.';
     });
   }
 
@@ -138,7 +138,8 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
       if (_cameras.isEmpty) {
         setState(() {
           _stage = _Stage.permission;
-          _error = 'No camera was found on this device. Use the gallery instead.';
+          _error =
+              'No camera was found on this device. Use the gallery instead.';
         });
         return;
       }
@@ -242,7 +243,8 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
           _liveBorderColor = Colors.greenAccent;
           _liveStatusColor = Colors.greenAccent;
         } else {
-          _liveStatusMessage = '${faces.length} faces detected • Only 1 student allowed';
+          _liveStatusMessage =
+              '${faces.length} faces detected • Only 1 student allowed';
           _liveBorderColor = Colors.orangeAccent;
           _liveStatusColor = Colors.orangeAccent;
         }
@@ -255,11 +257,14 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
   }
 
   InputImage? _buildInputImage(CameraImage image, CameraDescription camera) {
-    final InputImageRotation? rotation =
-        InputImageRotationValue.fromRawValue(camera.sensorOrientation);
+    final InputImageRotation? rotation = InputImageRotationValue.fromRawValue(
+      camera.sensorOrientation,
+    );
     if (rotation == null) return null;
 
-    final int? rawFormat = image.format.raw is int ? image.format.raw as int : null;
+    final int? rawFormat = image.format.raw is int
+        ? image.format.raw as int
+        : null;
     final InputImageFormat? format = rawFormat != null
         ? InputImageFormatValue.fromRawValue(rawFormat)
         : null;
@@ -369,7 +374,8 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
         sourcePath: source,
         adjustments: _adjustments,
         backgroundArgb:
-            config?.photoBackgroundHex ?? SchoolConfig.kDefaultPhotoBackgroundHex,
+            config?.photoBackgroundHex ??
+            SchoolConfig.kDefaultPhotoBackgroundHex,
       );
 
       if (!mounted) return;
@@ -481,7 +487,8 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
             IconButton(
               icon: const Icon(Icons.cameraswitch_outlined),
               tooltip: 'Switch camera',
-              onPressed: () => _openCamera((_cameraIndex + 1) % _cameras.length),
+              onPressed: () =>
+                  _openCamera((_cameraIndex + 1) % _cameras.length),
             ),
         ],
       ),
@@ -514,7 +521,11 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(Icons.photo_camera_outlined, size: 56, color: Colors.white54),
+            const Icon(
+              Icons.photo_camera_outlined,
+              size: 56,
+              color: Colors.white54,
+            ),
             const SizedBox(height: 18),
             Text(
               _error ?? 'Camera access is needed to take the student photo.',
@@ -548,7 +559,9 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
   Widget _cameraView() {
     final CameraController? controller = _camera;
     if (controller == null || !controller.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
     }
 
     return Column(
@@ -748,7 +761,7 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
               Text(
                 ok
                     ? 'Print ready - ${PhotoSpec.widthPx} x ${PhotoSpec.heightPx} px '
-                        'at ${PrintUnits.printDpi.round()} DPI'
+                          'at ${PrintUnits.printDpi.round()} DPI'
                     : 'Low resolution - ${processed.sourceDpi.round()} DPI',
                 style: TextStyle(
                   color: color,
@@ -979,17 +992,11 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen>
     );
   }
 
-  Widget _errorCard(String message) => _banner(
-        message,
-        StatusColors.failed,
-        Icons.error_outline,
-      );
+  Widget _errorCard(String message) =>
+      _banner(message, StatusColors.failed, Icons.error_outline);
 
-  Widget _warningCard(String message) => _banner(
-        message,
-        StatusColors.pending,
-        Icons.warning_amber_rounded,
-      );
+  Widget _warningCard(String message) =>
+      _banner(message, StatusColors.pending, Icons.warning_amber_rounded);
 
   Widget _banner(String message, Color color, IconData icon) {
     return Container(

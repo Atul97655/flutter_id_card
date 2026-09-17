@@ -86,8 +86,7 @@ class _FadeSlideInState extends State<FadeSlideIn>
   @override
   void initState() {
     super.initState();
-    final int step =
-        widget.index.clamp(0, AppMotion.maxStaggerIndex);
+    final int step = widget.index.clamp(0, AppMotion.maxStaggerIndex);
     final Duration delay = AppMotion.stagger * step;
 
     if (delay == Duration.zero) {
@@ -214,10 +213,7 @@ class SmoothSwitcher extends StatelessWidget {
         // shrinking list appear to float. Top-aligning keeps content anchored.
         layoutBuilder: (Widget? current, List<Widget> previous) => Stack(
           alignment: alignment,
-          children: <Widget>[
-            ...previous,
-            ?current,
-          ],
+          children: <Widget>[...previous, ?current],
         ),
         child: child,
       ),
@@ -247,10 +243,8 @@ class AnimatedCount extends StatelessWidget {
       tween: Tween<double>(begin: 0, end: value.toDouble()),
       duration: duration,
       curve: AppMotion.decelerate,
-      builder: (BuildContext context, double v, _) => Text(
-        v.round().toString(),
-        style: style,
-      ),
+      builder: (BuildContext context, double v, _) =>
+          Text(v.round().toString(), style: style),
     );
   }
 }

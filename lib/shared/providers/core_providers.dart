@@ -10,27 +10,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Overridden in tests with `AppDatabase.forTesting(NativeDatabase.memory())`.
 /// `keepAlive` matters here: letting Riverpod dispose this would close the
 /// SQLite connection out from under any in-flight write.
-final Provider<AppDatabase> appDatabaseProvider = Provider<AppDatabase>(
-  (Ref ref) {
-    final AppDatabase db = AppDatabase();
-    ref.onDispose(db.close);
-    return db;
-  },
-);
+final Provider<AppDatabase> appDatabaseProvider = Provider<AppDatabase>((
+  Ref ref,
+) {
+  final AppDatabase db = AppDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
 
-final Provider<StudentRepository> studentRepositoryProvider = Provider<StudentRepository>(
-  (Ref ref) => StudentRepository(ref.watch(appDatabaseProvider)),
-);
+final Provider<StudentRepository> studentRepositoryProvider =
+    Provider<StudentRepository>(
+      (Ref ref) => StudentRepository(ref.watch(appDatabaseProvider)),
+    );
 
-final Provider<SchoolRepository> schoolRepositoryProvider = Provider<SchoolRepository>(
-  (Ref ref) => SchoolRepository(ref.watch(appDatabaseProvider)),
-);
+final Provider<SchoolRepository> schoolRepositoryProvider =
+    Provider<SchoolRepository>(
+      (Ref ref) => SchoolRepository(ref.watch(appDatabaseProvider)),
+    );
 
-final Provider<AuditRepository> auditRepositoryProvider = Provider<AuditRepository>(
-  (Ref ref) => AuditRepository(ref.watch(appDatabaseProvider)),
-);
+final Provider<AuditRepository> auditRepositoryProvider =
+    Provider<AuditRepository>(
+      (Ref ref) => AuditRepository(ref.watch(appDatabaseProvider)),
+    );
 
 final Provider<PrintBatchRepository> printBatchRepositoryProvider =
     Provider<PrintBatchRepository>(
-  (Ref ref) => PrintBatchRepository(ref.watch(appDatabaseProvider)),
-);
+      (Ref ref) => PrintBatchRepository(ref.watch(appDatabaseProvider)),
+    );

@@ -39,18 +39,22 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final SessionUser? session = ref.watch(currentSessionProvider);
     final AsyncValue<SchoolConfig> config = ref.watch(schoolConfigProvider);
-    final AsyncValue<Map<SyncStatus, int>> syncCounts =
-        ref.watch(syncCountsProvider);
-    final AsyncValue<Map<ApprovalStatus, int>> approvalCounts =
-        ref.watch(submissionCountsProvider);
-    final AsyncValue<List<StudentEntry>> entriesAsync =
-        ref.watch(entriesProvider);
+    final AsyncValue<Map<SyncStatus, int>> syncCounts = ref.watch(
+      syncCountsProvider,
+    );
+    final AsyncValue<Map<ApprovalStatus, int>> approvalCounts = ref.watch(
+      submissionCountsProvider,
+    );
+    final AsyncValue<List<StudentEntry>> entriesAsync = ref.watch(
+      entriesProvider,
+    );
     final List<StudentEntry> rejected = ref.watch(needsAttentionProvider);
 
     final int unreadNotifications = ref.watch(unreadNotificationCountProvider);
     final int pending = syncCounts.value?[SyncStatus.pending] ?? 0;
     final int failed = syncCounts.value?[SyncStatus.failed] ?? 0;
-    final List<StudentEntry> entries = entriesAsync.value ?? const <StudentEntry>[];
+    final List<StudentEntry> entries =
+        entriesAsync.value ?? const <StudentEntry>[];
     final List<StudentEntry> recent = entries.take(_recentCount).toList();
 
     int count(ApprovalStatus s) => approvalCounts.value?[s] ?? 0;
@@ -158,7 +162,6 @@ class HomeScreen extends ConsumerWidget {
     if (pending > 0) return '$pending waiting to upload';
     return 'Everything is up to date';
   }
-
 }
 
 /// Bell with a count bubble. The bubble scales in so a notification landing
@@ -255,7 +258,7 @@ class _AttentionBanner extends StatelessWidget {
                     Text(
                       single
                           ? entries.first.rejectionReason ??
-                              'Open it to see why'
+                                'Open it to see why'
                           : 'Fix them and submit again',
                       style: TextStyle(
                         fontSize: 12,
@@ -340,10 +343,10 @@ class _StripDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 1,
-        height: 40,
-        color: Theme.of(context).colorScheme.outlineVariant,
-      );
+    width: 1,
+    height: 40,
+    color: Theme.of(context).colorScheme.outlineVariant,
+  );
 }
 
 class _StatTile extends StatelessWidget {
@@ -378,8 +381,9 @@ class _StatTile extends StatelessWidget {
         const SizedBox(height: 3),
         Text(
           label,
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -483,8 +487,9 @@ class _RecentSubmissions extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Recent submissions',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 if (total > recent.length)
@@ -500,8 +505,9 @@ class _RecentSubmissions extends StatelessWidget {
                 child: Text(
                   'Nothing submitted yet. Your cards and their status will '
                   'appear here.',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               )
             else
@@ -640,8 +646,9 @@ class _SchoolHeader extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     value?.name ?? 'Loading...',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -650,8 +657,9 @@ class _SchoolHeader extends StatelessWidget {
                     value == null
                         ? ''
                         : '${value.cardSize.label} - ${value.enabledFields.length} fields',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   if (isOfflineTest) ...<Widget>[
                     const SizedBox(height: 6),
@@ -729,8 +737,9 @@ class _MenuCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       title,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     if (subtitle.isNotEmpty) ...<Widget>[
                       const SizedBox(height: 3),
@@ -749,8 +758,10 @@ class _MenuCard extends StatelessWidget {
               if (badgeCount > 0)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: color,
                     borderRadius: BorderRadius.circular(20),

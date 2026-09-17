@@ -19,13 +19,16 @@ class SyncStatusScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final AsyncValue<Map<SyncStatus, int>> counts = ref.watch(syncCountsProvider);
+    final AsyncValue<Map<SyncStatus, int>> counts = ref.watch(
+      syncCountsProvider,
+    );
     final AsyncValue<List<StudentEntry>> entries = ref.watch(entriesProvider);
     final bool backendUp = FirebaseBootstrap.instance.isReady;
 
-    final List<StudentEntry> problems = (entries.value ?? const <StudentEntry>[])
-        .where((StudentEntry e) => e.syncStatus == SyncStatus.failed)
-        .toList();
+    final List<StudentEntry> problems =
+        (entries.value ?? const <StudentEntry>[])
+            .where((StudentEntry e) => e.syncStatus == SyncStatus.failed)
+            .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sync Status')),
@@ -43,10 +46,8 @@ class SyncStatusScreen extends ConsumerWidget {
             childAspectRatio: 1.9,
             children: SyncStatus.values
                 .map(
-                  (SyncStatus s) => _CountTile(
-                    status: s,
-                    count: counts.value?[s] ?? 0,
-                  ),
+                  (SyncStatus s) =>
+                      _CountTile(status: s, count: counts.value?[s] ?? 0),
                 )
                 .toList(),
           ),
@@ -54,17 +55,15 @@ class SyncStatusScreen extends ConsumerWidget {
           if (problems.isNotEmpty) ...<Widget>[
             Text(
               'Failed uploads',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
+              style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
               'These stay on the device until they upload. Nothing has been lost.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             for (final StudentEntry e in problems) ...<Widget>[
@@ -135,9 +134,9 @@ class SyncStatusScreen extends ConsumerWidget {
     if (schoolId == null) return;
     await ref.read(studentRepositoryProvider).resetFailures(schoolId);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Queued for another attempt')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Queued for another attempt')));
   }
 }
 
@@ -227,13 +226,15 @@ class _AllClearCard extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: <Widget>[
-            const Icon(Icons.check_circle_outline, size: 40, color: StatusColors.synced),
+            const Icon(
+              Icons.check_circle_outline,
+              size: 40,
+              color: StatusColors.synced,
+            ),
             const SizedBox(height: 10),
             Text(
               'No failed uploads',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
+              style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],

@@ -39,8 +39,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _loadKnownSchools() async {
-    final List<String> codes =
-        await ref.read(authRepositoryProvider).knownSchoolCodes();
+    final List<String> codes = await ref
+        .read(authRepositoryProvider)
+        .knownSchoolCodes();
     if (!mounted) return;
     setState(() {
       _knownSchools = codes;
@@ -80,7 +81,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (_isAdminTab == admin) return;
     setState(() {
       _isAdminTab = admin;
-      _identifier.text = admin ? '' : (_knownSchools.isEmpty ? '' : _knownSchools.first);
+      _identifier.text = admin
+          ? ''
+          : (_knownSchools.isEmpty ? '' : _knownSchools.first);
       _password.clear();
     });
     ref.read(authControllerProvider.notifier).clearError();
@@ -111,15 +114,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Text(
                       'ID entity',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Sign in to continue',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _RoleTabs(
@@ -140,13 +145,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                          icon: Icon(
+                            _obscure ? Icons.visibility_off : Icons.visibility,
+                          ),
                           tooltip: _obscure ? 'Show password' : 'Hide password',
                           onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
-                      validator: (String? v) =>
-                          (v == null || v.isEmpty) ? 'Enter your password' : null,
+                      validator: (String? v) => (v == null || v.isEmpty)
+                          ? 'Enter your password'
+                          : null,
                     ),
                     if (errorText != null) ...<Widget>[
                       const SizedBox(height: 14),
@@ -161,7 +169,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.4,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : Text(_isAdminTab ? 'Sign in as Admin' : 'Sign in'),
@@ -231,7 +241,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 : PopupMenuButton<String>(
                     icon: const Icon(Icons.arrow_drop_down),
                     tooltip: 'Recent schools',
-                    onSelected: (String code) => setState(() => _identifier.text = code),
+                    onSelected: (String code) =>
+                        setState(() => _identifier.text = code),
                     itemBuilder: (BuildContext context) => _knownSchools
                         .map(
                           (String code) => PopupMenuItem<String>(
@@ -253,10 +264,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _startOfflineSession() async {
     await ref
         .read(authControllerProvider.notifier)
-        .startOfflineTestSession(
-          schoolId: 'demo-school',
-          asAdmin: _isAdminTab,
-        );
+        .startOfflineTestSession(schoolId: 'demo-school', asAdmin: _isAdminTab);
     if (!mounted) return;
     context.go(_isAdminTab ? '/admin' : '/home');
   }
@@ -294,8 +302,7 @@ class _RoleTabs extends StatelessWidget {
         ),
       ],
       selected: <bool>{isAdmin},
-      onSelectionChanged:
-          enabled ? (Set<bool> s) => onChanged(s.first) : null,
+      onSelectionChanged: enabled ? (Set<bool> s) => onChanged(s.first) : null,
       showSelectedIcon: false,
     );
   }
@@ -366,7 +373,11 @@ class _BackendUnavailableNotice extends StatelessWidget {
           Text(
             'Add android/app/google-services.json from your Firebase project, '
             'then restart the app.\n\n$detail',
-            style: const TextStyle(fontSize: 12.5, height: 1.4, color: Color(0xFF8D4B00)),
+            style: const TextStyle(
+              fontSize: 12.5,
+              height: 1.4,
+              color: Color(0xFF8D4B00),
+            ),
           ),
         ],
       ),

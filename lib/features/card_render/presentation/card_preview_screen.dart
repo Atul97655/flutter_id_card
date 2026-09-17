@@ -49,10 +49,15 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final StudentEntry? entry = ref.watch(entryByIdProvider(widget.entryId));
-    final AsyncValue<SchoolConfig> configAsync = ref.watch(schoolConfigProvider);
-    final AsyncValue<CardTemplate> templateAsync = ref.watch(activeTemplateProvider);
-    final AsyncValue<IdCardRenderer> rendererAsync =
-        ref.watch(idCardRendererProvider);
+    final AsyncValue<SchoolConfig> configAsync = ref.watch(
+      schoolConfigProvider,
+    );
+    final AsyncValue<CardTemplate> templateAsync = ref.watch(
+      activeTemplateProvider,
+    );
+    final AsyncValue<IdCardRenderer> rendererAsync = ref.watch(
+      idCardRendererProvider,
+    );
 
     if (entry != null &&
         configAsync.hasValue &&
@@ -86,7 +91,9 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
         actions: <Widget>[
           IconButton(
             tooltip: _trueSize ? 'Fit to screen' : 'Show at true size',
-            icon: Icon(_trueSize ? Icons.fit_screen_outlined : Icons.straighten),
+            icon: Icon(
+              _trueSize ? Icons.fit_screen_outlined : Icons.straighten,
+            ),
             onPressed: () => setState(() => _trueSize = !_trueSize),
           ),
         ],
@@ -177,7 +184,11 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const Icon(Icons.error_outline, size: 44, color: StatusColors.failed),
+              const Icon(
+                Icons.error_outline,
+                size: 44,
+                color: StatusColors.failed,
+              ),
               const SizedBox(height: 14),
               Text(_error!, textAlign: TextAlign.center),
             ],
@@ -306,8 +317,11 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Icon(Icons.warning_amber_rounded,
-              size: 18, color: StatusColors.pending),
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: StatusColors.pending,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -329,9 +343,7 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
           children: <Widget>[
             Text(
               'Saved on this device',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
+              style: Theme.of(context).textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
@@ -339,9 +351,9 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
               'This entry is stored locally and will upload automatically when '
               'a connection is available.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.4,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -351,7 +363,12 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
 
   Widget _actions(StudentEntry entry) {
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(AppTheme.gutter, 0, AppTheme.gutter, 12),
+      minimum: const EdgeInsets.fromLTRB(
+        AppTheme.gutter,
+        0,
+        AppTheme.gutter,
+        12,
+      ),
       child: Row(
         children: <Widget>[
           Expanded(

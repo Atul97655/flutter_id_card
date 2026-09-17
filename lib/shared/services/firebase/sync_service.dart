@@ -33,7 +33,8 @@ class SyncState {
   final int pendingCount;
 
   bool get isBusy =>
-      activity == SyncActivity.uploading || activity == SyncActivity.downloading;
+      activity == SyncActivity.uploading ||
+      activity == SyncActivity.downloading;
 
   SyncState copyWith({
     SyncActivity? activity,
@@ -83,17 +84,17 @@ class SyncService {
     FirebaseStorage? storage,
     Connectivity? connectivity,
     bool Function()? isFirebaseReady,
-  })  : _firestoreOverride = firestore,
-        _storageOverride = storage,
-        _connectivity = connectivity ?? Connectivity(),
-        _isFirebaseReady =
-            isFirebaseReady ?? (() => FirebaseBootstrap.instance.isReady),
-        // ignore: prefer_initializing_formals
-        _students = students,
-        // ignore: prefer_initializing_formals
-        _schools = schools,
-        // ignore: prefer_initializing_formals
-        _auditRepo = auditRepo;
+  }) : _firestoreOverride = firestore,
+       _storageOverride = storage,
+       _connectivity = connectivity ?? Connectivity(),
+       _isFirebaseReady =
+           isFirebaseReady ?? (() => FirebaseBootstrap.instance.isReady),
+       // ignore: prefer_initializing_formals
+       _students = students,
+       // ignore: prefer_initializing_formals
+       _schools = schools,
+       // ignore: prefer_initializing_formals
+       _auditRepo = auditRepo;
 
   final StudentRepository _students;
   final SchoolRepository _schools;
@@ -158,16 +159,16 @@ class SyncService {
     if (_started) return;
     _started = true;
 
-    _connectivitySub = _connectivity.onConnectivityChanged.listen(
-      (List<ConnectivityResult> results) {
-        final bool online = results.any(
-          (ConnectivityResult r) => r != ConnectivityResult.none,
-        );
-        if (online) {
-          unawaited(syncNow(schoolId: schoolId, isAdmin: isAdmin));
-        }
-      },
-    );
+    _connectivitySub = _connectivity.onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
+      final bool online = results.any(
+        (ConnectivityResult r) => r != ConnectivityResult.none,
+      );
+      if (online) {
+        unawaited(syncNow(schoolId: schoolId, isAdmin: isAdmin));
+      }
+    });
 
     _timer = Timer.periodic(
       _pollInterval,
@@ -207,7 +208,8 @@ class SyncService {
       return;
     }
 
-    final List<ConnectivityResult> conn = await _connectivity.checkConnectivity();
+    final List<ConnectivityResult> conn = await _connectivity
+        .checkConnectivity();
     if (conn.every((ConnectivityResult r) => r == ConnectivityResult.none)) {
       _emit(_state.copyWith(activity: SyncActivity.offline));
       return;
@@ -215,7 +217,9 @@ class SyncService {
 
     _running = true;
     try {
-      _emit(_state.copyWith(activity: SyncActivity.downloading, clearError: true));
+      _emit(
+        _state.copyWith(activity: SyncActivity.downloading, clearError: true),
+      );
       if (isAdmin) {
         await _pullEverythingForAdmin();
       } else if (schoolId != null) {
@@ -258,10 +262,7 @@ class SyncService {
       // A pass-level failure (not a per-row one) - typically the settings
       // fetch. Individual row failures are recorded on the rows themselves.
       _emit(
-        _state.copyWith(
-          activity: SyncActivity.idle,
-          lastError: e.toString(),
-        ),
+        _state.copyWith(activity: SyncActivity.idle, lastError: e.toString()),
       );
       if (kDebugMode) debugPrint('Sync pass failed: $e');
     } finally {
@@ -282,8 +283,10 @@ class SyncService {
   Future<void> _pullSchoolConfig(String schoolId) async {
     if (schoolId.isEmpty) return;
 
-    final DocumentSnapshot<Map<String, Object?>> snap =
-        await _db.collection('schools').doc(schoolId).get();
+    final DocumentSnapshot<Map<String, Object?>> snap = await _db
+        .collection('schools')
+        .doc(schoolId)
+        .get();
 
     if (!snap.exists) return;
 
@@ -314,12 +317,17 @@ class SyncService {
   /// (typically an approval the admin just made) is **not** overwritten by the
   /// server copy, which would silently discard the decision.
   Future<void> _pullEverythingForAdmin() async {
-    final QuerySnapshot<Map<String, Object?>> schoolDocs =
-        await _db.collection('schools').get();
+    final QuerySnapshot<Map<String, Object?>> schoolDocs = await _db
+        .collection('schools')
+        .get();
 
     final List<SchoolConfig> schools = <SchoolConfig>[];
-    for (final QueryDocumentSnapshot<Map<String, Object?>> doc in schoolDocs.docs) {
-      final SchoolConfig remote = SchoolConfig.fromFirestoreMap(doc.id, doc.data());
+    for (final QueryDocumentSnapshot<Map<String, Object?>> doc
+        in schoolDocs.docs) {
+      final SchoolConfig remote = SchoolConfig.fromFirestoreMap(
+        doc.id,
+        doc.data(),
+      );
       final SchoolConfig? existing = await _schools.find(doc.id);
       schools.add(
         existing?.localLogoPath == null
@@ -333,13 +341,21 @@ class SyncService {
     // trip instead of N, but it needs its own composite index and its own
     // security rule; with a handful of schools the simple form is not worth
     // that operational cost.
-    for (final QueryDocumentSnapshot<Map<String, Object?>> doc in schoolDocs.docs) {
-      final QuerySnapshot<Map<String, Object?>> entryDocs =
-          await _db.collection('schools').doc(doc.id).collection('entries').get();
+    for (final QueryDocumentSnapshot<Map<String, Object?>> doc
+        in schoolDocs.docs) {
+      final QuerySnapshot<Map<String, Object?>> entryDocs = await _db
+          .collection('schools')
+          .doc(doc.id)
+          .collection('entries')
+          .get();
 
       final List<StudentEntry> incoming = <StudentEntry>[];
-      for (final QueryDocumentSnapshot<Map<String, Object?>> e in entryDocs.docs) {
-        final StudentEntry remote = StudentEntry.fromFirestoreMap(e.id, e.data());
+      for (final QueryDocumentSnapshot<Map<String, Object?>> e
+          in entryDocs.docs) {
+        final StudentEntry remote = StudentEntry.fromFirestoreMap(
+          e.id,
+          e.data(),
+        );
         final StudentEntry? local = await _students.findById(e.id);
 
         // Never clobber work that has not uploaded yet.
@@ -401,10 +417,7 @@ class SyncService {
     if (lastAttempt == null) return false;
 
     final Duration wait = Duration(
-      seconds: math.min(
-        300,
-        math.pow(2, entry.syncAttempts).toInt(),
-      ),
+      seconds: math.min(300, math.pow(2, entry.syncAttempts).toInt()),
     );
     return DateTime.now().isBefore(lastAttempt.add(wait));
   }
@@ -491,11 +504,7 @@ class SyncService {
       await _students.markSynced(entry.id, remotePhotoUrl: photoUrl);
       return true;
     } on FirebaseException catch (e) {
-      await _students.markFailed(
-        entry.id,
-        _describe(e),
-        entry.syncAttempts,
-      );
+      await _students.markFailed(entry.id, _describe(e), entry.syncAttempts);
       return false;
     } on Object catch (e) {
       await _students.markFailed(entry.id, e.toString(), entry.syncAttempts);
@@ -531,40 +540,41 @@ class SyncService {
   /// operator did - so the message points at the office instead of asking them
   /// to retake a photo that is perfectly fine.
   String _describePhoto(FirebaseException e) => switch (e.code) {
-        'bucket-not-found' || 'object-not-found' || 'project-not-found' =>
-          'Details uploaded, but photo storage is not set up for this school '
-              'yet. Tell the office - the photo will upload by itself once it '
-              'is. Do not retake it.',
-        'unauthorized' || 'permission-denied' =>
-          'Details uploaded, but the server rejected the photo. Your account '
-              'may not have access to this school.',
-        'unauthenticated' => 'Signed out. Sign in again to upload the photo.',
-        'quota-exceeded' || 'resource-exhausted' =>
-          'Details uploaded. Photo storage is full - tell the office.',
-        'retry-limit-exceeded' || 'canceled' =>
-          'Details uploaded. The photo did not finish - it will retry.',
-        _ => 'Details uploaded, but the photo did not: '
-            '${e.message ?? e.code}',
-      };
+    'bucket-not-found' || 'object-not-found' || 'project-not-found' =>
+      'Details uploaded, but photo storage is not set up for this school '
+          'yet. Tell the office - the photo will upload by itself once it '
+          'is. Do not retake it.',
+    'unauthorized' || 'permission-denied' =>
+      'Details uploaded, but the server rejected the photo. Your account '
+          'may not have access to this school.',
+    'unauthenticated' => 'Signed out. Sign in again to upload the photo.',
+    'quota-exceeded' || 'resource-exhausted' =>
+      'Details uploaded. Photo storage is full - tell the office.',
+    'retry-limit-exceeded' ||
+    'canceled' => 'Details uploaded. The photo did not finish - it will retry.',
+    _ =>
+      'Details uploaded, but the photo did not: '
+          '${e.message ?? e.code}',
+  };
 
   /// Turns Firebase error codes into something an operator can act on.
   String _describe(FirebaseException e) => switch (e.code) {
-        // Two very different causes, and the operator can only act on one of
-        // them, so both are named. The common one is not an access problem at
-        // all: editing a card resets it to "pending review", and the server
-        // refuses that if the office has already approved it. The operator's
-        // device simply had not learned about the approval yet.
-        'permission-denied' =>
-          'Server rejected this change. Usually this means the office already '
-              'approved this card, so it can no longer be edited - open it to '
-              'see its current status. If it is still pending, your account '
-              'may not have access to this school.',
-        'unavailable' || 'deadline-exceeded' =>
-          'Server unreachable. Will retry automatically.',
-        'unauthenticated' => 'Signed out. Sign in again to upload.',
-        'resource-exhausted' => 'Server quota exceeded. Will retry later.',
-        _ => e.message ?? 'Upload failed (${e.code}).',
-      };
+    // Two very different causes, and the operator can only act on one of
+    // them, so both are named. The common one is not an access problem at
+    // all: editing a card resets it to "pending review", and the server
+    // refuses that if the office has already approved it. The operator's
+    // device simply had not learned about the approval yet.
+    'permission-denied' =>
+      'Server rejected this change. Usually this means the office already '
+          'approved this card, so it can no longer be edited - open it to '
+          'see its current status. If it is still pending, your account '
+          'may not have access to this school.',
+    'unavailable' ||
+    'deadline-exceeded' => 'Server unreachable. Will retry automatically.',
+    'unauthenticated' => 'Signed out. Sign in again to upload.',
+    'resource-exhausted' => 'Server quota exceeded. Will retry later.',
+    _ => e.message ?? 'Upload failed (${e.code}).',
+  };
 }
 
 /// Fire-and-forget without pulling in `package:async` for one call.

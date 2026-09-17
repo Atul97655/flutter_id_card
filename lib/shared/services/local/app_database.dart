@@ -65,7 +65,8 @@ class StudentEntries extends Table {
 
   /// Stores the `ApprovalStatus` enum name - the admin's review decision,
   /// independent of whether the row has uploaded yet.
-  TextColumn get approvalStatus => text().withDefault(const Constant('pending'))();
+  TextColumn get approvalStatus =>
+      text().withDefault(const Constant('pending'))();
 
   /// Why an admin rejected it. Null unless approvalStatus == 'rejected'.
   TextColumn get rejectionReason => text().nullable()();
@@ -95,17 +96,22 @@ class SchoolConfigs extends Table {
   TextColumn get localPrincipalSignaturePath => text().nullable()();
 
   TextColumn get cardSizeId => text().withDefault(const Constant('v54x86'))();
-  TextColumn get templateId => text().withDefault(const Constant('default_vertical'))();
+  TextColumn get templateId =>
+      text().withDefault(const Constant('default_vertical'))();
 
   /// Comma-separated `StudentField.key` values. A join table would be more
   /// normalised but this set is tiny, always read whole, and never queried by
   /// member - the simpler shape wins.
   TextColumn get enabledFields => text().withDefault(const Constant(''))();
 
-  IntColumn get primaryColor => integer().withDefault(const Constant(0xFFD32F2F))();
-  IntColumn get secondaryColor => integer().withDefault(const Constant(0xFF1565C0))();
-  IntColumn get headerColor => integer().withDefault(const Constant(0xFF1565C0))();
-  IntColumn get photoBackground => integer().withDefault(const Constant(0xFFFFFFFF))();
+  IntColumn get primaryColor =>
+      integer().withDefault(const Constant(0xFFD32F2F))();
+  IntColumn get secondaryColor =>
+      integer().withDefault(const Constant(0xFF1565C0))();
+  IntColumn get headerColor =>
+      integer().withDefault(const Constant(0xFF1565C0))();
+  IntColumn get photoBackground =>
+      integer().withDefault(const Constant(0xFFFFFFFF))();
 
   /// JSON object of division -> ARGB int, e.g. `{"A":4294901760}`.
   ///
@@ -167,7 +173,9 @@ class PrintBatches extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
-@DriftDatabase(tables: <Type>[StudentEntries, SchoolConfigs, AuditLogs, PrintBatches])
+@DriftDatabase(
+  tables: <Type>[StudentEntries, SchoolConfigs, AuditLogs, PrintBatches],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
@@ -179,77 +187,77 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (Migrator m) async {
-          await m.createAll();
-        },
-        onUpgrade: (Migrator m, int from, int to) async {
-          // v1 -> v2: per-division accent colours. Additive with a default, so
-          // existing rows keep working and every card stays on the school
-          // colour until an admin sets division colours.
-          if (from < 2) {
-            // Cast because `addColumn` wants GeneratedColumn<Object> while the
-            // generated accessor is the narrower GeneratedColumn<String>.
-            await m.addColumn(
-              schoolConfigs,
-              schoolConfigs.divisionColors as GeneratedColumn<Object>,
-            );
-          }
+    onCreate: (Migrator m) async {
+      await m.createAll();
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      // v1 -> v2: per-division accent colours. Additive with a default, so
+      // existing rows keep working and every card stays on the school
+      // colour until an admin sets division colours.
+      if (from < 2) {
+        // Cast because `addColumn` wants GeneratedColumn<Object> while the
+        // generated accessor is the narrower GeneratedColumn<String>.
+        await m.addColumn(
+          schoolConfigs,
+          schoolConfigs.divisionColors as GeneratedColumn<Object>,
+        );
+      }
 
-          // v2 -> v3: the admin approval workflow. All four columns are
-          // additive with safe defaults, so entries captured before this
-          // release land in the review queue rather than silently counting as
-          // approved - the conservative direction for something that gates
-          // printing.
-          if (from < 3) {
-            await m.addColumn(
-              studentEntries,
-              studentEntries.approvalStatus as GeneratedColumn<Object>,
-            );
-            await m.addColumn(
-              studentEntries,
-              studentEntries.rejectionReason as GeneratedColumn<Object>,
-            );
-            await m.addColumn(
-              studentEntries,
-              studentEntries.reviewedBy as GeneratedColumn<Object>,
-            );
-            await m.addColumn(
-              studentEntries,
-              studentEntries.reviewedAt as GeneratedColumn<Object>,
-            );
-          }
+      // v2 -> v3: the admin approval workflow. All four columns are
+      // additive with safe defaults, so entries captured before this
+      // release land in the review queue rather than silently counting as
+      // approved - the conservative direction for something that gates
+      // printing.
+      if (from < 3) {
+        await m.addColumn(
+          studentEntries,
+          studentEntries.approvalStatus as GeneratedColumn<Object>,
+        );
+        await m.addColumn(
+          studentEntries,
+          studentEntries.rejectionReason as GeneratedColumn<Object>,
+        );
+        await m.addColumn(
+          studentEntries,
+          studentEntries.reviewedBy as GeneratedColumn<Object>,
+        );
+        await m.addColumn(
+          studentEntries,
+          studentEntries.reviewedAt as GeneratedColumn<Object>,
+        );
+      }
 
-          // v3 -> v4: principal signature storage.
-          if (from < 4) {
-            await m.addColumn(
-              schoolConfigs,
-              schoolConfigs.principalSignatureUrl as GeneratedColumn<Object>,
-            );
-            await m.addColumn(
-              schoolConfigs,
-              schoolConfigs.localPrincipalSignaturePath as GeneratedColumn<Object>,
-            );
-          }
+      // v3 -> v4: principal signature storage.
+      if (from < 4) {
+        await m.addColumn(
+          schoolConfigs,
+          schoolConfigs.principalSignatureUrl as GeneratedColumn<Object>,
+        );
+        await m.addColumn(
+          schoolConfigs,
+          schoolConfigs.localPrincipalSignaturePath as GeneratedColumn<Object>,
+        );
+      }
 
-          // v4 -> v5: audit trail and print batch tracking.
-          if (from < 5) {
-            await m.createTable(auditLogs);
-            await m.createTable(printBatches);
-          }
+      // v4 -> v5: audit trail and print batch tracking.
+      if (from < 5) {
+        await m.createTable(auditLogs);
+        await m.createTable(printBatches);
+      }
 
-          // v5 -> v6: roll number.
-          //
-          // The column is additive with an empty default, but the field also
-          // has to be switched ON for schools that already exist - the enabled
-          // field set is stored per school, so without this backfill a roll
-          // number column would exist that no form ever renders. New schools
-          // pick it up automatically via `SchoolConfig.allFieldKeys`.
-          if (from < 6) {
-            await m.addColumn(
-              studentEntries,
-              studentEntries.rollNumber as GeneratedColumn<Object>,
-            );
-            await customStatement('''
+      // v5 -> v6: roll number.
+      //
+      // The column is additive with an empty default, but the field also
+      // has to be switched ON for schools that already exist - the enabled
+      // field set is stored per school, so without this backfill a roll
+      // number column would exist that no form ever renders. New schools
+      // pick it up automatically via `SchoolConfig.allFieldKeys`.
+      if (from < 6) {
+        await m.addColumn(
+          studentEntries,
+          studentEntries.rollNumber as GeneratedColumn<Object>,
+        );
+        await customStatement('''
 UPDATE school_configs
    SET enabled_fields = CASE
          WHEN enabled_fields IS NULL OR enabled_fields = ''
@@ -259,51 +267,53 @@ UPDATE school_configs
  WHERE enabled_fields IS NULL
     OR enabled_fields NOT LIKE '%rollNumber%'
 ''');
-          }
+      }
 
-          // v6 -> v7: give sync its own clock.
-          //
-          // Nullable with no backfill on purpose. A null reads as "never
-          // attempted", which makes every existing row immediately eligible
-          // for one upload attempt - the correct behaviour after an upgrade,
-          // and it cannot strand a row that was mid-retry.
-          if (from < 7) {
-            await m.addColumn(
-              studentEntries,
-              studentEntries.lastSyncAttemptAt as GeneratedColumn<Object>,
-            );
-          }
+      // v6 -> v7: give sync its own clock.
+      //
+      // Nullable with no backfill on purpose. A null reads as "never
+      // attempted", which makes every existing row immediately eligible
+      // for one upload attempt - the correct behaviour after an upgrade,
+      // and it cannot strand a row that was mid-retry.
+      if (from < 7) {
+        await m.addColumn(
+          studentEntries,
+          studentEntries.lastSyncAttemptAt as GeneratedColumn<Object>,
+        );
+      }
 
-          // v7 -> v8: remember that the details reached the server, separately
-          // from whether the whole row succeeded.
-          //
-          // Backfilled for rows already synced: those demonstrably reached
-          // Firestore, and leaving them null would make a settled submission
-          // look like it had never uploaded.
-          if (from < 8) {
-            await m.addColumn(
-              studentEntries,
-              studentEntries.detailsSyncedAt as GeneratedColumn<Object>,
-            );
-            await customStatement(
-              'UPDATE student_entries '
-              'SET details_synced_at = updated_at '
-              "WHERE sync_status = 'synced'",
-            );
-          }
-        },
-        beforeOpen: (OpeningDetails details) async {
-          // Foreign keys are off by default in SQLite and must be re-enabled
-          // on every connection, not just at creation time.
-          await customStatement('PRAGMA foreign_keys = ON');
+      // v7 -> v8: remember that the details reached the server, separately
+      // from whether the whole row succeeded.
+      //
+      // Backfilled for rows already synced: those demonstrably reached
+      // Firestore, and leaving them null would make a settled submission
+      // look like it had never uploaded.
+      if (from < 8) {
+        await m.addColumn(
+          studentEntries,
+          studentEntries.detailsSyncedAt as GeneratedColumn<Object>,
+        );
+        await customStatement(
+          'UPDATE student_entries '
+          'SET details_synced_at = updated_at '
+          "WHERE sync_status = 'synced'",
+        );
+      }
+    },
+    beforeOpen: (OpeningDetails details) async {
+      // Foreign keys are off by default in SQLite and must be re-enabled
+      // on every connection, not just at creation time.
+      await customStatement('PRAGMA foreign_keys = ON');
 
-          // A record left as 'syncing' means the process died mid-upload.
-          // Reset it so the worker retries instead of it being stranded.
-          await (update(studentEntries)
-                ..where((StudentEntries t) => t.syncStatus.equals('syncing')))
-              .write(const StudentEntriesCompanion(syncStatus: Value<String>('pending')));
-        },
+      // A record left as 'syncing' means the process died mid-upload.
+      // Reset it so the worker retries instead of it being stranded.
+      await (update(
+        studentEntries,
+      )..where((StudentEntries t) => t.syncStatus.equals('syncing'))).write(
+        const StudentEntriesCompanion(syncStatus: Value<String>('pending')),
       );
+    },
+  );
 
   static QueryExecutor _openConnection() => driftDatabase(name: 'id_card_db');
 }

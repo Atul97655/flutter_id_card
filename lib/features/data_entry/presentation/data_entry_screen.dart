@@ -189,7 +189,8 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
   /// Copies Class and Div from the most recent entry. An operator processing a
   /// whole classroom retypes the same two values dozens of times otherwise.
   void _repeatLast() {
-    final List<StudentEntry> entries = ref.read(entriesProvider).value ?? const <StudentEntry>[];
+    final List<StudentEntry> entries =
+        ref.read(entriesProvider).value ?? const <StudentEntry>[];
     if (entries.isEmpty) return;
     final StudentEntry last = entries.first;
     setState(() {
@@ -209,7 +210,10 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
   }
 
   Future<void> _capturePhoto() async {
-    final String? path = await context.push<String>('/photo', extra: _photoPath);
+    final String? path = await context.push<String>(
+      '/photo',
+      extra: _photoPath,
+    );
     if (!mounted || path == null) return;
     setState(() {
       _photoPath = path;
@@ -239,9 +243,13 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
     }
 
     final SessionUser? session = ref.read(currentSessionProvider);
-    if (session != null && session.role != UserRole.admin && session.schoolId != null) {
+    if (session != null &&
+        session.role != UserRole.admin &&
+        session.schoolId != null) {
       if (session.schoolId != schoolId) {
-        _showError('Unauthorized: operator not permitted to submit for this school');
+        _showError(
+          'Unauthorized: operator not permitted to submit for this school',
+        );
         return;
       }
     }
@@ -266,7 +274,11 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       final bool? proceed = await showDialog<bool>(
         context: context,
         builder: (BuildContext ctx) => AlertDialog(
-          icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 36),
+          icon: const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orange,
+            size: 36,
+          ),
           title: const Text('Potential Duplicate Student'),
           content: Text(
             'A student named "$candidateName" is already registered in Class "$candidateClass".\n\n'
@@ -335,10 +347,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: StatusColors.failed,
-        ),
+        SnackBar(content: Text(message), backgroundColor: StatusColors.failed),
       );
   }
 
@@ -366,7 +375,9 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<SchoolConfig> configAsync = ref.watch(schoolConfigProvider);
+    final AsyncValue<SchoolConfig> configAsync = ref.watch(
+      schoolConfigProvider,
+    );
 
     // Offer a recovered draft on the first frame of a fresh form.
     if (!_draftChecked && widget.entryId == null) {
@@ -380,8 +391,9 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
     if (widget.entryId != null && !_loadedExisting) {
       final List<StudentEntry>? entries = ref.watch(entriesProvider).value;
       if (entries != null) {
-        final StudentEntry? match =
-            entries.where((StudentEntry e) => e.id == widget.entryId).firstOrNull;
+        final StudentEntry? match = entries
+            .where((StudentEntry e) => e.id == widget.entryId)
+            .firstOrNull;
         if (match != null) {
           _loadedExisting = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -416,7 +428,8 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
         ),
         body: configAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (Object e, StackTrace s) => Center(child: Text('Settings error: $e')),
+          error: (Object e, StackTrace s) =>
+              Center(child: Text('Settings error: $e')),
           data: _form,
         ),
         bottomNavigationBar: configAsync.hasValue
@@ -442,10 +455,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
           AppTheme.gutter * 2,
         ),
         children: <Widget>[
-          _PhotoTile(
-            path: _photoPath,
-            onTap: _capturePhoto,
-          ),
+          _PhotoTile(path: _photoPath, onTap: _capturePhoto),
           const SizedBox(height: 20),
           for (int i = 0; i < fields.length; i++) ...<Widget>[
             DynamicFormField(
@@ -455,8 +465,8 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
               options: fields[i] == StudentField.studentClass
                   ? config.classes
                   : (fields[i] == StudentField.division
-                      ? config.divisions
-                      : null),
+                        ? config.divisions
+                        : null),
               onDateChanged: (DateTime? d) {
                 setState(() {
                   _dob = d;
@@ -477,7 +487,12 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
 
   Widget _saveBar(SchoolConfig config) {
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(AppTheme.gutter, 0, AppTheme.gutter, 12),
+      minimum: const EdgeInsets.fromLTRB(
+        AppTheme.gutter,
+        0,
+        AppTheme.gutter,
+        12,
+      ),
       child: FilledButton.icon(
         onPressed: _saving ? null : () => _save(config),
         icon: _saving
@@ -507,7 +522,8 @@ class _PhotoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final bool hasPhoto = path != null && path!.isNotEmpty && File(path!).existsSync();
+    final bool hasPhoto =
+        path != null && path!.isNotEmpty && File(path!).existsSync();
 
     return Center(
       child: Column(
@@ -522,7 +538,9 @@ class _PhotoTile extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: hasPhoto ? theme.colorScheme.primary : theme.colorScheme.outline,
+                  color: hasPhoto
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
                   width: hasPhoto ? 2 : 1.2,
                 ),
               ),

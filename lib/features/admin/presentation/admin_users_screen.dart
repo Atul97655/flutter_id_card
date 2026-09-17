@@ -45,9 +45,14 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<List<ManagedUser>> usersAsync = ref.watch(allUsersProvider);
-    final AsyncValue<List<SchoolConfig>> schoolsAsync = ref.watch(allSchoolsProvider);
-    final List<SchoolConfig> schools = schoolsAsync.value ?? const <SchoolConfig>[];
+    final AsyncValue<List<ManagedUser>> usersAsync = ref.watch(
+      allUsersProvider,
+    );
+    final AsyncValue<List<SchoolConfig>> schoolsAsync = ref.watch(
+      allSchoolsProvider,
+    );
+    final List<SchoolConfig> schools =
+        schoolsAsync.value ?? const <SchoolConfig>[];
 
     final ThemeData theme = Theme.of(context);
 
@@ -75,7 +80,12 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
       body: Column(
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppTheme.gutter, 12, AppTheme.gutter, 8),
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.gutter,
+              12,
+              AppTheme.gutter,
+              8,
+            ),
             child: Column(
               children: <Widget>[
                 TextField(
@@ -97,19 +107,21 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: <String>['All', 'Active', 'Disabled', 'School', 'Admin']
-                        .map(
-                          (String f) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: FilterChip(
-                              label: Text(f),
-                              selected: _filter == f,
-                              onSelected: (_) => setState(() => _filter = f),
-                              showCheckmark: false,
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    children:
+                        <String>['All', 'Active', 'Disabled', 'School', 'Admin']
+                            .map(
+                              (String f) => Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: FilterChip(
+                                  label: Text(f),
+                                  selected: _filter == f,
+                                  onSelected: (_) =>
+                                      setState(() => _filter = f),
+                                  showCheckmark: false,
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
               ],
@@ -132,8 +144,11 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Icon(Icons.people_outline,
-                            size: 48, color: theme.colorScheme.onSurfaceVariant),
+                        Icon(
+                          Icons.people_outline,
+                          size: 48,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           all.isEmpty
@@ -144,7 +159,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                         if (all.isEmpty) ...<Widget>[
                           const SizedBox(height: 12),
                           FilledButton.icon(
-                            onPressed: () => _openCreateUserDialog(context, schools),
+                            onPressed: () =>
+                                _openCreateUserDialog(context, schools),
                             icon: const Icon(Icons.add),
                             label: const Text('Create First Account'),
                           ),
@@ -157,7 +173,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(AppTheme.gutter),
                   itemCount: list.length,
-                  separatorBuilder: (BuildContext _, int _) => const SizedBox(height: 8),
+                  separatorBuilder: (BuildContext _, int _) =>
+                      const SizedBox(height: 8),
                   itemBuilder: (BuildContext ctx, int i) {
                     final ManagedUser user = list[i];
                     final SchoolConfig? school = schools
@@ -171,7 +188,9 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                               ? theme.colorScheme.primaryContainer
                               : theme.colorScheme.secondaryContainer,
                           child: Icon(
-                            user.isAdmin ? Icons.admin_panel_settings : Icons.school,
+                            user.isAdmin
+                                ? Icons.admin_panel_settings
+                                : Icons.school,
                             color: user.isAdmin
                                 ? theme.colorScheme.onPrimaryContainer
                                 : theme.colorScheme.onSecondaryContainer,
@@ -184,13 +203,17 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                                 user.displayName.isEmpty
                                     ? user.email
                                     : user.displayName,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: user.active
                                     ? Colors.green.shade50
@@ -219,7 +242,10 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             const SizedBox(height: 2),
-                            Text(user.email, style: const TextStyle(fontSize: 12)),
+                            Text(
+                              user.email,
+                              style: const TextStyle(fontSize: 12),
+                            ),
                             if (user.role == UserRole.school) ...<Widget>[
                               const SizedBox(height: 4),
                               Text(
@@ -279,7 +305,10 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Failed to update: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -342,7 +371,9 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                             hintText: selectedRole == UserRole.school
                                 ? 'e.g. stjohns'
                                 : 'e.g. admin@school.edu',
-                            prefixIcon: const Icon(Icons.account_circle_outlined),
+                            prefixIcon: const Icon(
+                              Icons.account_circle_outlined,
+                            ),
                           ),
                           validator: (String? v) => (v ?? '').trim().isEmpty
                               ? 'This field is required'
@@ -392,11 +423,14 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                             hintText: 'Minimum 6 characters',
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              icon: Icon(obscurePass
-                                  ? Icons.visibility
-                                  : Icons.visibility_off),
+                              icon: Icon(
+                                obscurePass
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
                               onPressed: () => setDialogState(
-                                  () => obscurePass = !obscurePass),
+                                () => obscurePass = !obscurePass,
+                              ),
                             ),
                           ),
                           validator: (String? v) {
@@ -420,7 +454,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   onPressed: busy
                       ? null
                       : () async {
-                          if (!(formKey.currentState?.validate() ?? false)) return;
+                          if (!(formKey.currentState?.validate() ?? false))
+                            return;
                           setDialogState(() => busy = true);
 
                           try {
@@ -439,7 +474,10 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('User account created successfully')),
+                                  content: Text(
+                                    'User account created successfully',
+                                  ),
+                                ),
                               );
                             }
                           } catch (e) {
@@ -459,7 +497,9 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text('Create Account'),
                 ),

@@ -15,8 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///   * entries whose review state moved (approved / sent back / printed),
 ///   * conversations with unread messages,
 ///   * uploads that have given up retrying.
-final Provider<List<AppNotification>> notificationsProvider =
-    Provider<List<AppNotification>>((Ref ref) {
+final Provider<List<AppNotification>>
+notificationsProvider = Provider<List<AppNotification>>((Ref ref) {
   final List<StudentEntry> entries =
       ref.watch(entriesProvider).value ?? const <StudentEntry>[];
   final List<Chat> chats = ref.watch(myChatsProvider).value ?? const <Chat>[];
@@ -78,9 +78,7 @@ final Provider<List<AppNotification>> notificationsProvider =
     }
   }
 
-  out.sort(
-    (AppNotification a, AppNotification b) => b.at.compareTo(a.at),
-  );
+  out.sort((AppNotification a, AppNotification b) => b.at.compareTo(a.at));
   return out;
 });
 

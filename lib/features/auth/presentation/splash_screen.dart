@@ -58,24 +58,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // Admins go straight to their own panel. Landing them on the operator
     // home screen - which shows a school they do not belong to and a data-entry
     // flow they will never use - made a restored admin session look broken.
-    context.go(
-      switch (user) {
-        null => '/login',
-        final SessionUser u when u.isAdmin => '/admin',
-        _ => '/home',
-      },
-    );
+    context.go(switch (user) {
+      null => '/login',
+      final SessionUser u when u.isAdmin => '/admin',
+      _ => '/home',
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     // Re-check on every auth transition; the timer covers the other direction.
-    ref.listen<AsyncValue<SessionUser?>>(
-      authControllerProvider,
-      (AsyncValue<SessionUser?>? previous, AsyncValue<SessionUser?> next) {
-        if (!next.isLoading) _maybeNavigate();
-      },
-    );
+    ref.listen<AsyncValue<SessionUser?>>(authControllerProvider, (
+      AsyncValue<SessionUser?>? previous,
+      AsyncValue<SessionUser?> next,
+    ) {
+      if (!next.isLoading) _maybeNavigate();
+    });
 
     final ThemeData theme = Theme.of(context);
 

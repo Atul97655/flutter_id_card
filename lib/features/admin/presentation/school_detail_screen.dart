@@ -64,7 +64,8 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
   List<StudentEntry> _applyFilters(List<StudentEntry> all) {
     final String needle = _search.text.trim().toUpperCase();
     final List<StudentEntry> filtered = all.where((StudentEntry e) {
-      if (_statusFilter != null && e.approvalStatus != _statusFilter) return false;
+      if (_statusFilter != null && e.approvalStatus != _statusFilter)
+        return false;
       if (_classFilter != null && e.studentClass != _classFilter) return false;
       if (_divFilter != null && e.division != _divFilter) return false;
       if (needle.isEmpty) return true;
@@ -98,20 +99,25 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<SchoolConfig?> schoolAsync =
-        ref.watch(schoolByIdProvider(widget.schoolId));
-    final AsyncValue<List<StudentEntry>> entriesAsync =
-        ref.watch(entriesForSchoolProvider(widget.schoolId));
+    final AsyncValue<SchoolConfig?> schoolAsync = ref.watch(
+      schoolByIdProvider(widget.schoolId),
+    );
+    final AsyncValue<List<StudentEntry>> entriesAsync = ref.watch(
+      entriesForSchoolProvider(widget.schoolId),
+    );
 
     final SchoolConfig? school = schoolAsync.value;
     final List<StudentEntry> all = entriesAsync.value ?? const <StudentEntry>[];
     final List<StudentEntry> filtered = _applyFilters(all);
 
-    final int totalPages =
-        (filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil());
+    final int totalPages = (filtered.isEmpty
+        ? 1
+        : (filtered.length / _pageSize).ceil());
     final int safePage = _currentPage.clamp(0, totalPages - 1);
-    final List<StudentEntry> paged =
-        filtered.skip(safePage * _pageSize).take(_pageSize).toList();
+    final List<StudentEntry> paged = filtered
+        .skip(safePage * _pageSize)
+        .take(_pageSize)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -131,7 +137,8 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
           IconButton(
             tooltip: 'Print cards',
             icon: const Icon(Icons.local_printshop_outlined),
-            onPressed: () => context.push('/admin/schools/${widget.schoolId}/print'),
+            onPressed: () =>
+                context.push('/admin/schools/${widget.schoolId}/print'),
           ),
           IconButton(
             tooltip: 'School settings',
@@ -185,21 +192,28 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
   }
 
   Widget _filterBar(List<StudentEntry> all) {
-    final List<String> classes = all
-        .map((StudentEntry e) => e.studentClass)
-        .where((String c) => c.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-    final List<String> divisions = all
-        .map((StudentEntry e) => e.division)
-        .where((String d) => d.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final List<String> classes =
+        all
+            .map((StudentEntry e) => e.studentClass)
+            .where((String c) => c.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final List<String> divisions =
+        all
+            .map((StudentEntry e) => e.division)
+            .where((String d) => d.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppTheme.gutter, 12, AppTheme.gutter, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.gutter,
+        12,
+        AppTheme.gutter,
+        12,
+      ),
       child: Column(
         children: <Widget>[
           TextField(
@@ -319,11 +333,15 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     final int endItem = ((currentPage + 1) * _pageSize).clamp(0, totalItems);
 
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: AppTheme.gutter, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.gutter,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -344,7 +362,10 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
               ),
               Text(
                 'Page ${currentPage + 1} of $totalPages',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right),
@@ -362,7 +383,12 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
 
   Widget _bulkBar(List<StudentEntry> visible) {
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(AppTheme.gutter, 0, AppTheme.gutter, 12),
+      minimum: const EdgeInsets.fromLTRB(
+        AppTheme.gutter,
+        0,
+        AppTheme.gutter,
+        12,
+      ),
       child: Row(
         children: <Widget>[
           Text('${_selected.length} selected'),
@@ -403,7 +429,9 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     if (uid == null || ids.isEmpty) return;
 
     await ref.read(studentRepositoryProvider).approveAll(ids, reviewerUid: uid);
-    await ref.read(auditRepositoryProvider).log(
+    await ref
+        .read(auditRepositoryProvider)
+        .log(
           action: ids.length == 1 ? 'approve' : 'bulk_approve',
           entityType: 'student',
           entityId: ids.length == 1 ? ids.first : widget.schoolId,
@@ -484,7 +512,9 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     await ref
         .read(studentRepositoryProvider)
         .reject(entry.id, reviewerUid: uid, reason: given);
-    await ref.read(auditRepositoryProvider).log(
+    await ref
+        .read(auditRepositoryProvider)
+        .log(
           action: 'reject',
           entityType: 'student',
           entityId: entry.id,
@@ -525,7 +555,8 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
               maxLines: 3,
               decoration: const InputDecoration(
                 labelText: 'Rejection Reason *',
-                hintText: 'e.g. Please re-enter details with correct class photo',
+                hintText:
+                    'e.g. Please re-enter details with correct class photo',
               ),
             ),
           ],
@@ -556,7 +587,9 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
     await ref
         .read(studentRepositoryProvider)
         .rejectAll(ids, reviewerUid: uid, reason: given);
-    await ref.read(auditRepositoryProvider).log(
+    await ref
+        .read(auditRepositoryProvider)
+        .log(
           action: 'bulk_reject',
           entityType: 'student',
           entityId: widget.schoolId,
@@ -587,9 +620,8 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
       isScrollControlled: true,
       builder: (BuildContext ctx) => Consumer(
         builder: (BuildContext context, WidgetRef ref, _) {
-          final List<PrintBatch> batches = ref
-                  .watch(printBatchesForSchoolProvider(widget.schoolId))
-                  .value ??
+          final List<PrintBatch> batches =
+              ref.watch(printBatchesForSchoolProvider(widget.schoolId)).value ??
               const <PrintBatch>[];
           final DateFormat fmt = DateFormat('dd MMM yyyy, HH:mm');
 
@@ -598,55 +630,68 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
             minChildSize: 0.3,
             maxChildSize: 0.85,
             expand: false,
-            builder: (BuildContext context, ScrollController scrollController) =>
-                Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: <Widget>[
-                      const Icon(Icons.print_outlined),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Print Run History',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 16),
+            builder:
+                (
+                  BuildContext context,
+                  ScrollController scrollController,
+                ) => Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(ctx).pop(),
+                      child: Row(
+                        children: <Widget>[
+                          const Icon(Icons.print_outlined),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Print Run History',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(ctx).pop(),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: batches.isEmpty
-                      ? const Center(
-                          child: Text('No print batches yet for this school'),
-                        )
-                      : ListView.separated(
-                          controller: scrollController,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: batches.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 6),
-                          itemBuilder: (BuildContext context, int i) {
-                            final PrintBatch b = batches[i];
-                            return Card(
-                              child: ListTile(
-                                leading: const Icon(Icons.receipt_long),
-                                title: Text(
-                                    '${b.cardCount} cards · ${b.sheetTypeLabel}'),
-                                subtitle: Text(
-                                    '${b.sheetCount} sheet(s) · ${fmt.format(b.createdAt)}'),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: batches.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No print batches yet for this school',
                               ),
-                            );
-                          },
-                        ),
+                            )
+                          : ListView.separated(
+                              controller: scrollController,
+                              padding: const EdgeInsets.all(12),
+                              itemCount: batches.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 6),
+                              itemBuilder: (BuildContext context, int i) {
+                                final PrintBatch b = batches[i];
+                                return Card(
+                                  child: ListTile(
+                                    leading: const Icon(Icons.receipt_long),
+                                    title: Text(
+                                      '${b.cardCount} cards · ${b.sheetTypeLabel}',
+                                    ),
+                                    subtitle: Text(
+                                      '${b.sheetCount} sheet(s) · ${fmt.format(b.createdAt)}',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
           );
         },
       ),
@@ -675,7 +720,8 @@ class _SubmissionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final String? path = entry.localPhotoPath;
-    final bool hasThumb = path != null && path.isNotEmpty && File(path).existsSync();
+    final bool hasThumb =
+        path != null && path.isNotEmpty && File(path).existsSync();
 
     return Card(
       child: Padding(
@@ -720,8 +766,9 @@ class _SubmissionTile extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         entry.name.isEmpty ? 'UNNAMED' : entry.name,
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -730,11 +777,13 @@ class _SubmissionTile extends StatelessWidget {
                         <String>[
                           if (entry.studentClass.isNotEmpty)
                             'Class ${entry.studentClass}',
-                          if (entry.division.isNotEmpty) 'Div ${entry.division}',
+                          if (entry.division.isNotEmpty)
+                            'Div ${entry.division}',
                           if (entry.mobile.isNotEmpty) entry.mobile,
                         ].join('  -  '),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -846,10 +895,12 @@ class _EmptyState extends StatelessWidget {
     final String detail;
     if (!hasAny) {
       title = 'No submissions yet';
-      detail = 'Entries appear here once an operator submits them and they sync.';
+      detail =
+          'Entries appear here once an operator submits them and they sync.';
     } else if (filter == ApprovalStatus.pending) {
       title = 'Review queue is clear';
-      detail = 'Nothing is waiting on you. Switch the filter to see other entries.';
+      detail =
+          'Nothing is waiting on you. Switch the filter to see other entries.';
     } else {
       title = 'Nothing matches this filter';
       detail = 'Try a different status, class or division.';
@@ -872,8 +923,9 @@ class _EmptyState extends StatelessWidget {
             Text(
               detail,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

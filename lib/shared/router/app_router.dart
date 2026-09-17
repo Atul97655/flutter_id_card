@@ -91,8 +91,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
           BuildContext c,
           GoRouterState s,
           StatefulNavigationShell shell,
-        ) =>
-            AppShell(navigationShell: shell),
+        ) => AppShell(navigationShell: shell),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
             routes: <RouteBase>[
@@ -130,9 +129,8 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       // half-entered work.
       GoRoute(
         path: '/messages/:chatId',
-        builder: (BuildContext c, GoRouterState s) => ChatScreen(
-          chatId: s.pathParameters['chatId'] ?? '',
-        ),
+        builder: (BuildContext c, GoRouterState s) =>
+            ChatScreen(chatId: s.pathParameters['chatId'] ?? ''),
       ),
       GoRoute(
         path: '/notifications',
@@ -150,19 +148,18 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       ),
       GoRoute(
         path: '/entries',
-        builder: (BuildContext c, GoRouterState s) => const SavedEntriesScreen(),
+        builder: (BuildContext c, GoRouterState s) =>
+            const SavedEntriesScreen(),
       ),
       GoRoute(
         path: '/submitted/:id',
-        builder: (BuildContext c, GoRouterState s) => SubmissionSuccessScreen(
-          entryId: s.pathParameters['id']!,
-        ),
+        builder: (BuildContext c, GoRouterState s) =>
+            SubmissionSuccessScreen(entryId: s.pathParameters['id']!),
       ),
       GoRoute(
         path: '/submissions/:id',
-        builder: (BuildContext c, GoRouterState s) => RequestDetailScreen(
-          entryId: s.pathParameters['id']!,
-        ),
+        builder: (BuildContext c, GoRouterState s) =>
+            RequestDetailScreen(entryId: s.pathParameters['id']!),
       ),
       GoRoute(
         path: '/sync',
@@ -170,21 +167,20 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       ),
       GoRoute(
         path: '/photo',
-        builder: (BuildContext c, GoRouterState s) => PhotoCaptureScreen(
-          existingPath: s.extra as String?,
-        ),
+        builder: (BuildContext c, GoRouterState s) =>
+            PhotoCaptureScreen(existingPath: s.extra as String?),
       ),
       GoRoute(
         path: '/preview/:id',
-        builder: (BuildContext c, GoRouterState s) => CardPreviewScreen(
-          entryId: s.pathParameters['id'] ?? '',
-        ),
+        builder: (BuildContext c, GoRouterState s) =>
+            CardPreviewScreen(entryId: s.pathParameters['id'] ?? ''),
       ),
 
       // --- admin (role-gated by the redirect above) ---------------------
       GoRoute(
         path: '/admin',
-        builder: (BuildContext c, GoRouterState s) => const AdminDashboardScreen(),
+        builder: (BuildContext c, GoRouterState s) =>
+            const AdminDashboardScreen(),
         routes: <RouteBase>[
           GoRoute(
             path: 'users',
@@ -207,21 +203,20 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             routes: <RouteBase>[
               GoRoute(
                 path: 'settings',
-                builder: (BuildContext c, GoRouterState s) => SchoolSettingsScreen(
-                  schoolId: s.pathParameters['schoolId'],
-                ),
+                builder: (BuildContext c, GoRouterState s) =>
+                    SchoolSettingsScreen(
+                      schoolId: s.pathParameters['schoolId'],
+                    ),
               ),
               GoRoute(
                 path: 'print',
-                builder: (BuildContext c, GoRouterState s) => PrintScreen(
-                  schoolId: s.pathParameters['schoolId'] ?? '',
-                ),
+                builder: (BuildContext c, GoRouterState s) =>
+                    PrintScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
               ),
               GoRoute(
                 path: 'export',
-                builder: (BuildContext c, GoRouterState s) => ExportScreen(
-                  schoolId: s.pathParameters['schoolId'] ?? '',
-                ),
+                builder: (BuildContext c, GoRouterState s) =>
+                    ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
               ),
             ],
           ),
@@ -242,14 +237,12 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
           ),
           GoRoute(
             path: 'reports',
-            builder: (BuildContext c, GoRouterState s) =>
-                const ReportsScreen(),
+            builder: (BuildContext c, GoRouterState s) => const ReportsScreen(),
           ),
           GoRoute(
             path: 'export/:schoolId',
-            builder: (BuildContext c, GoRouterState s) => ExportScreen(
-              schoolId: s.pathParameters['schoolId'] ?? '',
-            ),
+            builder: (BuildContext c, GoRouterState s) =>
+                ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
           ),
         ],
       ),
