@@ -6,7 +6,20 @@ import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
 import 'package:flutter_id_card/features/notifications/domain/app_notification.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
+import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// When the operator last opened the notifications screen.
+///
+/// Null until they open it once, which correctly makes everything unread on a
+/// fresh install.
+final StreamProvider<DateTime?> notificationsSeenAtProvider =
+    StreamProvider<DateTime?>((Ref ref) {
+      return ref
+          .watch(appFlagRepositoryProvider)
+          .watchDateTime(AppFlagRepository.notificationsSeenAtKey);
+    });
 
 /// The operator's notification feed, newest first.
 ///
@@ -50,7 +63,7 @@ notificationsProvider = Provider<List<AppNotification>>((Ref ref) {
               : '${e.name}: ${e.syncError}',
           at: e.updatedAt,
           route: '/sync',
-          unread: true,
+          actionRequired: true,
         ),
       );
     }
@@ -72,17 +85,35 @@ notificationsProvider = Provider<List<AppNotification>>((Ref ref) {
               : '${c.title}: ${c.lastMessage}',
           at: c.lastMessageAt ?? DateTime.now(),
           route: '/messages/${c.id}',
-          unread: true,
+          actionRequired: true,
         ),
       );
     }
   }
 
   out.sort((AppNotification a, AppNotification b) => b.at.compareTo(a.at));
-  return out;
+
+  // Unread is decided here, against the watermark, rather than by each source.
+  //
+  // The sources used to hardcode it, and a returned card hardcoded it to true
+  // forever - so the bell carried a number nothing could clear and the app
+  // always looked like it was hiding something missed. A watermark is what
+  // makes "I have looked at these" expressible at all: the feed is derived
+  // from live state and has no rows of its own to mark read.
+  final DateTime? seenAt = ref.watch(notificationsSeenAtProvider).value;
+  return out
+      .map(
+        (AppNotification n) =>
+            n.copyWith(unread: seenAt == null || n.at.isAfter(seenAt)),
+      )
+      .toList();
 });
 
 /// Count for the badge on the Profile tab and the notifications icon.
+///
+/// Reaches zero once the operator opens the notifications screen, which is the
+/// whole point: a badge that cannot be cleared is worse than no badge, because
+/// it permanently signals a missed message that does not exist.
 final Provider<int> unreadNotificationCountProvider = Provider<int>((Ref ref) {
   return ref
       .watch(notificationsProvider)

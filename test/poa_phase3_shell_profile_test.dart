@@ -1,3 +1,4 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
@@ -9,6 +10,9 @@ import 'package:flutter_id_card/features/photo_capture/domain/photo_adjustments.
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
+import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/services/local/app_database.dart';
+import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,13 +34,13 @@ void main() {
       expect(approved!.kind, NotificationKind.cardApproved);
       expect(approved.route, '/submissions/e1');
       expect(
-        approved.unread,
+        approved.actionRequired,
         isFalse,
         reason: 'good news needs no action, so it does not nag',
       );
     });
 
-    test('a returned card stays unread because it needs the operator', () {
+    test('a returned card is flagged as needing action', () {
       final AppNotification? rejected = AppNotification.forEntry(
         entryId: 'e2',
         studentName: 'RAVI M',
@@ -45,9 +49,37 @@ void main() {
         at: DateTime(2026, 9, 10),
       );
 
-      expect(rejected!.unread, isTrue);
+      expect(rejected!.actionRequired, isTrue);
       expect(rejected.kind, NotificationKind.cardRejected);
       expect(rejected.body, contains('Photo too dark'));
+    });
+
+    test('but needing action is NOT the same as being unread', () {
+      // The two were the same flag, and a returned card hardcoded it to true
+      // forever. The badge could therefore never reach zero, so the app
+      // permanently claimed the operator had missed something. Unread is now
+      // decided by the feed against a persisted watermark; this class only
+      // says whether the thing still needs doing.
+      final AppNotification rejected = AppNotification.forEntry(
+        entryId: 'e2',
+        studentName: 'RAVI M',
+        status: ApprovalStatus.rejected,
+        reason: 'Photo too dark',
+        at: DateTime(2026, 9, 10),
+      )!;
+
+      expect(
+        rejected.unread,
+        isFalse,
+        reason:
+            'nothing here may hardcode unread - that is what stuck the badge',
+      );
+      expect(rejected.copyWith(unread: true).unread, isTrue);
+      expect(
+        rejected.copyWith(unread: true).actionRequired,
+        isTrue,
+        reason: 'copyWith must not drop the action flag',
+      );
     });
 
     test('pending produces nothing - no news is not news', () {
@@ -74,21 +106,19 @@ void main() {
       expect(n!.body, startsWith('A card'));
     });
 
-    testWidgets('sorts newest first and surfaces failed uploads', (
-      WidgetTester tester,
-    ) async {
+    test('sorts newest first and surfaces failed uploads', () async {
       final List<StudentEntry> entries = <StudentEntry>[
         _entry(
           id: 'old',
           name: 'OLD ONE',
           status: ApprovalStatus.approved,
-          reviewedAt: DateTime(2026, 9, 1),
+          reviewedAt: DateTime(2026, 9, 8),
         ),
         _entry(
           id: 'new',
           name: 'NEW ONE',
           status: ApprovalStatus.rejected,
-          reviewedAt: DateTime(2026, 9, 9),
+          reviewedAt: DateTime(2026, 9, 9, 18),
         ),
         _entry(
           id: 'stuck',
@@ -99,23 +129,7 @@ void main() {
         ),
       ];
 
-      late List<AppNotification> feed;
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            entriesProvider.overrideWith(
-              (ref) => Stream<List<StudentEntry>>.value(entries),
-            ),
-          ],
-          child: Consumer(
-            builder: (BuildContext c, WidgetRef ref, _) {
-              feed = ref.watch(notificationsProvider);
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      );
-      await tester.pump();
+      final List<AppNotification> feed = await _feed(entries: entries);
 
       expect(feed.first.id, 'entry-stuck-syncfail');
       expect(feed.first.kind, NotificationKind.syncFailed);
@@ -129,8 +143,141 @@ void main() {
       );
 
       // Rejected + failed upload both need action; the approval does not.
-      expect(feed.where((AppNotification n) => n.unread).length, 2);
+      expect(feed.where((AppNotification n) => n.actionRequired).length, 2);
+
+      // Nothing seen yet, so everything counts towards the badge - including
+      // the approval, which needs no action but is still news.
+      expect(feed.where((AppNotification n) => n.unread).length, 3);
     });
+
+    test('the badge clears once the operator has looked', () async {
+      // The complaint this answers: the bell carried a number that nothing
+      // could clear, so the app permanently claimed something had been missed.
+      final List<StudentEntry> entries = <StudentEntry>[
+        _entry(
+          id: 'r',
+          name: 'RAVI M',
+          status: ApprovalStatus.rejected,
+          reviewedAt: DateTime(2026, 9, 10),
+        ),
+        _entry(
+          id: 'a',
+          name: 'ASHA K',
+          status: ApprovalStatus.approved,
+          reviewedAt: DateTime(2026, 9, 10),
+        ),
+      ];
+
+      expect(
+        (await _feed(entries: entries))
+            .where((AppNotification n) => n.unread)
+            .length,
+        2,
+        reason: 'before the screen is opened, both are news',
+      );
+
+      final List<AppNotification> afterLooking = await _feed(
+        entries: entries,
+        seenAt: DateTime(2026, 9, 11),
+      );
+      expect(
+        afterLooking.where((AppNotification n) => n.unread).length,
+        0,
+        reason: 'the badge must reach zero, or it is worse than no badge',
+      );
+    });
+
+    test('a returned card stays flagged for action after it is read', () async {
+      // Read is not the same as dealt with. The row keeps its highlight so the
+      // operator can still find it; it just stops inflating the badge.
+      final List<AppNotification> feed = await _feed(
+        entries: <StudentEntry>[
+          _entry(
+            id: 'r',
+            name: 'RAVI M',
+            status: ApprovalStatus.rejected,
+            reviewedAt: DateTime(2026, 9, 10),
+          ),
+        ],
+        seenAt: DateTime(2026, 9, 11),
+      );
+
+      expect(feed.single.unread, isFalse);
+      expect(feed.single.actionRequired, isTrue);
+    });
+
+    test('but a NEWER event after that still counts', () async {
+      // The same card being sent back a second time must re-alert. A watermark
+      // that swallowed this would be no better than the stuck badge.
+      final List<AppNotification> feed = await _feed(
+        entries: <StudentEntry>[
+          _entry(
+            id: 'r',
+            name: 'RAVI M',
+            status: ApprovalStatus.rejected,
+            reviewedAt: DateTime(2026, 9, 12),
+          ),
+        ],
+        seenAt: DateTime(2026, 9, 11),
+      );
+
+      expect(feed.single.unread, isTrue);
+    });
+  });
+
+  group('The seen watermark', () {
+    // Exercised against a real database rather than a stub: the whole point of
+    // the watermark is that it survives a restart, and an in-memory stand-in
+    // would prove nothing about that.
+    late AppDatabase db;
+    late AppFlagRepository flags;
+
+    setUp(() {
+      db = AppDatabase.forTesting(NativeDatabase.memory());
+      flags = AppFlagRepository(db);
+    });
+
+    tearDown(() async => db.close());
+
+    test('starts unset, which correctly makes everything unread', () async {
+      expect(
+        await flags.readDateTime(AppFlagRepository.notificationsSeenAtKey),
+        isNull,
+      );
+    });
+
+    test('round-trips through storage', () async {
+      await flags.markNotificationsSeen();
+      final DateTime? back = await flags.readDateTime(
+        AppFlagRepository.notificationsSeenAtKey,
+      );
+
+      expect(back, isNotNull);
+      expect(
+        DateTime.now().difference(back!).inSeconds.abs(),
+        lessThan(5),
+        reason: 'the stamp is "now", and must survive the UTC round trip',
+      );
+    });
+
+    test(
+      'a later stamp replaces the earlier one rather than adding a row',
+      () async {
+        await flags.writeDateTime(
+          AppFlagRepository.notificationsSeenAtKey,
+          DateTime.utc(2026, 1, 1),
+        );
+        await flags.writeDateTime(
+          AppFlagRepository.notificationsSeenAtKey,
+          DateTime.utc(2026, 6, 1),
+        );
+
+        expect(
+          await flags.readDateTime(AppFlagRepository.notificationsSeenAtKey),
+          DateTime.utc(2026, 6, 1),
+        );
+      },
+    );
   });
 
   group('Notifications screen', () {
@@ -228,9 +375,23 @@ Future<void> _pumpNotifications(
   WidgetTester tester,
   List<StudentEntry> entries,
 ) async {
+  final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
+  addTearDown(db.close);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        // A real database, because opening this screen writes the watermark
+        // and that write is half of what is being tested.
+        appDatabaseProvider.overrideWithValue(db),
+        // ...but not its live stream. A Drift stream query leaves a periodic
+        // timer alive, and the widget-test binding fails the test with "a
+        // Timer is still pending even after the widget tree was disposed". The
+        // screen only reads this to decide which rows look new; the watermark
+        // it writes is asserted directly against the repository elsewhere.
+        notificationsSeenAtProvider.overrideWith(
+          (ref) => Stream<DateTime?>.value(null),
+        ),
         entriesProvider.overrideWith(
           (ref) => Stream<List<StudentEntry>>.value(entries),
         ),
@@ -250,6 +411,42 @@ Future<void> _pumpNotifications(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+/// The notification feed as the app would compute it, for a given watermark.
+///
+/// The watermark provider is overridden rather than backed by a database: the
+/// feed's own logic is what is under test here, and a Drift stream query
+/// inside a widget test leaves a pending timer that the test binding rejects.
+/// The storage side is covered separately against a real database.
+Future<List<AppNotification>> _feed({
+  required List<StudentEntry> entries,
+  DateTime? seenAt,
+}) async {
+  final ProviderContainer container = ProviderContainer(
+    overrides: [
+      entriesProvider.overrideWith(
+        (Ref ref) => Stream<List<StudentEntry>>.value(entries),
+      ),
+      notificationsSeenAtProvider.overrideWith(
+        (Ref ref) => Stream<DateTime?>.value(seenAt),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+
+  // `listen` first, then await. Both are needed and for different reasons: the
+  // listener keeps the provider alive (an unlistened one is disposed while
+  // still loading, and awaiting its future then hangs until the test times
+  // out), and the await is what makes the result deterministic instead of
+  // dependent on microtask ordering - the feed reads the streams' synchronous
+  // `.value`, which is null until the first event lands.
+  container.listen(entriesProvider, (_, _) {});
+  container.listen(notificationsSeenAtProvider, (_, _) {});
+  await container.read(entriesProvider.future);
+  await container.read(notificationsSeenAtProvider.future);
+
+  return container.read(notificationsProvider);
 }
 
 StudentEntry _entry({

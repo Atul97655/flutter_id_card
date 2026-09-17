@@ -1,4 +1,5 @@
 import 'package:flutter_id_card/shared/services/local/app_database.dart';
+import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_id_card/shared/services/local/audit_repository.dart';
 import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
 import 'package:flutter_id_card/shared/services/local/school_repository.dart';
@@ -31,6 +32,11 @@ final Provider<SchoolRepository> schoolRepositoryProvider =
 final Provider<AuditRepository> auditRepositoryProvider =
     Provider<AuditRepository>(
       (Ref ref) => AuditRepository(ref.watch(appDatabaseProvider)),
+    );
+
+final Provider<AppFlagRepository> appFlagRepositoryProvider =
+    Provider<AppFlagRepository>(
+      (Ref ref) => AppFlagRepository(ref.watch(appDatabaseProvider)),
     );
 
 final Provider<PrintBatchRepository> printBatchRepositoryProvider =

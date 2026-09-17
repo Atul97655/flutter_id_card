@@ -23,8 +23,9 @@ import 'package:go_router/go_router.dart';
 /// cards get to?", and until now the app could not answer it at all - the
 /// office's approval decision never reached this side.
 ///
-/// Order is by urgency: anything sent back first, then the counts, then the
-/// primary action, then recent work.
+/// Order is by urgency: the counts first, then the primary action, then recent
+/// work. Returned cards are deliberately not raised here - see the note in
+/// [build] where that banner used to be.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -48,7 +49,6 @@ class HomeScreen extends ConsumerWidget {
     final AsyncValue<List<StudentEntry>> entriesAsync = ref.watch(
       entriesProvider,
     );
-    final List<StudentEntry> rejected = ref.watch(needsAttentionProvider);
 
     final int unreadNotifications = ref.watch(unreadNotificationCountProvider);
     final int pending = syncCounts.value?[SyncStatus.pending] ?? 0;
@@ -93,16 +93,15 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  // Sent-back work is the only thing that is genuinely the
-                  // operator's move, so it sits above everything else.
-                  if (rejected.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: AppTheme.gutter),
-                    FadeSlideIn(
-                      index: 1,
-                      child: _AttentionBanner(entries: rejected),
-                    ),
-                  ],
-
+                  // A returned card used to raise a red banner here. It was
+                  // permanent: nothing on this screen could dismiss it and it
+                  // reappeared on every launch until the card was resubmitted,
+                  // so the first thing the operator saw every morning was an
+                  // alarm they had already read. Returned cards now live in
+                  // the notifications panel, where they can be seen and
+                  // cleared, and stay visible in the list below as a status
+                  // chip - which is where an operator looks for their own work
+                  // anyway.
                   const SizedBox(height: AppTheme.gutter),
                   FadeSlideIn(
                     index: 2,
@@ -205,77 +204,6 @@ class _NotificationBell extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Attention banner
-// ---------------------------------------------------------------------------
-
-class _AttentionBanner extends StatelessWidget {
-  const _AttentionBanner({required this.entries});
-
-  final List<StudentEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool single = entries.length == 1;
-
-    return PressableSurface(
-      onTap: () => single
-          ? context.push('/submissions/${entries.first.id}')
-          : context.push('/entries'),
-      child: Card(
-        color: StatusColors.failed.withValues(alpha: 0.08),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.cornerRadius),
-          side: BorderSide(color: StatusColors.failed.withValues(alpha: 0.4)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.gutter),
-          child: Row(
-            children: <Widget>[
-              const Icon(
-                Icons.assignment_late_outlined,
-                color: StatusColors.failed,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      single
-                          ? '1 card sent back'
-                          : '${entries.length} cards sent back',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: StatusColors.failed,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      single
-                          ? entries.first.rejectionReason ??
-                                'Open it to see why'
-                          : 'Fix them and submit again',
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.35,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: StatusColors.failed),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
