@@ -13,6 +13,8 @@ import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'schema_version.dart';
+
 class _FakeConnectivity extends Mock implements Connectivity {}
 
 class _FakeStorage extends Mock implements FirebaseStorage {}
@@ -55,10 +57,12 @@ void main() {
     photoFile = File('${tempDir.path}/photo.png')
       ..writeAsBytesSync(<int>[0x89, 0x50, 0x4e, 0x47]);
 
-    when(() => connectivity.checkConnectivity())
-        .thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.wifi]);
-    when(() => connectivity.onConnectivityChanged)
-        .thenAnswer((_) => const Stream<List<ConnectivityResult>>.empty());
+    when(() => connectivity.checkConnectivity()).thenAnswer(
+      (_) async => <ConnectivityResult>[ConnectivityResult.wifi],
+    );
+    when(() => connectivity.onConnectivityChanged).thenAnswer(
+      (_) => const Stream<List<ConnectivityResult>>.empty(),
+    );
   });
 
   tearDown(() async {
@@ -67,20 +71,21 @@ void main() {
   });
 
   SyncService build() => SyncService(
-    students: students,
-    schools: schools,
-    firestore: firestore,
-    storage: storage,
-    connectivity: connectivity,
-    isFirebaseReady: () => true,
-  );
+        students: students,
+        schools: schools,
+        firestore: firestore,
+        storage: storage,
+        connectivity: connectivity,
+        isFirebaseReady: () => true,
+      );
 
   void storageFailsWith(String code) {
     final _FakeRef ref = _FakeRef();
     when(() => storage.ref()).thenReturn(ref);
     when(() => ref.child(any())).thenReturn(ref);
-    when(() => ref.putFile(any(), any()))
-        .thenThrow(FirebaseException(plugin: 'firebase_storage', code: code));
+    when(() => ref.putFile(any(), any())).thenThrow(
+      FirebaseException(plugin: 'firebase_storage', code: code),
+    );
   }
 
   StudentEntry entry({String id = 'e1', bool withPhoto = true}) {
@@ -97,9 +102,9 @@ void main() {
     );
   }
 
-  group('Schema v8', () {
-    test('declares version 8', () {
-      expect(db.schemaVersion, 8);
+  group('Schema', () {
+    test('declares the expected version', () {
+      expect(db.schemaVersion, kExpectedSchemaVersion);
     });
 
     test('a brand-new entry has not reached the server', () async {
@@ -131,8 +136,7 @@ void main() {
       expect(
         after.awaitingPhotoUpload,
         isTrue,
-        reason:
-            'this is the state the timeline must show as pending, not failed',
+        reason: 'this is the state the timeline must show as pending, not failed',
       );
       // The row is still `failed` so the photo keeps being retried - the point
       // is that the UI can now tell the two apart.
@@ -163,7 +167,9 @@ void main() {
       final SyncService sync = build();
       addTearDown(sync.dispose);
 
-      await students.save(entry().copyWith(name: ''));
+      await students.save(
+        entry().copyWith(name: ''),
+      );
       await sync.syncNow(schoolId: 'school-a');
 
       final StudentEntry after = (await students.findById('e1'))!;
@@ -196,9 +202,9 @@ void main() {
     });
 
     test('offline leaves it untouched, not failed', () async {
-      when(
-        () => connectivity.checkConnectivity(),
-      ).thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.none]);
+      when(() => connectivity.checkConnectivity()).thenAnswer(
+        (_) async => <ConnectivityResult>[ConnectivityResult.none],
+      );
       final SyncService sync = build();
       addTearDown(sync.dispose);
 

@@ -32,6 +32,11 @@ class StudentEntries extends Table {
   TextColumn get localPhotoPath => text().nullable()();
   TextColumn get remotePhotoUrl => text().nullable()();
 
+  /// Base64 JPEG thumbnail carried on the synced record, so a device that did
+  /// not take the photo can still show a face. Nullable: rows captured before
+  /// inline photos, and rows whose photo has not synced, have none.
+  TextColumn get photoThumb => text().nullable()();
+
   /// Stores the `SyncStatus` enum name. Kept as text rather than an int so a
   /// database dump is readable during a support call.
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
@@ -173,8 +178,30 @@ class PrintBatches extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+/// Small named values that belong to the device rather than to any record.
+///
+/// A single-row settings table would need a migration for every new setting;
+/// this needs none. Values are stored as text and parsed by the caller, which
+/// is the right trade for a handful of flags - a typed column per flag buys
+/// nothing when every reader already knows what it is asking for.
+@DataClassName('AppFlagRow')
+class AppFlags extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{key};
+}
+
 @DriftDatabase(
-  tables: <Type>[StudentEntries, SchoolConfigs, AuditLogs, PrintBatches],
+  tables: <Type>[
+    StudentEntries,
+    SchoolConfigs,
+    AuditLogs,
+    PrintBatches,
+    AppFlags,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -183,7 +210,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -298,6 +325,20 @@ UPDATE school_configs
           'SET details_synced_at = updated_at '
           "WHERE sync_status = 'synced'",
         );
+      }
+
+      // v8 -> v9: inline photos, and somewhere to keep device flags.
+      //
+      // `photoThumb` is nullable with no backfill: a row synced before
+      // this release has no thumbnail on the server either, and inventing
+      // one is impossible. Those rows re-upload their photo on the next
+      // pass and pick one up then.
+      if (from < 9) {
+        await m.addColumn(
+          studentEntries,
+          studentEntries.photoThumb as GeneratedColumn<Object>,
+        );
+        await m.createTable(appFlags);
       }
     },
     beforeOpen: (OpeningDetails details) async {

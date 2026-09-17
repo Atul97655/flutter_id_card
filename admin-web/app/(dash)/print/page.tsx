@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/primitives';
 import { useStore } from '@/lib/store';
 import { markPrinted } from '@/lib/data';
-import { isPrintable, type StudentEntry } from '@/lib/types';
+import { hasPhoto, isPrintable, type StudentEntry } from '@/lib/types';
 
 /**
  * Print Center.
@@ -50,11 +50,11 @@ export default function PrintPage() {
   );
 
   const ready = useMemo(
-    () => scoped.filter((e) => isPrintable(e.approvalStatus) && e.photoUrl),
+    () => scoped.filter((e) => isPrintable(e.approvalStatus) && hasPhoto(e)),
     [scoped],
   );
   const blocked = useMemo(
-    () => scoped.filter((e) => isPrintable(e.approvalStatus) && !e.photoUrl),
+    () => scoped.filter((e) => isPrintable(e.approvalStatus) && !hasPhoto(e)),
     [scoped],
   );
   const awaitingPrint = ready.filter((e) => e.approvalStatus === 'approved');
@@ -113,10 +113,11 @@ export default function PrintPage() {
             blocked.length === 1 ? '' : 's'
           } cannot be placed on a sheet`}
         >
-          Their photos never reached the server. Cloud Storage is not enabled on
-          the Firebase project, so the mobile app uploads the details but holds
-          the photo. Nothing is lost — each queued photo uploads by itself once
-          Storage exists, and these cards become printable with no re-entry.
+          No photo has reached the server for them yet. These were submitted
+          before the app could send photos, so the picture is still on the phone
+          that took it. Nothing is lost — each one uploads by itself the next
+          time that phone syncs, and the card becomes printable with no
+          re-entry.
         </Banner>
       ) : null}
 

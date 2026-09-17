@@ -152,6 +152,17 @@ class $StudentEntriesTable extends StudentEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _photoThumbMeta = const VerificationMeta(
+    'photoThumb',
+  );
+  @override
+  late final GeneratedColumn<String> photoThumb = GeneratedColumn<String>(
+    'photo_thumb',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
   );
@@ -293,6 +304,7 @@ class $StudentEntriesTable extends StudentEntries
     address,
     localPhotoPath,
     remotePhotoUrl,
+    photoThumb,
     syncStatus,
     syncAttempts,
     syncError,
@@ -403,6 +415,12 @@ class $StudentEntriesTable extends StudentEntries
           data['remote_photo_url']!,
           _remotePhotoUrlMeta,
         ),
+      );
+    }
+    if (data.containsKey('photo_thumb')) {
+      context.handle(
+        _photoThumbMeta,
+        photoThumb.isAcceptableOrUnknown(data['photo_thumb']!, _photoThumbMeta),
       );
     }
     if (data.containsKey('sync_status')) {
@@ -551,6 +569,10 @@ class $StudentEntriesTable extends StudentEntries
         DriftSqlType.string,
         data['${effectivePrefix}remote_photo_url'],
       ),
+      photoThumb: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_thumb'],
+      ),
       syncStatus: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}sync_status'],
@@ -622,6 +644,11 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
   final String? localPhotoPath;
   final String? remotePhotoUrl;
 
+  /// Base64 JPEG thumbnail carried on the synced record, so a device that did
+  /// not take the photo can still show a face. Nullable: rows captured before
+  /// inline photos, and rows whose photo has not synced, have none.
+  final String? photoThumb;
+
   /// Stores the `SyncStatus` enum name. Kept as text rather than an int so a
   /// database dump is readable during a support call.
   final String syncStatus;
@@ -681,6 +708,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     required this.address,
     this.localPhotoPath,
     this.remotePhotoUrl,
+    this.photoThumb,
     required this.syncStatus,
     required this.syncAttempts,
     this.syncError,
@@ -714,6 +742,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     }
     if (!nullToAbsent || remotePhotoUrl != null) {
       map['remote_photo_url'] = Variable<String>(remotePhotoUrl);
+    }
+    if (!nullToAbsent || photoThumb != null) {
+      map['photo_thumb'] = Variable<String>(photoThumb);
     }
     map['sync_status'] = Variable<String>(syncStatus);
     map['sync_attempts'] = Variable<int>(syncAttempts);
@@ -760,6 +791,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       remotePhotoUrl: remotePhotoUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(remotePhotoUrl),
+      photoThumb: photoThumb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoThumb),
       syncStatus: Value(syncStatus),
       syncAttempts: Value(syncAttempts),
       syncError: syncError == null && nullToAbsent
@@ -805,6 +839,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       address: serializer.fromJson<String>(json['address']),
       localPhotoPath: serializer.fromJson<String?>(json['localPhotoPath']),
       remotePhotoUrl: serializer.fromJson<String?>(json['remotePhotoUrl']),
+      photoThumb: serializer.fromJson<String?>(json['photoThumb']),
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
       syncAttempts: serializer.fromJson<int>(json['syncAttempts']),
       syncError: serializer.fromJson<String?>(json['syncError']),
@@ -837,6 +872,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       'address': serializer.toJson<String>(address),
       'localPhotoPath': serializer.toJson<String?>(localPhotoPath),
       'remotePhotoUrl': serializer.toJson<String?>(remotePhotoUrl),
+      'photoThumb': serializer.toJson<String?>(photoThumb),
       'syncStatus': serializer.toJson<String>(syncStatus),
       'syncAttempts': serializer.toJson<int>(syncAttempts),
       'syncError': serializer.toJson<String?>(syncError),
@@ -865,6 +901,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     String? address,
     Value<String?> localPhotoPath = const Value.absent(),
     Value<String?> remotePhotoUrl = const Value.absent(),
+    Value<String?> photoThumb = const Value.absent(),
     String? syncStatus,
     int? syncAttempts,
     Value<String?> syncError = const Value.absent(),
@@ -894,6 +931,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     remotePhotoUrl: remotePhotoUrl.present
         ? remotePhotoUrl.value
         : this.remotePhotoUrl,
+    photoThumb: photoThumb.present ? photoThumb.value : this.photoThumb,
     syncStatus: syncStatus ?? this.syncStatus,
     syncAttempts: syncAttempts ?? this.syncAttempts,
     syncError: syncError.present ? syncError.value : this.syncError,
@@ -939,6 +977,9 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       remotePhotoUrl: data.remotePhotoUrl.present
           ? data.remotePhotoUrl.value
           : this.remotePhotoUrl,
+      photoThumb: data.photoThumb.present
+          ? data.photoThumb.value
+          : this.photoThumb,
       syncStatus: data.syncStatus.present
           ? data.syncStatus.value
           : this.syncStatus,
@@ -985,6 +1026,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           ..write('address: $address, ')
           ..write('localPhotoPath: $localPhotoPath, ')
           ..write('remotePhotoUrl: $remotePhotoUrl, ')
+          ..write('photoThumb: $photoThumb, ')
           ..write('syncStatus: $syncStatus, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
@@ -1015,6 +1057,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     address,
     localPhotoPath,
     remotePhotoUrl,
+    photoThumb,
     syncStatus,
     syncAttempts,
     syncError,
@@ -1044,6 +1087,7 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           other.address == this.address &&
           other.localPhotoPath == this.localPhotoPath &&
           other.remotePhotoUrl == this.remotePhotoUrl &&
+          other.photoThumb == this.photoThumb &&
           other.syncStatus == this.syncStatus &&
           other.syncAttempts == this.syncAttempts &&
           other.syncError == this.syncError &&
@@ -1071,6 +1115,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
   final Value<String> address;
   final Value<String?> localPhotoPath;
   final Value<String?> remotePhotoUrl;
+  final Value<String?> photoThumb;
   final Value<String> syncStatus;
   final Value<int> syncAttempts;
   final Value<String?> syncError;
@@ -1097,6 +1142,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.address = const Value.absent(),
     this.localPhotoPath = const Value.absent(),
     this.remotePhotoUrl = const Value.absent(),
+    this.photoThumb = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
@@ -1124,6 +1170,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.address = const Value.absent(),
     this.localPhotoPath = const Value.absent(),
     this.remotePhotoUrl = const Value.absent(),
+    this.photoThumb = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
@@ -1154,6 +1201,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Expression<String>? address,
     Expression<String>? localPhotoPath,
     Expression<String>? remotePhotoUrl,
+    Expression<String>? photoThumb,
     Expression<String>? syncStatus,
     Expression<int>? syncAttempts,
     Expression<String>? syncError,
@@ -1181,6 +1229,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       if (address != null) 'address': address,
       if (localPhotoPath != null) 'local_photo_path': localPhotoPath,
       if (remotePhotoUrl != null) 'remote_photo_url': remotePhotoUrl,
+      if (photoThumb != null) 'photo_thumb': photoThumb,
       if (syncStatus != null) 'sync_status': syncStatus,
       if (syncAttempts != null) 'sync_attempts': syncAttempts,
       if (syncError != null) 'sync_error': syncError,
@@ -1210,6 +1259,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Value<String>? address,
     Value<String?>? localPhotoPath,
     Value<String?>? remotePhotoUrl,
+    Value<String?>? photoThumb,
     Value<String>? syncStatus,
     Value<int>? syncAttempts,
     Value<String?>? syncError,
@@ -1237,6 +1287,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       address: address ?? this.address,
       localPhotoPath: localPhotoPath ?? this.localPhotoPath,
       remotePhotoUrl: remotePhotoUrl ?? this.remotePhotoUrl,
+      photoThumb: photoThumb ?? this.photoThumb,
       syncStatus: syncStatus ?? this.syncStatus,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: syncError ?? this.syncError,
@@ -1294,6 +1345,9 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     if (remotePhotoUrl.present) {
       map['remote_photo_url'] = Variable<String>(remotePhotoUrl.value);
     }
+    if (photoThumb.present) {
+      map['photo_thumb'] = Variable<String>(photoThumb.value);
+    }
     if (syncStatus.present) {
       map['sync_status'] = Variable<String>(syncStatus.value);
     }
@@ -1349,6 +1403,7 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
           ..write('address: $address, ')
           ..write('localPhotoPath: $localPhotoPath, ')
           ..write('remotePhotoUrl: $remotePhotoUrl, ')
+          ..write('photoThumb: $photoThumb, ')
           ..write('syncStatus: $syncStatus, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
@@ -3330,6 +3385,268 @@ class PrintBatchesCompanion extends UpdateCompanion<PrintBatchRow> {
   }
 }
 
+class $AppFlagsTable extends AppFlags
+    with TableInfo<$AppFlagsTable, AppFlagRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppFlagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, value, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_flags';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppFlagRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  AppFlagRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppFlagRow(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AppFlagsTable createAlias(String alias) {
+    return $AppFlagsTable(attachedDatabase, alias);
+  }
+}
+
+class AppFlagRow extends DataClass implements Insertable<AppFlagRow> {
+  final String key;
+  final String value;
+  final DateTime updatedAt;
+  const AppFlagRow({
+    required this.key,
+    required this.value,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['value'] = Variable<String>(value);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AppFlagsCompanion toCompanion(bool nullToAbsent) {
+    return AppFlagsCompanion(
+      key: Value(key),
+      value: Value(value),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AppFlagRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppFlagRow(
+      key: serializer.fromJson<String>(json['key']),
+      value: serializer.fromJson<String>(json['value']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'value': serializer.toJson<String>(value),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AppFlagRow copyWith({String? key, String? value, DateTime? updatedAt}) =>
+      AppFlagRow(
+        key: key ?? this.key,
+        value: value ?? this.value,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  AppFlagRow copyWithCompanion(AppFlagsCompanion data) {
+    return AppFlagRow(
+      key: data.key.present ? data.key.value : this.key,
+      value: data.value.present ? data.value.value : this.value,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppFlagRow(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, value, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppFlagRow &&
+          other.key == this.key &&
+          other.value == this.value &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AppFlagsCompanion extends UpdateCompanion<AppFlagRow> {
+  final Value<String> key;
+  final Value<String> value;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AppFlagsCompanion({
+    this.key = const Value.absent(),
+    this.value = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppFlagsCompanion.insert({
+    required String key,
+    required String value,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       value = Value(value),
+       updatedAt = Value(updatedAt);
+  static Insertable<AppFlagRow> custom({
+    Expression<String>? key,
+    Expression<String>? value,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (value != null) 'value': value,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppFlagsCompanion copyWith({
+    Value<String>? key,
+    Value<String>? value,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return AppFlagsCompanion(
+      key: key ?? this.key,
+      value: value ?? this.value,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppFlagsCompanion(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3337,6 +3654,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SchoolConfigsTable schoolConfigs = $SchoolConfigsTable(this);
   late final $AuditLogsTable auditLogs = $AuditLogsTable(this);
   late final $PrintBatchesTable printBatches = $PrintBatchesTable(this);
+  late final $AppFlagsTable appFlags = $AppFlagsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3346,6 +3664,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     schoolConfigs,
     auditLogs,
     printBatches,
+    appFlags,
   ];
 }
 
@@ -3364,6 +3683,7 @@ typedef $$StudentEntriesTableCreateCompanionBuilder =
       Value<String> address,
       Value<String?> localPhotoPath,
       Value<String?> remotePhotoUrl,
+      Value<String?> photoThumb,
       Value<String> syncStatus,
       Value<int> syncAttempts,
       Value<String?> syncError,
@@ -3392,6 +3712,7 @@ typedef $$StudentEntriesTableUpdateCompanionBuilder =
       Value<String> address,
       Value<String?> localPhotoPath,
       Value<String?> remotePhotoUrl,
+      Value<String?> photoThumb,
       Value<String> syncStatus,
       Value<int> syncAttempts,
       Value<String?> syncError,
@@ -3477,6 +3798,11 @@ class $$StudentEntriesTableFilterComposer
 
   ColumnFilters<String> get remotePhotoUrl => $composableBuilder(
     column: $table.remotePhotoUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoThumb => $composableBuilder(
+    column: $table.photoThumb,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3610,6 +3936,11 @@ class $$StudentEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get photoThumb => $composableBuilder(
+    column: $table.photoThumb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get syncStatus => $composableBuilder(
     column: $table.syncStatus,
     builder: (column) => ColumnOrderings(column),
@@ -3726,6 +4057,11 @@ class $$StudentEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get photoThumb => $composableBuilder(
+    column: $table.photoThumb,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get syncStatus => $composableBuilder(
     column: $table.syncStatus,
     builder: (column) => column,
@@ -3826,6 +4162,7 @@ class $$StudentEntriesTableTableManager
                 Value<String> address = const Value.absent(),
                 Value<String?> localPhotoPath = const Value.absent(),
                 Value<String?> remotePhotoUrl = const Value.absent(),
+                Value<String?> photoThumb = const Value.absent(),
                 Value<String> syncStatus = const Value.absent(),
                 Value<int> syncAttempts = const Value.absent(),
                 Value<String?> syncError = const Value.absent(),
@@ -3852,6 +4189,7 @@ class $$StudentEntriesTableTableManager
                 address: address,
                 localPhotoPath: localPhotoPath,
                 remotePhotoUrl: remotePhotoUrl,
+                photoThumb: photoThumb,
                 syncStatus: syncStatus,
                 syncAttempts: syncAttempts,
                 syncError: syncError,
@@ -3880,6 +4218,7 @@ class $$StudentEntriesTableTableManager
                 Value<String> address = const Value.absent(),
                 Value<String?> localPhotoPath = const Value.absent(),
                 Value<String?> remotePhotoUrl = const Value.absent(),
+                Value<String?> photoThumb = const Value.absent(),
                 Value<String> syncStatus = const Value.absent(),
                 Value<int> syncAttempts = const Value.absent(),
                 Value<String?> syncError = const Value.absent(),
@@ -3906,6 +4245,7 @@ class $$StudentEntriesTableTableManager
                 address: address,
                 localPhotoPath: localPhotoPath,
                 remotePhotoUrl: remotePhotoUrl,
+                photoThumb: photoThumb,
                 syncStatus: syncStatus,
                 syncAttempts: syncAttempts,
                 syncError: syncError,
@@ -4874,6 +5214,163 @@ typedef $$PrintBatchesTableProcessedTableManager =
       PrintBatchRow,
       PrefetchHooks Function()
     >;
+typedef $$AppFlagsTableCreateCompanionBuilder = AppFlagsCompanion Function({
+  required String key,
+  required String value,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$AppFlagsTableUpdateCompanionBuilder = AppFlagsCompanion Function({
+  Value<String> key,
+  Value<String> value,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$AppFlagsTableFilterComposer
+    extends Composer<_$AppDatabase, $AppFlagsTable> {
+  $$AppFlagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppFlagsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppFlagsTable> {
+  $$AppFlagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppFlagsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppFlagsTable> {
+  $$AppFlagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AppFlagsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppFlagsTable,
+          AppFlagRow,
+          $$AppFlagsTableFilterComposer,
+          $$AppFlagsTableOrderingComposer,
+          $$AppFlagsTableAnnotationComposer,
+          $$AppFlagsTableCreateCompanionBuilder,
+          $$AppFlagsTableUpdateCompanionBuilder,
+          (
+            AppFlagRow,
+            BaseReferences<_$AppDatabase, $AppFlagsTable, AppFlagRow>,
+          ),
+          AppFlagRow,
+          PrefetchHooks Function()
+        > {
+  $$AppFlagsTableTableManager(_$AppDatabase db, $AppFlagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppFlagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppFlagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppFlagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppFlagsCompanion(
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String value,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AppFlagsCompanion.insert(
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppFlagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppFlagsTable,
+      AppFlagRow,
+      $$AppFlagsTableFilterComposer,
+      $$AppFlagsTableOrderingComposer,
+      $$AppFlagsTableAnnotationComposer,
+      $$AppFlagsTableCreateCompanionBuilder,
+      $$AppFlagsTableUpdateCompanionBuilder,
+      (AppFlagRow, BaseReferences<_$AppDatabase, $AppFlagsTable, AppFlagRow>),
+      AppFlagRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4886,4 +5383,6 @@ class $AppDatabaseManager {
       $$AuditLogsTableTableManager(_db, _db.auditLogs);
   $$PrintBatchesTableTableManager get printBatches =>
       $$PrintBatchesTableTableManager(_db, _db.printBatches);
+  $$AppFlagsTableTableManager get appFlags =>
+      $$AppFlagsTableTableManager(_db, _db.appFlags);
 }

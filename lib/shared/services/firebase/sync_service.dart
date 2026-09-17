@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
+import 'package:flutter_id_card/shared/services/firebase/inline_photo.dart';
 import 'package:flutter_id_card/shared/services/local/audit_repository.dart';
 import 'package:flutter_id_card/shared/services/local/school_repository.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
@@ -224,10 +225,12 @@ class SyncService {
         await _pullEverythingForAdmin();
       } else if (schoolId != null) {
         await _pullSchoolConfig(schoolId);
+        await _pullSchoolEntries(schoolId);
       }
 
       _emit(_state.copyWith(activity: SyncActivity.uploading));
       final int uploaded = await _pushEntries();
+      await _backfillPhotos();
 
       final List<StudentEntry> stillPending = await _students.dueForUpload(
         limit: 1000,
@@ -306,6 +309,71 @@ class SyncService {
     );
   }
 
+  /// Merges a record fetched from the server onto what this device knows.
+  ///
+  /// [StudentEntry.fromFirestoreMap] builds an entry from the wire format
+  /// alone, and several fields are not on the wire at all because they are
+  /// this device's own bookkeeping. Writing the bare remote copy over the
+  /// local row silently erased them, with two visible consequences: the
+  /// progress timeline forgot that a submission had ever reached the office,
+  /// and the photo backfill - which finds work by asking "whose details are on
+  /// the server but whose photo is not" - stopped finding anything at all,
+  /// because every candidate had just had that fact wiped one step earlier in
+  /// the same sync pass.
+  ///
+  /// `detailsSyncedAt` is filled in rather than merely preserved: this record
+  /// was just read back from the server, so the details demonstrably reached
+  /// it, whatever the local row happened to remember.
+  StudentEntry _mergeRemote(StudentEntry remote, StudentEntry? local) {
+    return remote.copyWith(
+      // Device-local file path. Means nothing on the server; dropping it would
+      // blank the operator's own thumbnails and the admin's card previews.
+      localPhotoPath: local?.localPhotoPath,
+      detailsSyncedAt: local?.detailsSyncedAt ?? remote.updatedAt,
+      lastSyncAttemptAt: local?.lastSyncAttemptAt,
+      // The server's thumbnail wins when it has one; otherwise keep whatever
+      // this device already had rather than blanking a face it can render.
+      photoThumb: remote.photoThumb ?? local?.photoThumb,
+    );
+  }
+
+  /// Brings the office's review decisions back down to the operator.
+  ///
+  /// Without this the flow is one-way: a teacher submits a card, the admin
+  /// approves or returns it, and the teacher's device never finds out. That
+  /// held together only while approvals were made from the Flutter admin panel
+  /// on the same device - same local database, so the decision was already
+  /// there. The moment reviewing moved to the web panel, "sent back for a
+  /// correction" stopped reaching the person who has to make the correction.
+  ///
+  /// Runs BEFORE the upload pass on every operator sync, which also matters
+  /// for writes: an entry whose local review state is stale would be pushed
+  /// back with the old `approvalStatus`, and the rules correctly refuse an
+  /// operator changing a review. Pulling first means the row it pushes agrees
+  /// with the server about everything it is not allowed to change.
+  Future<void> _pullSchoolEntries(String schoolId) async {
+    if (schoolId.isEmpty) return;
+
+    final QuerySnapshot<Map<String, Object?>> docs = await _db
+        .collection('schools')
+        .doc(schoolId)
+        .collection('entries')
+        .get();
+
+    final List<StudentEntry> incoming = <StudentEntry>[];
+    for (final QueryDocumentSnapshot<Map<String, Object?>> d in docs.docs) {
+      final StudentEntry remote = StudentEntry.fromFirestoreMap(d.id, d.data());
+      final StudentEntry? local = await _students.findById(d.id);
+
+      // Never clobber work that has not uploaded yet - the local copy is the
+      // only copy of it.
+      if (local != null && local.syncStatus.needsUpload) continue;
+
+      incoming.add(_mergeRemote(remote, local));
+    }
+    if (incoming.isNotEmpty) await _students.saveAll(incoming);
+  }
+
   /// Mirrors every school and every entry into the local database.
   ///
   /// The admin panel reads exclusively from local storage, exactly like the
@@ -361,14 +429,7 @@ class SyncService {
         // Never clobber work that has not uploaded yet.
         if (local != null && local.syncStatus.needsUpload) continue;
 
-        // Keep the device-local photo path: it means nothing on the server, and
-        // dropping it would make the admin's card previews re-download every
-        // photo (or render without one).
-        incoming.add(
-          local?.localPhotoPath == null
-              ? remote
-              : remote.copyWith(localPhotoPath: local!.localPhotoPath),
-        );
+        incoming.add(_mergeRemote(remote, local));
       }
       if (incoming.isNotEmpty) await _students.saveAll(incoming);
     }
@@ -422,6 +483,82 @@ class SyncService {
     return DateTime.now().isBefore(lastAttempt.add(wait));
   }
 
+  /// The document that carries a student's full-resolution photo when it
+  /// travels inside Firestore rather than through Cloud Storage.
+  DocumentReference<Map<String, Object?>> _photoDoc(StudentEntry entry) => _db
+      .collection('schools')
+      .doc(entry.schoolId)
+      .collection('entries')
+      .doc(entry.id)
+      .collection('media')
+      .doc('photo');
+
+  /// Sends the photo - and only the photo - for records the office already
+  /// holds but has no picture for.
+  ///
+  /// Every submission made before photos could travel inside Firestore is in
+  /// this state: the details synced, Cloud Storage refused the picture, and
+  /// the row either settled as `synced` or burned through its retries. Neither
+  /// is ever looked at again by the ordinary upload queue, so without this
+  /// those students stay permanently unprintable and the operator's only
+  /// remedy is to retake a photo that was never the problem.
+  ///
+  /// This writes the media document and merges a single `photoThumb` field
+  /// onto the entry. It does not re-send the student's details and it does not
+  /// touch the review decision - which is what makes it safe to run against a
+  /// record the admin may have approved in the meantime, where re-pushing the
+  /// whole document would be refused by the rules.
+  ///
+  /// Small batches: encoding is cheap but each row is two writes, and there is
+  /// no hurry - the backlog drains over a few passes.
+  Future<int> _backfillPhotos() async {
+    final List<StudentEntry> rows = await _students.needingPhotoBackfill();
+    if (rows.isEmpty) return 0;
+
+    int done = 0;
+    for (final StudentEntry entry in rows) {
+      final String? path = entry.localPhotoPath;
+      if (path == null || path.isEmpty) continue;
+
+      final File file = File(path);
+      if (!file.existsSync()) continue;
+
+      try {
+        final InlinePhoto? inline = await encodeInlinePhoto(
+          await file.readAsBytes(),
+        );
+        if (inline == null) continue;
+
+        await _photoDoc(entry).set(<String, Object?>{
+          'data': inline.fullBase64,
+          'contentType': 'image/jpeg',
+          'bytes': inline.fullBytes,
+          'width': inline.width,
+          'height': inline.height,
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        });
+
+        await _db
+            .collection('schools')
+            .doc(entry.schoolId)
+            .collection('entries')
+            .doc(entry.id)
+            .set(<String, Object?>{
+              'photoThumb': inline.thumbBase64,
+            }, SetOptions(merge: true));
+
+        await _students.markPhotoSynced(entry.id, inline.thumbBase64);
+        done++;
+      } on Object catch (e) {
+        // Never fatal, and never recorded on the row: the record itself is
+        // fine and already at the office. A backfill that cannot complete is
+        // retried on the next pass and otherwise costs nobody anything.
+        if (kDebugMode) debugPrint('Photo backfill failed for ${entry.id}: $e');
+      }
+    }
+    return done;
+  }
+
   Future<bool> _uploadOne(StudentEntry entry) async {
     // Pre-flight check: required fields must be present
     if (entry.name.trim().isEmpty || entry.schoolId.trim().isEmpty) {
@@ -453,9 +590,16 @@ class SyncService {
       // excludes entries without a photo and reports the count, so a card can
       // never be printed with an empty photo box.
       String? photoError;
+      InlinePhoto? inline;
 
       final String? localPath = entry.localPhotoPath;
-      if (photoUrl == null && localPath != null && localPath.isNotEmpty) {
+      final bool needsPhoto =
+          photoUrl == null &&
+          (entry.photoThumb == null || entry.photoThumb!.isEmpty) &&
+          localPath != null &&
+          localPath.isNotEmpty;
+
+      if (needsPhoto) {
         final File file = File(localPath);
         if (file.existsSync()) {
           try {
@@ -464,6 +608,27 @@ class SyncService {
             photoError = _describePhoto(e);
           } on Object catch (e) {
             photoError = 'Photo upload failed: $e';
+          }
+
+          // Storage did not take it. Carry the photo in Firestore instead.
+          //
+          // This is what makes the system work at all on a project without a
+          // Storage bucket: before it existed, a Storage failure meant the
+          // photo simply never left the device, so the office saw every
+          // approved card as unprintable and the only machine that could print
+          // a card was the one that took the picture. Firestore is already
+          // provisioned and a card portrait re-encodes to a few tens of KB,
+          // which fits a document with room to spare.
+          if (photoUrl == null) {
+            try {
+              inline = await encodeInlinePhoto(await file.readAsBytes());
+              if (inline != null) photoError = null;
+            } on Object catch (e) {
+              // Keep the Storage error if there is one - it is the more
+              // actionable of the two. This only reports the fallback's own
+              // failure when the fallback was the only route tried.
+              photoError ??= 'Could not prepare the photo for upload: $e';
+            }
           }
         } else {
           // The processed photo is gone from disk - the OS cleared it, or the
@@ -478,7 +643,25 @@ class SyncService {
         }
       }
 
-      final StudentEntry toWrite = entry.copyWith(remotePhotoUrl: photoUrl);
+      // Written before the entry document, so the entry can never advertise a
+      // thumbnail whose full frame has not landed. An orphaned media document
+      // (entry write fails after this one succeeds) is harmless: the next pass
+      // overwrites it.
+      if (inline != null) {
+        await _photoDoc(entry).set(<String, Object?>{
+          'data': inline.fullBase64,
+          'contentType': 'image/jpeg',
+          'bytes': inline.fullBytes,
+          'width': inline.width,
+          'height': inline.height,
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
+
+      final StudentEntry toWrite = entry.copyWith(
+        remotePhotoUrl: photoUrl,
+        photoThumb: inline?.thumbBase64,
+      );
 
       // The entry's own id is the document id, which makes this idempotent:
       // replaying an interrupted run overwrites instead of creating a second
@@ -501,7 +684,11 @@ class SyncService {
         return false;
       }
 
-      await _students.markSynced(entry.id, remotePhotoUrl: photoUrl);
+      await _students.markSynced(
+        entry.id,
+        remotePhotoUrl: photoUrl,
+        photoThumb: inline?.thumbBase64,
+      );
       return true;
     } on FirebaseException catch (e) {
       await _students.markFailed(entry.id, _describe(e), entry.syncAttempts);

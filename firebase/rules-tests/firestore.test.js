@@ -145,6 +145,110 @@ describe('Entries as a collection group', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The student's photo, carried inside Firestore because Cloud Storage is not
+// provisioned on this project.
+// ---------------------------------------------------------------------------
+describe('Inline photos (entries/{id}/media/photo)', () => {
+  const photo = (chars = 100) => ({
+    data: 'x'.repeat(chars),
+    contentType: 'image/jpeg',
+    bytes: chars,
+  });
+
+  it("a teacher can write their own school's photo", async () => {
+    await assertSucceeds(
+      setDoc(
+        doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo'),
+        photo(),
+      ),
+    );
+  });
+
+  it("a teacher CANNOT write another school's photo", async () => {
+    await assertFails(
+      setDoc(
+        doc(as(TEACHER_A), 'schools', SCHOOL_B, 'entries', 'entry-b', 'media', 'photo'),
+        photo(),
+      ),
+    );
+  });
+
+  it("a teacher CANNOT read another school's photo", async () => {
+    await assertFails(
+      getDoc(
+        doc(as(TEACHER_A), 'schools', SCHOOL_B, 'entries', 'entry-b', 'media', 'photo'),
+      ),
+    );
+  });
+
+  it('an unauthenticated caller can do neither', async () => {
+    await assertFails(
+      getDoc(doc(anon(), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo')),
+    );
+    await assertFails(
+      setDoc(
+        doc(anon(), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo'),
+        photo(),
+      ),
+    );
+  });
+
+  it("the admin can read any school's photo", async () => {
+    await assertSucceeds(
+      getDoc(
+        doc(as(ADMIN), 'schools', SCHOOL_B, 'entries', 'entry-b', 'media', 'photo'),
+      ),
+    );
+  });
+
+  it('an oversized photo is refused', async () => {
+    // Firestore caps a document just under 1 MiB. Without the size rule a
+    // client could write a photo field large enough that the document can no
+    // longer be updated at all, stranding the student's record.
+    await assertFails(
+      setDoc(
+        doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo'),
+        photo(800001),
+      ),
+    );
+  });
+
+  it('a photo with no data field is refused', async () => {
+    await assertFails(
+      setDoc(
+        doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo'),
+        { contentType: 'image/jpeg' },
+      ),
+    );
+  });
+
+  it('a teacher cannot delete a photo - only the admin can', async () => {
+    await assertFails(
+      deleteDoc(
+        doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo'),
+      ),
+    );
+    await assertSucceeds(
+      deleteDoc(
+        doc(as(ADMIN), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo'),
+      ),
+    );
+  });
+
+  it('a photo document is NOT swept up by the entries collection group',
+    async () => {
+      // The collection group rule matches collections named `entries`. A photo
+      // lives in one named `media`, so it must not appear in the admin panel's
+      // list query - if it did, every dashboard load would pull every full
+      // photo in the system.
+      const snap = await assertSucceeds(
+        getDocs(collectionGroup(as(ADMIN), 'entries')),
+      );
+      assert.strictEqual(snap.size, 2);
+    });
+});
+
+// ---------------------------------------------------------------------------
 // Hub and spoke: teachers talk to the admin, never to each other.
 // ---------------------------------------------------------------------------
 describe('Hub-and-spoke messaging', () => {

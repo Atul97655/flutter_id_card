@@ -17,6 +17,7 @@ import { useStore } from '@/lib/store';
 import {
   APPROVAL_LABELS,
   APPROVAL_STATUSES,
+  hasPhoto,
   isPrintable,
   type ApprovalStatus,
   type StudentEntry,
@@ -72,7 +73,7 @@ export default function ReportsPage() {
           approved: mine.filter((e) => e.approvalStatus === 'approved').length,
           printed: mine.filter((e) => e.approvalStatus === 'printed').length,
           rejected: mine.filter((e) => e.approvalStatus === 'rejected').length,
-          noPhoto: mine.filter((e) => isPrintable(e.approvalStatus) && !e.photoUrl).length,
+          noPhoto: mine.filter((e) => isPrintable(e.approvalStatus) && !hasPhoto(e)).length,
         };
       })
       .sort((a, b) => b.total - a.total);
@@ -108,7 +109,7 @@ export default function ReportsPage() {
         e.address,
         schools.find((s) => s.id === e.schoolId)?.name ?? e.schoolId,
         APPROVAL_LABELS[e.approvalStatus],
-        e.photoUrl ? 'Yes' : 'No',
+        hasPhoto(e) ? 'Yes' : 'No',
         e.rejectionReason ?? '',
         e.createdAt ?? '',
       ]),

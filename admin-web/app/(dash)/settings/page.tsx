@@ -6,6 +6,7 @@ import { Banner, Panel, PanelHeader } from '@/components/ui/primitives';
 import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
 import { FIREBASE_PROJECT_ID } from '@/lib/firebase';
+import { hasPhoto } from '@/lib/types';
 
 /**
  * Settings.
@@ -18,18 +19,19 @@ export default function SettingsPage() {
   const { profile } = useAuth();
   const { schools, entries, users } = useStore();
 
-  const noPhoto = entries.filter((e) => !e.photoUrl).length;
+  const noPhoto = entries.filter((e) => !hasPhoto(e)).length;
 
   return (
     <div className="flex flex-col gap-4">
       <Topbar greeting="Installation" title="Settings" />
 
       {noPhoto > 0 ? (
-        <Banner tone="warn" title="Cloud Storage is not enabled on this project">
-          {noPhoto} of {entries.length} submissions have no photo on the server.
-          The mobile app uploads student details and holds the photo, retrying
-          by itself. Enabling Storage in the Firebase console clears the backlog
-          with no re-entry.
+        <Banner tone="warn" title={`${noPhoto} submission${noPhoto === 1 ? '' : 's'} without a photo`}>
+          {noPhoto} of {entries.length} records have no picture on the server
+          yet. Photos travel inside Firestore on this project — Cloud Storage is
+          not enabled, and does not need to be — so anything submitted before
+          that release is still holding its photo on the capturing phone. Each
+          uploads by itself on that phone&apos;s next sync, with no re-entry.
         </Banner>
       ) : null}
 

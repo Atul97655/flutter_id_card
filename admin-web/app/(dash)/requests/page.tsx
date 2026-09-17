@@ -6,8 +6,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   CheckCircle2,
   ChevronRight,
-  ClipboardList,
-  ImageOff,
   Inbox,
   X,
   XCircle,
@@ -31,10 +29,12 @@ import { reviewMany } from '@/lib/data';
 import {
   APPROVAL_LABELS,
   APPROVAL_STATUSES,
+  hasPhoto,
   isPrintable,
   type ApprovalStatus,
   type StudentEntry,
 } from '@/lib/types';
+import { EntryPhoto } from '@/components/ui/entry-photo';
 
 /**
  * The review queue - the admin's main job.
@@ -415,7 +415,7 @@ function Row({
 }) {
   // Approved but with no photo can never be printed. Flagged inline because
   // it otherwise looks complete in every count until someone tries to print.
-  const blocked = isPrintable(entry.approvalStatus) && !entry.photoUrl;
+  const blocked = isPrintable(entry.approvalStatus) && !hasPhoto(entry);
 
   return (
     <motion.tr
@@ -443,17 +443,7 @@ function Row({
       <td className="px-2 py-2.5">
         <div className="flex items-center gap-2.5">
           <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-400/10 text-ink-400">
-            {entry.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={entry.photoUrl}
-                alt=""
-                className="size-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <ImageOff size={14} />
-            )}
+            <EntryPhoto entry={entry} iconSize={14} />
           </span>
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold text-ink-700">

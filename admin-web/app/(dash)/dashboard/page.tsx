@@ -30,7 +30,8 @@ import {
 } from '@/components/ui/primitives';
 import { useAuth } from '@/lib/auth-context';
 import { useSchoolName, useStore } from '@/lib/store';
-import { isPrintable, type StudentEntry } from '@/lib/types';
+import { hasPhoto, isPrintable, type StudentEntry } from '@/lib/types';
+import { EntryPhoto } from '@/components/ui/entry-photo';
 
 export default function DashboardPage() {
   const { profile } = useAuth();
@@ -52,7 +53,7 @@ export default function DashboardPage() {
       else if (e.approvalStatus === 'printed') printed++;
 
       if (isPrintable(e.approvalStatus)) {
-        if (e.photoUrl) readyToPrint++;
+        if (hasPhoto(e)) readyToPrint++;
         else missingPhoto++;
       }
     }
@@ -116,10 +117,11 @@ export default function DashboardPage() {
             </Link>
           }
         >
-          Their photos never reached the server, so there is nothing to place on a
-          sheet. This is expected until Cloud Storage is enabled on the Firebase
-          project — the details are safe and the photos upload by themselves once
-          it is.
+          No photo has reached the server for them yet, so there is nothing to
+          place on a sheet. Submissions made before the current app release left
+          their photo on the phone that took it; each one is sent up
+          automatically the next time that phone syncs. The details are safe and
+          nothing needs re-entering.
         </Banner>
       ) : null}
 
@@ -482,17 +484,7 @@ function RecentRow({
         className="flex items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/70"
       >
         <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-400/10 text-ink-400">
-          {entry.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={entry.photoUrl}
-              alt=""
-              className="size-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <ImageOff size={13} />
-          )}
+          <EntryPhoto entry={entry} iconSize={13} />
         </span>
 
         <span className="min-w-0 flex-1">

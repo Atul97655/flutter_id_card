@@ -24,6 +24,7 @@ class StudentEntry {
     this.address = '',
     this.localPhotoPath,
     this.remotePhotoUrl,
+    this.photoThumb,
     this.syncStatus = SyncStatus.pending,
     this.syncAttempts = 0,
     this.syncError,
@@ -61,6 +62,23 @@ class StudentEntry {
   /// Firebase Storage download URL, set once the photo has uploaded.
   final String? remotePhotoUrl;
 
+  /// A base64 JPEG thumbnail of the photo, carried on the entry document
+  /// itself so a list of submissions can show faces without a second read per
+  /// row. The full-resolution frame lives in the entry's `media/photo`
+  /// document - see `InlinePhoto` for why the two are split.
+  ///
+  /// Present on any entry synced since inline photos landed. Null on older
+  /// rows and on entries whose photo has not been processed yet, so every
+  /// reader must treat it as optional.
+  final String? photoThumb;
+
+  /// True if the office can get at this student's picture - whether through
+  /// Storage or inline in Firestore. This is what "can it be printed" should
+  /// ask; [hasPhoto] also counts a file that exists only on this device.
+  bool get photoReachedServer =>
+      (remotePhotoUrl?.isNotEmpty ?? false) ||
+      (photoThumb?.isNotEmpty ?? false);
+
   final SyncStatus syncStatus;
   final int syncAttempts;
   final String? syncError;
@@ -87,7 +105,7 @@ class StudentEntry {
   bool get awaitingPhotoUpload =>
       detailsReachedServer &&
       syncStatus != SyncStatus.synced &&
-      (remotePhotoUrl == null || remotePhotoUrl!.isEmpty) &&
+      !photoReachedServer &&
       (localPhotoPath?.isNotEmpty ?? false);
 
   /// The admin's review decision. Independent of [syncStatus] - see
@@ -166,6 +184,7 @@ class StudentEntry {
     String? localPhotoPath,
     bool clearLocalPhotoPath = false,
     String? remotePhotoUrl,
+    String? photoThumb,
     SyncStatus? syncStatus,
     int? syncAttempts,
     String? syncError,
@@ -196,6 +215,7 @@ class StudentEntry {
           ? null
           : (localPhotoPath ?? this.localPhotoPath),
       remotePhotoUrl: remotePhotoUrl ?? this.remotePhotoUrl,
+      photoThumb: photoThumb ?? this.photoThumb,
       syncStatus: syncStatus ?? this.syncStatus,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: clearSyncError ? null : (syncError ?? this.syncError),
@@ -227,6 +247,7 @@ class StudentEntry {
     'mobile': mobile,
     'address': address,
     'photoUrl': remotePhotoUrl,
+    'photoThumb': photoThumb,
     'approvalStatus': approvalStatus.name,
     'rejectionReason': rejectionReason,
     'reviewedBy': reviewedBy,
@@ -249,6 +270,7 @@ class StudentEntry {
       mobile: (map['mobile'] as String?) ?? '',
       address: (map['address'] as String?) ?? '',
       remotePhotoUrl: map['photoUrl'] as String?,
+      photoThumb: map['photoThumb'] as String?,
       syncStatus: SyncStatus.synced,
       approvalStatus: ApprovalStatus.fromName(map['approvalStatus'] as String?),
       rejectionReason: map['rejectionReason'] as String?,

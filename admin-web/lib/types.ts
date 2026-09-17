@@ -90,6 +90,20 @@ export interface StudentEntry {
    */
   photoUrl: string | null;
 
+  /**
+   * Base64 JPEG thumbnail carried on the entry document itself.
+   *
+   * Cloud Storage is not provisioned on this Firebase project, so photos
+   * travel inside Firestore instead: a thumbnail here, and the full frame in
+   * `entries/{id}/media/photo`. The split matters because this panel lists
+   * every submission across every school in one query - a full photo per row
+   * would mean downloading tens of megabytes to render a table of names.
+   *
+   * Null on entries synced before inline photos landed, and on any entry whose
+   * photo has not uploaded yet.
+   */
+  photoThumb: string | null;
+
   approvalStatus: ApprovalStatus;
   rejectionReason: string | null;
   reviewedBy: string | null;
@@ -100,7 +114,24 @@ export interface StudentEntry {
 }
 
 export const hasPhoto = (e: StudentEntry): boolean =>
-  typeof e.photoUrl === 'string' && e.photoUrl.length > 0;
+  (typeof e.photoUrl === 'string' && e.photoUrl.length > 0) ||
+  (typeof e.photoThumb === 'string' && e.photoThumb.length > 0);
+
+/**
+ * An `<img src>` for the entry, or null if there is no picture to show.
+ *
+ * Prefers the Storage URL when one exists - it is the full frame and the
+ * browser caches it - and falls back to the inline thumbnail. Callers that
+ * need full resolution (the card preview, the print sheet) fetch the media
+ * document instead; this is for avatars and list rows.
+ */
+export const photoSrc = (e: StudentEntry): string | null => {
+  if (typeof e.photoUrl === 'string' && e.photoUrl.length > 0) return e.photoUrl;
+  if (typeof e.photoThumb === 'string' && e.photoThumb.length > 0) {
+    return `data:image/jpeg;base64,${e.photoThumb}`;
+  }
+  return null;
+};
 
 /** What the print path requires: signed off AND carrying a photo. */
 export const isReadyToPrint = (e: StudentEntry): boolean =>

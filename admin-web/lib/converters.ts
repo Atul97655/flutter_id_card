@@ -90,6 +90,7 @@ export function toStudentEntry(
     mobile: str(d.mobile),
     address: str(d.address),
     photoUrl: strOrNull(d.photoUrl),
+    photoThumb: strOrNull(d.photoThumb),
     approvalStatus: approval(d.approvalStatus),
     rejectionReason: strOrNull(d.rejectionReason),
     reviewedBy: strOrNull(d.reviewedBy),

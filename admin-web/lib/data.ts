@@ -278,6 +278,44 @@ export async function deleteEntry(schoolId: string, entryId: string): Promise<vo
   await deleteDoc(doc(db, 'schools', schoolId, 'entries', entryId));
 }
 
+/**
+ * The student's full-resolution photo, as a data URI ready for an `<img src>`.
+ *
+ * Cloud Storage is not provisioned on this Firebase project, so the app sends
+ * photos through Firestore instead: a thumbnail on the entry document, and the
+ * full frame in its own `media/photo` document. This reads the latter.
+ *
+ * It is a one-shot read rather than a subscription on purpose. A card portrait
+ * never changes once captured - re-capturing writes a new one, but nothing is
+ * watching a photo waiting for it to redraw - and the print sheet fetches
+ * dozens of these at once, where dozens of live listeners would be pure cost.
+ *
+ * Returns null when there is no photo document, which is the normal state for
+ * an entry submitted before inline photos existed. Callers must render that as
+ * "no photo" rather than as a failure.
+ */
+export async function fetchEntryPhoto(
+  schoolId: string,
+  entryId: string,
+): Promise<string | null> {
+  const db = firebaseDb();
+  const snap = await getDoc(
+    doc(db, 'schools', schoolId, 'entries', entryId, 'media', 'photo'),
+  );
+  if (!snap.exists()) return null;
+
+  const d = snap.data();
+  const data = d.data;
+  if (typeof data !== 'string' || data.length === 0) return null;
+
+  const contentType =
+    typeof d.contentType === 'string' && d.contentType.startsWith('image/')
+      ? d.contentType
+      : 'image/jpeg';
+
+  return `data:${contentType};base64,${data}`;
+}
+
 // ---------------------------------------------------------------------------
 // Accounts
 // ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ import { Bell, LogOut, Search, WifiOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
 import { MOTION, StatusChip } from '@/components/ui/primitives';
-import { isPrintable } from '@/lib/types';
+import { hasPhoto, isPrintable } from '@/lib/types';
 import Link from 'next/link';
 
 export function Topbar({
@@ -32,7 +32,7 @@ export function Topbar({
   // Approved but unprintable: the photo never arrived. Worth surfacing,
   // because these look ready in every count until someone tries to print.
   const missingPhoto = entries.filter(
-    (e) => isPrintable(e.approvalStatus) && !e.photoUrl,
+    (e) => isPrintable(e.approvalStatus) && !hasPhoto(e),
   );
   const alerts = pending.length + unreadChats.length;
 

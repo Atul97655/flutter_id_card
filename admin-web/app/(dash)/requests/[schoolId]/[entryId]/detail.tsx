@@ -27,7 +27,8 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { useSchoolName, useStore } from '@/lib/store';
 import { reviewEntry, updateEntry } from '@/lib/data';
-import { isPrintable, type StudentEntry } from '@/lib/types';
+import { hasPhoto, isPrintable, type StudentEntry } from '@/lib/types';
+import { EntryPhoto } from '@/components/ui/entry-photo';
 
 /** Fields the office can correct before approving. */
 const EDITABLE: { key: keyof StudentEntry; label: string; upper?: boolean }[] = [
@@ -94,7 +95,7 @@ export function RequestDetail({
   };
 
   const dirty = Object.keys(draft).length > 0;
-  const blocked = isPrintable(entry.approvalStatus) && !entry.photoUrl;
+  const blocked = isPrintable(entry.approvalStatus) && !hasPhoto(entry);
 
   const save = async () => {
     setBusy(true);
@@ -172,9 +173,10 @@ export function RequestDetail({
 
       {blocked ? (
         <Banner tone="warn" title="Approved, but it cannot be printed">
-          No photo reached the server for this student, so there is nothing to
-          place on a sheet. The details are safe — the photo uploads by itself
-          once Cloud Storage is enabled on the Firebase project.
+          No photo has reached the server for this student, so there is nothing
+          to place on a sheet. The details are safe — if the phone that captured
+          this card still has the picture, it uploads by itself on the next
+          sync. Ask for a re-capture only if it never arrives.
         </Banner>
       ) : null}
 
@@ -188,18 +190,18 @@ export function RequestDetail({
                 className="mx-auto grid w-full max-w-[220px] place-items-center overflow-hidden rounded-[var(--radius-card)] bg-ink-400/8"
                 style={{ aspectRatio: '1.2 / 1.5' }}
               >
-                {entry.photoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={entry.photoUrl}
+                {hasPhoto(entry) ? (
+                  <EntryPhoto
+                    entry={entry}
+                    full
                     alt={`Photo of ${entry.name}`}
-                    className="size-full object-cover"
+                    iconSize={26}
                   />
                 ) : (
                   <div className="flex flex-col items-center gap-2 px-4 text-center">
                     <ImageOff size={26} className="text-ink-400/70" />
                     <p className="text-[12px] leading-snug text-ink-400">
-                      No photo on the server
+                      No photo yet
                     </p>
                   </div>
                 )}

@@ -57,6 +57,38 @@ class StudentRepository {
 
   /// Rows the sync worker should attempt, oldest first so the backlog drains
   /// in the order it was created.
+  /// Rows whose details are on the server but whose photo never made it.
+  ///
+  /// These are not "due for upload" in the ordinary sense - most are `synced`
+  /// or have exhausted their retries - so the normal queue will never look at
+  /// them again. They exist because photos used to have exactly one route off
+  /// the device, Cloud Storage, and that route does not exist on this project:
+  /// every submission made before photos could travel inside Firestore left
+  /// its picture stranded on the capturing phone.
+  ///
+  /// Deliberately keyed on `detailsSyncedAt` rather than on sync status. The
+  /// point is that the office already holds the record, so the backfill has to
+  /// send nothing but the photo - it must not re-push the student's details or
+  /// the review decision, which an operator is not allowed to change.
+  Future<List<StudentEntry>> needingPhotoBackfill({int limit = 5}) async {
+    final List<StudentEntryRow> rows =
+        await (_db.select(_db.studentEntries)
+              ..where(
+                (StudentEntries t) =>
+                    t.detailsSyncedAt.isNotNull() &
+                    t.localPhotoPath.isNotNull() &
+                    t.localPhotoPath.isNotValue('') &
+                    (t.photoThumb.isNull() | t.photoThumb.equals('')) &
+                    (t.remotePhotoUrl.isNull() | t.remotePhotoUrl.equals('')),
+              )
+              ..orderBy(<OrderClauseGenerator<StudentEntries>>[
+                (StudentEntries t) => OrderingTerm(expression: t.createdAt),
+              ])
+              ..limit(limit))
+            .get();
+    return rows.map(_toDomain).toList();
+  }
+
   Future<List<StudentEntry>> dueForUpload({
     int limit = 20,
     int maxAttempts = 8,
@@ -135,7 +167,11 @@ class StudentRepository {
     StudentEntriesCompanion(detailsSyncedAt: Value<DateTime?>(DateTime.now())),
   );
 
-  Future<void> markSynced(String id, {String? remotePhotoUrl}) => _patchSync(
+  Future<void> markSynced(
+    String id, {
+    String? remotePhotoUrl,
+    String? photoThumb,
+  }) => _patchSync(
     id,
     StudentEntriesCompanion(
       syncStatus: const Value<String>('synced'),
@@ -144,7 +180,20 @@ class StudentRepository {
       remotePhotoUrl: remotePhotoUrl == null
           ? const Value<String?>.absent()
           : Value<String?>(remotePhotoUrl),
+      // Absent rather than null when there is nothing new: a re-sync that
+      // did not touch the photo must not wipe the thumbnail the previous
+      // pass uploaded.
+      photoThumb: photoThumb == null
+          ? const Value<String?>.absent()
+          : Value<String?>(photoThumb),
     ),
+  );
+
+  /// Records the thumbnail that went up with the photo, independently of the
+  /// row's overall outcome - same reasoning as [markDetailsSynced].
+  Future<void> markPhotoSynced(String id, String photoThumb) => _patchSync(
+    id,
+    StudentEntriesCompanion(photoThumb: Value<String?>(photoThumb)),
   );
 
   /// Records a failure and increments the attempt counter, which drives the
@@ -427,6 +476,7 @@ class StudentRepository {
     address: row.address,
     localPhotoPath: row.localPhotoPath,
     remotePhotoUrl: row.remotePhotoUrl,
+    photoThumb: row.photoThumb,
     syncStatus: SyncStatus.fromName(row.syncStatus),
     syncAttempts: row.syncAttempts,
     syncError: row.syncError,
@@ -455,6 +505,7 @@ class StudentRepository {
         address: Value<String>(e.address),
         localPhotoPath: Value<String?>(e.localPhotoPath),
         remotePhotoUrl: Value<String?>(e.remotePhotoUrl),
+        photoThumb: Value<String?>(e.photoThumb),
         syncStatus: Value<String>(e.syncStatus.name),
         syncAttempts: Value<int>(e.syncAttempts),
         syncError: Value<String?>(e.syncError),

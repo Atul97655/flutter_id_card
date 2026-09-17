@@ -146,6 +146,36 @@ service cloud.firestore {
         // Deletion is admin-only: an operator deleting a synced record would
         // silently remove a student from the print run.
         allow delete: if isAdmin();
+
+        // --- the student's photo, carried inside Firestore ---------
+        //
+        // Cloud Storage is not provisioned on this project and cannot be
+        // without moving it to the Blaze plan, so the photo travels as base64
+        // in its own document instead. It is kept OUT of the entry document
+        // because the admin panel lists every submission across every school
+        // in one query - a full photo per entry would mean downloading tens of
+        // megabytes to render a table of names. The entry carries only a
+        // thumbnail; this is the full frame, fetched when something actually
+        // renders or prints it.
+        //
+        // Same audience as the entry it belongs to: whoever may read the
+        // student's details may see their picture, and nobody else.
+        match /media/{mediaId} {
+          allow read: if isAdmin() || belongsToSchool(schoolId);
+
+          // The size cap is the point of writing this rule out rather than
+          // reusing the entry rule. A document may hold just under 1 MiB, and
+          // an unbounded base64 field is the one field here a client could use
+          // to push a document to that limit - at which point the entry stops
+          // being writable at all and the student's record is stuck. 800000
+          // leaves headroom above what the encoder actually produces (tens of
+          // KB) while still refusing anything pathological.
+          allow create, update: if (isAdmin() || belongsToSchool(schoolId))
+            && request.resource.data.data is string
+            && request.resource.data.data.size() < 800000;
+
+          allow delete: if isAdmin();
+        }
       }
     }
 
