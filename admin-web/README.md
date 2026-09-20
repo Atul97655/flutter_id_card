@@ -92,6 +92,31 @@ pipeline. A card specified as 54 × 86 mm has to measure 54 × 86 mm under a
 ruler, and two implementations of that is one too many. This panel shows what
 is ready and records that a batch was printed.
 
+## Why this lives in the Flutter repo
+
+This directory is the source of truth and is **also** published to a second
+repository, `ID-entity-website`, which is what Vercel builds. That looked like
+accidental duplication worth cleaning up; it is not, and deleting it here would
+break deployment.
+
+The two are kept in step with a subtree split, not a copy:
+
+```bash
+git subtree split --prefix=admin-web -b deploy
+git push https://github.com/<owner>/ID-entity-website.git deploy:main
+git branch -D deploy
+```
+
+The split rewrites this directory's history as if it were its own repository,
+so the website repo gets real commits rather than a dump, and Vercel's Root
+Directory stays `.`.
+
+Keeping the source here is deliberate. The panel and the app share one wire
+format - `lib/types.ts` mirrors `StudentEntry` in Dart field for field - and a
+change to one that forgets the other is the single most likely way to break
+this system. In one repository that is one commit and one review. Split across
+two it is two, and nothing makes them happen together.
+
 ## Deployment
 
 Hosted on Vercel as **`id-entity-admin`** under the `scorp-i-on` account,
