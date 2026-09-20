@@ -149,6 +149,111 @@ describe('Entries as a collection group', () => {
 // provisioned on this project.
 // ---------------------------------------------------------------------------
 describe('Inline photos (entries/{id}/media/photo)', () => {
+  // ---- the backfill's exact write, against the real rules ----------------
+  //
+  // Everything else here tests the media document. This tests the OTHER half:
+  // the merge that puts `photoThumb` onto an entry the admin has already
+  // approved. That write was only ever exercised against a fake Firestore,
+  // which does not enforce rules - so if it were refused in production the
+  // backfill would fail silently on every card, which is exactly the symptom
+  // that has been reported twice.
+  //
+  // Three clauses could refuse it and all three are load-bearing:
+  // `reviewFieldsUnchanged` (a merge must not look like an edit to the review
+  // decision), `schoolId` equality, and `hasValidTextCapitalization` - which
+  // runs against the MERGED document, so the entry's existing text has to
+  // survive a write that never mentions it.
+  describe("the backfill's photoThumb merge", () => {
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(
+          doc(ctx.firestore(), 'schools', SCHOOL_A, 'entries', 'approved-a'),
+          {
+            schoolId: SCHOOL_A,
+            name: 'ATUL',
+            fatherName: 'FATHER NAME',
+            studentClass: '10',
+            division: 'A',
+            address: 'SOME STREET, SOME CITY',
+            approvalStatus: 'approved',
+            reviewedBy: 'admin-uid',
+          },
+        );
+      });
+    });
+
+    it('a teacher CAN merge a thumbnail onto an approved card', async () => {
+      await assertSucceeds(
+        setDoc(
+          doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'approved-a'),
+          { photoThumb: 'BASE64THUMB' },
+          { merge: true },
+        ),
+      );
+    });
+
+    it('and the review decision survives it untouched', async () => {
+      await assertSucceeds(
+        setDoc(
+          doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'approved-a'),
+          { photoThumb: 'BASE64THUMB' },
+          { merge: true },
+        ),
+      );
+      const after = await getDoc(
+        doc(as(ADMIN), 'schools', SCHOOL_A, 'entries', 'approved-a'),
+      );
+      assert.strictEqual(after.data().approvalStatus, 'approved');
+      assert.strictEqual(after.data().reviewedBy, 'admin-uid');
+      assert.strictEqual(after.data().name, 'ATUL');
+    });
+
+    it('but the same merge cannot smuggle in a review change', async () => {
+      await assertFails(
+        setDoc(
+          doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'approved-a'),
+          { photoThumb: 'BASE64THUMB', approvalStatus: 'printed' },
+          { merge: true },
+        ),
+      );
+    });
+
+    it("nor reach another school's card", async () => {
+      await assertFails(
+        setDoc(
+          doc(as(TEACHER_B), 'schools', SCHOOL_A, 'entries', 'approved-a'),
+          { photoThumb: 'BASE64THUMB' },
+          { merge: true },
+        ),
+      );
+    });
+
+    it('a card holding lowercase text blocks its own thumbnail', async () => {
+      // Worth pinning because it is surprising: the capitalisation rule runs
+      // against the merged document, so a record that got lowercase text in
+      // before that rule existed can no longer be written to AT ALL - not
+      // even to attach its photo. The app uppercases every one of these
+      // fields, so this is a legacy-data problem rather than a live one, but
+      // it is the shape of failure to look for if a backfill ever stalls on
+      // one particular card.
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(
+          doc(ctx.firestore(), 'schools', SCHOOL_A, 'entries', 'legacy'),
+          { schoolId: SCHOOL_A, name: 'Old Record', approvalStatus: 'approved' },
+        );
+      });
+
+      await assertFails(
+        setDoc(
+          doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'legacy'),
+          { photoThumb: 'BASE64THUMB' },
+          { merge: true },
+        ),
+      );
+    });
+  });
+
+
   const photo = (chars = 100) => ({
     data: 'x'.repeat(chars),
     contentType: 'image/jpeg',
