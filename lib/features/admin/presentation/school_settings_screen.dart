@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/admin/application/admin_providers.dart';
 import 'package:flutter_id_card/features/card_render/application/card_render_providers.dart';
+import 'package:flutter_id_card/features/card_render/application/id_card_renderer.dart';
 import 'package:flutter_id_card/features/card_render/data/template_repository.dart';
 import 'package:flutter_id_card/features/card_render/domain/card_template.dart';
 import 'package:flutter_id_card/shared/models/card_size.dart';
@@ -334,6 +335,17 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
+            ),
+            const SizedBox(height: 6),
+            // The cost of what is switched on, at the moment it is switched
+            // on. The renderer has always known this and only ever said so on
+            // the preview screen - long after the decision, and to a teacher
+            // rather than to the admin who made it.
+            _FitReadout(
+              templates: templates,
+              templateId: _templateId,
+              cardSizeId: _cardSizeId,
+              enabled: _enabled,
             ),
             const SizedBox(height: 6),
             Card(
@@ -846,5 +858,111 @@ class _DivisionColourEditor extends StatelessWidget {
     final Map<String, int> next = Map<String, int>.of(colors);
     next[division] = _palette[next.length % _palette.length];
     onChanged(next);
+  }
+}
+
+/// How legible this school's cards will be with the fields currently switched
+/// on.
+///
+/// Three of the five bundled templates already sit on the renderer's minimum
+/// scale with every field enabled, which means the address prints at roughly
+/// three points. That is a template-geometry problem and needs the client's
+/// real card artwork to fix properly - but until then, the person choosing the
+/// fields should at least be able to see what it costs. An admin switching a
+/// field on had no signal at all, and the result landed on every card that
+/// school printed.
+class _FitReadout extends StatelessWidget {
+  const _FitReadout({
+    required this.templates,
+    required this.templateId,
+    required this.cardSizeId,
+    required this.enabled,
+  });
+
+  final AsyncValue<List<CardTemplate>> templates;
+  final String templateId;
+  final String cardSizeId;
+  final Set<String> enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<CardTemplate> list = templates.value ?? const <CardTemplate>[];
+    if (list.isEmpty) return const SizedBox.shrink();
+
+    final CardTemplate template = list.firstWhere(
+      (CardTemplate t) => t.id == templateId,
+      orElse: () => list.first,
+    );
+    final CardSize size = CardSize.fromId(cardSizeId);
+
+    final List<StudentField> fields = StudentField.values
+        .where((StudentField f) => f.alwaysEnabled || enabled.contains(f.key))
+        .toList();
+
+    final CardFit fit = IdCardRenderer.estimateFit(
+      template: template,
+      size: size,
+      fields: fields,
+    );
+
+    if (fit.isComfortable) {
+      return _Line(
+        icon: Icons.check_circle_outline,
+        color: StatusColors.synced,
+        text:
+            'These ${fit.fieldCount} fields print at full size on a '
+            '${size.label} card.',
+      );
+    }
+
+    return _Line(
+      icon: fit.isClamped ? Icons.error_outline : Icons.warning_amber_outlined,
+      color: fit.isClamped ? StatusColors.failed : StatusColors.pending,
+      text: fit.isClamped
+          ? 'These ${fit.fieldCount} fields do not fit a ${size.label} card. '
+                'Text is shrunk as far as the renderer will go '
+                '(${fit.percent}%) and small fields like the address will be '
+                'hard to read in print. Switch a field off, or use a larger '
+                'card.'
+          : 'These ${fit.fieldCount} fields shrink the printed text to '
+                '${fit.percent}% on a ${size.label} card.',
+    );
+  }
+}
+
+class _Line extends StatelessWidget {
+  const _Line({required this.icon, required this.color, required this.text});
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppTheme.cornerRadius),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.35,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -43,13 +43,12 @@ class IdCardRenderer {
   static Future<IdCardRenderer> load() async {
     if (_cached != null) return _cached!;
 
-    final ByteData regular = await rootBundle.load('assets/fonts/Arial-Regular.ttf');
+    final ByteData regular = await rootBundle.load(
+      'assets/fonts/Arial-Regular.ttf',
+    );
     final ByteData bold = await rootBundle.load('assets/fonts/Arial-Bold.ttf');
 
-    return _cached = IdCardRenderer._(
-      pw.Font.ttf(regular),
-      pw.Font.ttf(bold),
-    );
+    return _cached = IdCardRenderer._(pw.Font.ttf(regular), pw.Font.ttf(bold));
   }
 
   pw.Font fontFor({required bool bold}) => bold ? _bold : _regular;
@@ -82,6 +81,7 @@ class IdCardRenderer {
     required CardSize size,
     double bleedMm = 0,
     bool cropMarks = false,
+
     /// Disable only for tests that inspect the raw PDF structure.
     bool compress = true,
   }) async {
@@ -94,7 +94,9 @@ class IdCardRenderer {
 
     final Uint8List? photo = await _readImage(entry.localPhotoPath);
     final Uint8List? logo = await _readImage(config.localLogoPath);
-    final Uint8List? signature = await _readImage(config.localPrincipalSignaturePath);
+    final Uint8List? signature = await _readImage(
+      config.localPrincipalSignaturePath,
+    );
 
     final pw.Document doc = pw.Document(
       title: '${entry.exportBaseName} ID Card',
@@ -197,14 +199,14 @@ class IdCardRenderer {
     final double sy = size.heightMm / plan.template.authoredSize.heightMm;
 
     pw.Widget position(CardElement e, pw.Widget child) => pw.Positioned(
-          left: PrintUnits.mmToPt(e.xMm * sx),
-          top: PrintUnits.mmToPt(e.yMm * sy),
-          child: pw.SizedBox(
-            width: PrintUnits.mmToPt(e.widthMm * sx),
-            height: PrintUnits.mmToPt(e.heightMm * sy),
-            child: child,
-          ),
-        );
+      left: PrintUnits.mmToPt(e.xMm * sx),
+      top: PrintUnits.mmToPt(e.yMm * sy),
+      child: pw.SizedBox(
+        width: PrintUnits.mmToPt(e.widthMm * sx),
+        height: PrintUnits.mmToPt(e.heightMm * sy),
+        child: child,
+      ),
+    );
 
     switch (element) {
       case final RectElement e:
@@ -387,8 +389,9 @@ class IdCardRenderer {
         );
       }
 
-      final double valueLeftMm =
-          block.showLabels ? blockLeftMm + labelWidthMm + _colonWidthMm : blockLeftMm;
+      final double valueLeftMm = block.showLabels
+          ? blockLeftMm + labelWidthMm + _colonWidthMm
+          : blockLeftMm;
       final double valueWidthMm = blockWidthMm - (valueLeftMm - blockLeftMm);
 
       widgets.add(
@@ -441,7 +444,8 @@ class IdCardRenderer {
     final double right = cardLeftMm + size.widthMm;
     final double bottom = cardTopMm + size.heightMm;
 
-    pw.Widget mark(double xMm, double yMm, double wMm, double hMm) => pw.Positioned(
+    pw.Widget mark(double xMm, double yMm, double wMm, double hMm) =>
+        pw.Positioned(
           left: PrintUnits.mmToPt(xMm),
           top: PrintUnits.mmToPt(yMm),
           child: pw.Container(
@@ -506,11 +510,11 @@ class IdCardRenderer {
   }
 
   static PdfColor _pdfColor(int argb) => PdfColor(
-        ((argb >> 16) & 0xFF) / 255,
-        ((argb >> 8) & 0xFF) / 255,
-        (argb & 0xFF) / 255,
-        ((argb >> 24) & 0xFF) / 255,
-      );
+    ((argb >> 16) & 0xFF) / 255,
+    ((argb >> 8) & 0xFF) / 255,
+    (argb & 0xFF) / 255,
+    ((argb >> 24) & 0xFF) / 255,
+  );
 
   static Future<Uint8List?> _readImage(String? path) async {
     if (path == null || path.isEmpty) return null;
@@ -553,7 +557,6 @@ class IdCardRenderer {
       );
     }
 
-    final double scaleY = size.heightMm / template.authoredSize.heightMm;
 
     // Only rows that are enabled for this school AND actually have a value.
     // Printing "MOBILE NO :" with nothing after it looks like a defect.
@@ -563,45 +566,15 @@ class IdCardRenderer {
         .where((StudentField f) => entry.valueOf(f).trim().isNotEmpty)
         .toList();
 
-    // Gaps are fixed template geometry and are NOT scaled with the text - only
-    // the type shrinks. So the space the rows have to share is the block height
-    // minus the gaps, and fitScale is computed against that. Scaling the rows
-    // but not the gaps (or vice versa) makes the flow overflow the block.
-    double naturalRowsMm = 0;
-    for (final StudentField f in fields) {
-      naturalRowsMm += _naturalRowHeightMm(CardTypography.forField(f));
-    }
-    final double gapsMm =
-        block.rowGapMm * scaleY * (fields.length - 1).clamp(0, fields.length);
-
-    final double availableMm = block.heightMm * scaleY;
-    final double availableForRowsMm = availableMm - gapsMm;
-
-    final List<String> warnings = <String>[];
-
-    double fitScale;
-    if (fields.isEmpty || naturalRowsMm <= 0) {
-      fitScale = 1;
-    } else if (availableForRowsMm <= 0) {
-      // The gaps alone exceed the block: far too many rows for this layout.
-      // Clamp hard so the render stays inside its box and say so loudly.
-      fitScale = _minimumFitScale;
-      warnings.add(
-        'Too many fields are enabled to fit the ${size.label} card. Switch '
-        'fields off in the admin panel or choose a larger card size.',
-      );
-    } else {
-      fitScale = (availableForRowsMm / naturalRowsMm).clamp(_minimumFitScale, 1.0);
-    }
-
-    if (warnings.isEmpty && fitScale < _fitWarningThreshold) {
-      warnings.add(
-        'The ${fields.length} enabled fields do not fit the '
-        '${size.label} card at their specified point sizes. Text has been '
-        'reduced to ${(fitScale * 100).round()}% to fit. Switch off a field in '
-        'the admin panel or use a larger card to print at full size.',
-      );
-    }
+    final CardFit fit = estimateFit(
+      template: template,
+      size: size,
+      fields: fields,
+    );
+    final double fitScale = fit.scale;
+    final List<String> warnings = <String>[
+      if (fit.warning != null) fit.warning!,
+    ];
 
     final List<PlannedRow> rows = <PlannedRow>[
       for (final StudentField f in fields)
@@ -619,6 +592,91 @@ class IdCardRenderer {
       rows: rows,
       fitScale: fitScale,
       warnings: warnings,
+    );
+  }
+
+  /// How far the card has to shrink to hold [fields], without rendering it.
+  ///
+  /// Extracted from [planFor] so the admin panel can ask the same question at
+  /// the moment it matters. The renderer has always known when a card was too
+  /// full, but it only said so on the preview screen - *after* the decision.
+  /// The person who causes it is an admin switching a field on in school
+  /// settings, who until now got no signal at all, and the cost then lands on
+  /// every card that school prints.
+  ///
+  /// Takes a field list rather than a student, because settings has no student
+  /// to hand - and inventing one to measure a layout would be a way to get a
+  /// different answer than the renderer gives.
+  ///
+  /// Note this is the fit for the fields PASSED IN. [planFor] additionally
+  /// drops fields the student left blank, so a real card often fits better
+  /// than settings predicts. That is the right direction for a warning: it
+  /// describes the worst case, which is the one that has to be legible.
+  static CardFit estimateFit({
+    required CardTemplate template,
+    required CardSize size,
+    required List<StudentField> fields,
+  }) {
+    final FieldBlockElement? block = template.elements
+        .whereType<FieldBlockElement>()
+        .cast<FieldBlockElement?>()
+        .firstWhere((FieldBlockElement? e) => e != null, orElse: () => null);
+
+    final List<StudentField> rows = fields
+        .where((StudentField f) => f.kind != FieldKind.photo)
+        .where((StudentField f) => block == null || !block.exclude.contains(f))
+        .toList();
+
+    if (block == null || rows.isEmpty) {
+      return CardFit(scale: 1, fieldCount: rows.length);
+    }
+
+    final double scaleY = size.heightMm / template.authoredSize.heightMm;
+
+    // Gaps are fixed template geometry and are NOT scaled with the text - only
+    // the type shrinks. So the space the rows have to share is the block
+    // height minus the gaps, and the scale is computed against that. Scaling
+    // the rows but not the gaps (or vice versa) overflows the block.
+    double naturalRowsMm = 0;
+    for (final StudentField f in rows) {
+      naturalRowsMm += _naturalRowHeightMm(CardTypography.forField(f));
+    }
+    final double gapsMm =
+        block.rowGapMm * scaleY * (rows.length - 1).clamp(0, rows.length);
+
+    final double availableForRowsMm = (block.heightMm * scaleY) - gapsMm;
+
+    if (naturalRowsMm <= 0) {
+      return CardFit(scale: 1, fieldCount: rows.length);
+    }
+
+    if (availableForRowsMm <= 0) {
+      // The gaps alone exceed the block: far too many rows for this layout.
+      return CardFit(
+        scale: _minimumFitScale,
+        fieldCount: rows.length,
+        warning:
+            'Too many fields are enabled to fit the ${size.label} card. '
+            'Switch fields off in the admin panel or choose a larger card '
+            'size.',
+      );
+    }
+
+    final double scale = (availableForRowsMm / naturalRowsMm).clamp(
+      _minimumFitScale,
+      1.0,
+    );
+
+    return CardFit(
+      scale: scale,
+      fieldCount: rows.length,
+      warning: scale < _fitWarningThreshold
+          ? 'The ${rows.length} enabled fields do not fit the '
+                '${size.label} card at their specified point sizes. Text has '
+                'been reduced to ${(scale * 100).round()}% to fit. Switch off '
+                'a field in the admin panel or use a larger card to print at '
+                'full size.'
+          : null,
     );
   }
 
@@ -673,4 +731,32 @@ class CardRenderPlan {
   final List<String> warnings;
 
   bool get hasWarnings => warnings.isNotEmpty;
+}
+
+/// What the field block costs at a given size, as a number the admin panel can
+/// show before anyone prints anything.
+///
+/// Separate from [CardRenderPlan] because it answers a question that has no
+/// student attached: "with these fields switched on, how legible is this card
+/// going to be?"
+class CardFit {
+  const CardFit({required this.scale, required this.fieldCount, this.warning});
+
+  /// 1.0 means every row prints at its specified point size. Below that the
+  /// type has been shrunk to fit; 0.6 is the hard floor, and a card sitting on
+  /// it has no room left at all.
+  final double scale;
+
+  final int fieldCount;
+
+  /// Set when the reduction is large enough to be worth saying out loud.
+  final String? warning;
+
+  bool get isComfortable => scale >= 0.92;
+
+  /// On the floor: the layout cannot hold these fields and the renderer has
+  /// stopped shrinking to keep the text from vanishing entirely.
+  bool get isClamped => scale <= 0.6001;
+
+  int get percent => (scale * 100).round();
 }
