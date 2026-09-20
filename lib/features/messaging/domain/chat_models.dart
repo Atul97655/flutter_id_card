@@ -24,9 +24,9 @@ enum ChatKind {
   final String label;
 
   static ChatKind fromName(String? value) => ChatKind.values.firstWhere(
-        (ChatKind k) => k.name == value,
-        orElse: () => ChatKind.direct,
-      );
+    (ChatKind k) => k.name == value,
+    orElse: () => ChatKind.direct,
+  );
 }
 
 /// A conversation.
@@ -112,15 +112,15 @@ class Chat {
   }
 
   Map<String, Object?> toFirestoreMap() => <String, Object?>{
-        'title': title,
-        'members': members,
-        'kind': kind.name,
-        'schoolId': schoolId,
-        'lastMessage': lastMessage,
-        'lastMessageAt': lastMessageAt?.toUtc().toIso8601String(),
-        'lastSenderId': lastSenderId,
-        'unreadFor': unreadFor,
-      };
+    'title': title,
+    'members': members,
+    'kind': kind.name,
+    'schoolId': schoolId,
+    'lastMessage': lastMessage,
+    'lastMessageAt': lastMessageAt?.toUtc().toIso8601String(),
+    'lastSenderId': lastSenderId,
+    'unreadFor': unreadFor,
+  };
 
   static Chat fromFirestoreMap(String id, Map<String, Object?> map) {
     return Chat(
@@ -148,9 +148,9 @@ enum MessageKind {
   document;
 
   static MessageKind fromName(String? value) => MessageKind.values.firstWhere(
-        (MessageKind k) => k.name == value,
-        orElse: () => MessageKind.text,
-      );
+    (MessageKind k) => k.name == value,
+    orElse: () => MessageKind.text,
+  );
 }
 
 /// One message in a conversation.
@@ -165,6 +165,9 @@ class ChatMessage {
     this.kind = MessageKind.text,
     this.attachmentUrl,
     this.attachmentName,
+    this.attachmentThumb,
+    this.attachmentInline = false,
+    this.attachmentBytes,
     this.readBy = const <String>[],
     this.pending = false,
   });
@@ -180,6 +183,19 @@ class ChatMessage {
   final String? attachmentUrl;
   final String? attachmentName;
 
+  /// Base64 JPEG preview for an image attachment, carried on the message
+  /// itself so a conversation renders without one extra read per picture.
+  /// Null for documents, and for messages sent before attachments could
+  /// travel inside Firestore.
+  final String? attachmentThumb;
+
+  /// The attachment is stored in this message's `media/file` document rather
+  /// than in Cloud Storage. See `InlineAttachment` for why that exists.
+  final bool attachmentInline;
+
+  /// Size of the stored attachment in bytes, for the document chip.
+  final int? attachmentBytes;
+
   /// UIDs that have seen this message - drives the read receipt.
   final List<String> readBy;
 
@@ -188,7 +204,18 @@ class ChatMessage {
   /// message appearing sent and silently vanishing on a failed write.
   final bool pending;
 
-  bool get hasAttachment => attachmentUrl != null && attachmentUrl!.isNotEmpty;
+  bool get hasAttachment =>
+      (attachmentUrl != null && attachmentUrl!.isNotEmpty) || attachmentInline;
+
+  /// An `<img>`-ready source for the bubble preview, or null if there is
+  /// nothing to draw. Prefers the Storage URL - it is the full frame and the
+  /// platform caches it - and falls back to the inline thumbnail.
+  String? get imagePreviewSource {
+    if (attachmentUrl != null && attachmentUrl!.isNotEmpty) {
+      return attachmentUrl;
+    }
+    return (attachmentThumb?.isNotEmpty ?? false) ? attachmentThumb : null;
+  }
 
   bool isReadBy(String uid) => readBy.contains(uid);
 
@@ -207,21 +234,27 @@ class ChatMessage {
       kind: kind,
       attachmentUrl: attachmentUrl ?? this.attachmentUrl,
       attachmentName: attachmentName,
+      attachmentThumb: attachmentThumb,
+      attachmentInline: attachmentInline,
+      attachmentBytes: attachmentBytes,
       readBy: readBy ?? this.readBy,
       pending: pending ?? this.pending,
     );
   }
 
   Map<String, Object?> toFirestoreMap() => <String, Object?>{
-        'senderId': senderId,
-        'senderName': senderName,
-        'sentAt': sentAt.toUtc().toIso8601String(),
-        'body': body,
-        'kind': kind.name,
-        'attachmentUrl': attachmentUrl,
-        'attachmentName': attachmentName,
-        'readBy': readBy,
-      };
+    'senderId': senderId,
+    'senderName': senderName,
+    'sentAt': sentAt.toUtc().toIso8601String(),
+    'body': body,
+    'kind': kind.name,
+    'attachmentUrl': attachmentUrl,
+    'attachmentName': attachmentName,
+    'attachmentThumb': attachmentThumb,
+    'attachmentInline': attachmentInline,
+    'attachmentBytes': attachmentBytes,
+    'readBy': readBy,
+  };
 
   static ChatMessage fromFirestoreMap(
     String id,
@@ -233,11 +266,15 @@ class ChatMessage {
       chatId: chatId,
       senderId: (map['senderId'] as String?) ?? '',
       senderName: (map['senderName'] as String?) ?? 'Unknown',
-      sentAt: DateTime.tryParse((map['sentAt'] as String?) ?? '') ?? DateTime.now(),
+      sentAt:
+          DateTime.tryParse((map['sentAt'] as String?) ?? '') ?? DateTime.now(),
       body: (map['body'] as String?) ?? '',
       kind: MessageKind.fromName(map['kind'] as String?),
       attachmentUrl: map['attachmentUrl'] as String?,
       attachmentName: map['attachmentName'] as String?,
+      attachmentThumb: map['attachmentThumb'] as String?,
+      attachmentInline: (map['attachmentInline'] as bool?) ?? false,
+      attachmentBytes: (map['attachmentBytes'] as num?)?.toInt(),
       readBy: <String>[
         ...?(map['readBy'] as List<Object?>?)?.whereType<String>(),
       ],

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,6 +14,8 @@ import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// One conversation: message history, composer, attachments and search.
 class ChatScreen extends ConsumerStatefulWidget {
@@ -259,33 +263,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     setState(() => _sending = true);
     try {
-      final String url = await ref
+      // One call, because the caller should not have to know which route the
+      // file took. Storage is tried first and Firestore is the fallback; both
+      // end with the message in the thread.
+      final String? problem = await ref
           .read(chatRepositoryProvider)
-          .uploadAttachment(chatId: chat.id, file: file, fileName: name);
-
-      final bool isImage = <String>[
-        '.png',
-        '.jpg',
-        '.jpeg',
-        '.gif',
-        '.webp',
-      ].any((String ext) => name.toLowerCase().endsWith(ext));
-
-      await ref
-          .read(chatRepositoryProvider)
-          .sendMessage(
+          .sendAttachment(
             chat: chat,
             senderId: session.uid,
             senderName: session.displayName.isEmpty
                 ? session.email
                 : session.displayName,
             body: _composer.text.trim(),
-            kind: isImage ? MessageKind.image : MessageKind.document,
-            attachmentUrl: url,
-            attachmentName: name,
+            file: file,
+            fileName: name,
           );
 
-      if (mounted) _composer.clear();
+      if (!mounted) return;
+      if (problem != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(problem),
+            backgroundColor: StatusColors.failed,
+          ),
+        );
+      } else {
+        _composer.clear();
+      }
     } on Object catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -361,25 +365,7 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ),
               if (message.hasAttachment) ...<Widget>[
-                if (message.kind == MessageKind.image)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      message.attachmentUrl!,
-                      width: 200,
-                      fit: BoxFit.cover,
-                      errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
-                          const _AttachmentChip(
-                            label: 'Image unavailable',
-                            icon: Icons.broken_image_outlined,
-                          ),
-                    ),
-                  )
-                else
-                  _AttachmentChip(
-                    label: message.attachmentName ?? 'Document',
-                    icon: Icons.insert_drive_file_outlined,
-                  ),
+                _MessageAttachment(message: message),
                 if (message.body.isNotEmpty) const SizedBox(height: 6),
               ],
               if (message.body.isNotEmpty)
@@ -420,11 +406,214 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+/// What a message's attachment looks like in the bubble.
+///
+/// Handles both routes an attachment can arrive by - a Cloud Storage URL, or
+/// base64 carried inside Firestore - because a conversation can contain both
+/// and a bubble has no business knowing which.
+///
+/// The previous version rendered `Image.network(message.attachmentUrl!)`. That
+/// was two bugs in one line: the bang crashes on an inline attachment, which
+/// has no URL at all, and a document rendered as a bare filename with nothing
+/// to tap. Since Storage has never worked on this project, the first case is
+/// now the *only* case.
+class _MessageAttachment extends ConsumerWidget {
+  const _MessageAttachment({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (message.kind == MessageKind.image) {
+      final String? preview = message.imagePreviewSource;
+      if (preview == null) {
+        return const _AttachmentChip(
+          label: 'Image unavailable',
+          icon: Icons.broken_image_outlined,
+        );
+      }
+
+      return PressableSurface(
+        onTap: () => _openFullScreen(context, ref),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: message.attachmentInline
+              ? Image.memory(
+                  base64Decode(preview),
+                  width: 200,
+                  fit: BoxFit.cover,
+                  errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
+                      const _AttachmentChip(
+                        label: 'Image unavailable',
+                        icon: Icons.broken_image_outlined,
+                      ),
+                )
+              : Image.network(
+                  preview,
+                  width: 200,
+                  fit: BoxFit.cover,
+                  errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
+                      const _AttachmentChip(
+                        label: 'Image unavailable',
+                        icon: Icons.broken_image_outlined,
+                      ),
+                ),
+        ),
+      );
+    }
+
+    return PressableSurface(
+      onTap: () => _openDocument(context, ref),
+      child: _AttachmentChip(
+        label: message.attachmentName ?? 'Document',
+        icon: Icons.insert_drive_file_outlined,
+        subtitle: message.attachmentBytes == null
+            ? null
+            : _formatBytes(message.attachmentBytes!),
+      ),
+    );
+  }
+
+  /// Full resolution, fetched on demand.
+  ///
+  /// The bubble shows a 256 px thumbnail; the frame behind it is a separate
+  /// document and is read only when someone actually wants to look at it.
+  /// Fetching it for every picture in a thread would undo the whole reason
+  /// the two are stored apart.
+  Future<void> _openFullScreen(BuildContext context, WidgetRef ref) async {
+    final NavigatorState navigator = Navigator.of(context);
+    Future<String?>? pending;
+    if (message.attachmentInline) {
+      pending = ref
+          .read(chatRepositoryProvider)
+          .fetchInlineAttachment(chatId: message.chatId, messageId: message.id);
+    }
+
+    await navigator.push<void>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (BuildContext _) =>
+            _FullScreenImage(message: message, fullData: pending),
+      ),
+    );
+  }
+
+  /// Writes the attachment to a temporary file and hands it to the platform.
+  ///
+  /// There is no in-app viewer for a PDF or a spreadsheet and there should not
+  /// be; the phone already has apps that do this properly.
+  Future<void> _openDocument(BuildContext context, WidgetRef ref) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    try {
+      if (!message.attachmentInline) {
+        final String? url = message.attachmentUrl;
+        if (url == null || url.isEmpty) return;
+        await OpenFilex.open(url);
+        return;
+      }
+
+      final String? dataUri = await ref
+          .read(chatRepositoryProvider)
+          .fetchInlineAttachment(chatId: message.chatId, messageId: message.id);
+      if (dataUri == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('That attachment is no longer available.'),
+          ),
+        );
+        return;
+      }
+
+      final int comma = dataUri.indexOf(',');
+      final Uint8List bytes = base64Decode(dataUri.substring(comma + 1));
+      final Directory dir = await getTemporaryDirectory();
+      final File out = File(
+        '${dir.path}/${message.attachmentName ?? 'attachment'}',
+      );
+      await out.writeAsBytes(bytes, flush: true);
+      await OpenFilex.open(out.path);
+    } on Object catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not open that attachment: $e'),
+          backgroundColor: StatusColors.failed,
+        ),
+      );
+    }
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+/// The attachment at full size, pinchable.
+class _FullScreenImage extends StatelessWidget {
+  const _FullScreenImage({required this.message, required this.fullData});
+
+  final ChatMessage message;
+
+  /// Resolves to a data URI for an inline attachment, or null when the image
+  /// came from Storage and the URL is already the full frame.
+  final Future<String?>? fullData;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          message.attachmentName ?? 'Photo',
+          style: const TextStyle(fontSize: 15),
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          maxScale: 5,
+          child: fullData == null
+              ? Image.network(message.attachmentUrl!)
+              : FutureBuilder<String?>(
+                  future: fullData,
+                  builder: (BuildContext context, AsyncSnapshot<String?> snap) {
+                    // The thumbnail is already decoded and is recognisably the
+                    // right picture, so it stands in rather than a spinner on
+                    // an empty screen.
+                    final String? full = snap.data;
+                    if (full == null) {
+                      final String? thumb = message.attachmentThumb;
+                      if (thumb == null) {
+                        return const CircularProgressIndicator(
+                          color: Colors.white,
+                        );
+                      }
+                      return Image.memory(base64Decode(thumb));
+                    }
+                    final int comma = full.indexOf(',');
+                    return Image.memory(
+                      base64Decode(full.substring(comma + 1)),
+                    );
+                  },
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({required this.label, required this.icon});
+  const _AttachmentChip({
+    required this.label,
+    required this.icon,
+    this.subtitle,
+  });
 
   final String label;
   final IconData icon;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -434,10 +623,24 @@ class _AttachmentChip extends StatelessWidget {
         Icon(icon, size: 18),
         const SizedBox(width: 6),
         Flexible(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 12.5),
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12.5),
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
           ),
         ),
       ],

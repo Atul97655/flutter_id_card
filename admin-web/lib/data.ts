@@ -456,6 +456,39 @@ export async function sendMessage(
 }
 
 /** Clears the admin's own unread badge on a conversation. */
+/**
+ * The bytes of an attachment that travelled inside Firestore, as a data URI.
+ *
+ * Cloud Storage is not provisioned on this project, so a file picked in the
+ * mobile app is stored as base64 in the message's `media/file` document. The
+ * message itself carries only a thumbnail, because a conversation loads every
+ * message at once and a full image on each would mean downloading the whole
+ * thread's attachments to read one line of text.
+ *
+ * A one-shot read: an attachment never changes once sent.
+ */
+export async function fetchChatAttachment(
+  chatId: string,
+  messageId: string,
+): Promise<string | null> {
+  const db = firebaseDb();
+  const snap = await getDoc(
+    doc(db, 'chats', chatId, 'messages', messageId, 'media', 'file'),
+  );
+  if (!snap.exists()) return null;
+
+  const d = snap.data();
+  const data = d.data;
+  if (typeof data !== 'string' || data.length === 0) return null;
+
+  const contentType =
+    typeof d.contentType === 'string' && d.contentType.length > 0
+      ? d.contentType
+      : 'application/octet-stream';
+
+  return `data:${contentType};base64,${data}`;
+}
+
 export async function markChatRead(chatId: string, uid: string): Promise<void> {
   const db = firebaseDb();
   await updateDoc(doc(db, 'chats', chatId), { unreadFor: arrayRemove(uid) });

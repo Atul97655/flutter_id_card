@@ -20,11 +20,17 @@ import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
 import {
   createChat,
+  fetchChatAttachment,
   markChatRead,
   sendMessage,
   watchMessages,
 } from '@/lib/data';
-import type { Chat, ChatMessage } from '@/lib/types';
+import {
+  messageHasAttachment,
+  messagePreviewSource,
+  type Chat,
+  type ChatMessage,
+} from '@/lib/types';
 
 /**
  * Admin side of the hub-and-spoke messaging.
@@ -356,6 +362,83 @@ function Thread({ chat }: { chat: Chat }) {
   );
 }
 
+/**
+ * A message's attachment.
+ *
+ * Handles both routes one can arrive by: a Cloud Storage URL, or base64 in
+ * Firestore. The panel only ever knew about the first, so every file a teacher
+ * sent from the app rendered as an empty bubble here - the admin could not see
+ * what had been sent to them.
+ *
+ * The full file is fetched only when clicked. The thumbnail on the message is
+ * enough to show what it is, and pulling every full frame in a thread would
+ * undo the reason the two are stored apart.
+ */
+function MessageAttachment({
+  message,
+  mine,
+}: {
+  message: ChatMessage;
+  mine: boolean;
+}) {
+  const preview = messagePreviewSource(message);
+  const [full, setFull] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const open = async () => {
+    // Storage URLs are already the full file - let the browser have it.
+    if (message.attachmentUrl) {
+      window.open(message.attachmentUrl, '_blank', 'noreferrer');
+      return;
+    }
+    if (full) {
+      window.open(full, '_blank', 'noreferrer');
+      return;
+    }
+    setBusy(true);
+    try {
+      const uri = await fetchChatAttachment(message.chatId, message.id);
+      if (uri) {
+        setFull(uri);
+        window.open(uri, '_blank', 'noreferrer');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (message.kind === 'image' && preview) {
+    return (
+      <button
+        type="button"
+        onClick={open}
+        className="mb-1.5 block overflow-hidden rounded-lg transition hover:opacity-90"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={preview}
+          alt={message.attachmentName ?? 'Attachment'}
+          className="max-h-56 w-full object-cover"
+          loading="lazy"
+        />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      disabled={busy}
+      className={`mb-1.5 block rounded-lg px-2.5 py-2 text-left text-[12px] underline ${
+        mine ? 'bg-white/15' : 'bg-ink-400/8'
+      }`}
+    >
+      {busy ? 'Opening…' : (message.attachmentName ?? 'Attachment')}
+    </button>
+  );
+}
+
 function Bubble({ message, mine }: { message: ChatMessage; mine: boolean }) {
   return (
     <motion.li
@@ -377,31 +460,8 @@ function Bubble({ message, mine }: { message: ChatMessage; mine: boolean }) {
           </p>
         ) : null}
 
-        {message.attachmentUrl ? (
-          <a
-            href={message.attachmentUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mb-1.5 block overflow-hidden rounded-lg"
-          >
-            {message.kind === 'image' ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={message.attachmentUrl}
-                alt={message.attachmentName ?? 'Attachment'}
-                className="max-h-56 w-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <span
-                className={`block rounded-lg px-2.5 py-2 text-[12px] underline ${
-                  mine ? 'bg-white/15' : 'bg-ink-400/8'
-                }`}
-              >
-                {message.attachmentName ?? 'Attachment'}
-              </span>
-            )}
-          </a>
+        {messageHasAttachment(message) ? (
+          <MessageAttachment message={message} mine={mine} />
         ) : null}
 
         {message.body ? (

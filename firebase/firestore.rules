@@ -262,6 +262,36 @@ service cloud.firestore {
                .affectedKeys().hasOnly(['readBy']);
 
         allow delete: if isAdmin();
+
+        // --- the attachment itself, carried inside Firestore ------
+        //
+        // Same reason as a student's photo: Cloud Storage is not provisioned
+        // on this project, so a picked file travels as base64 in its own
+        // document. It is kept OUT of the message because a conversation
+        // loads every message at once - a full image on each would mean
+        // downloading the whole thread's attachments to read one line of
+        // text. The message carries a thumbnail; this is the file.
+        //
+        // Membership is the only gate, exactly as for the message it belongs
+        // to: whoever may read the message may open what was attached to it,
+        // and nobody else. A broadcast is admin-post-only, and that is
+        // enforced on the message above - an attachment cannot exist without
+        // the message that points at it.
+        match /media/{mediaId} {
+          allow read: if isActive() && isChatMember();
+
+          // The size cap is why this rule is written out rather than
+          // inherited. An unbounded base64 field is the one field a client
+          // could use to push a document to Firestore's 1 MiB limit, and a
+          // document at that limit can no longer be written at all.
+          allow create, update: if isActive()
+            && isChatMember()
+            && (isAdmin() || !isBroadcast())
+            && request.resource.data.data is string
+            && request.resource.data.data.size() < 800000;
+
+          allow delete: if isAdmin();
+        }
       }
     }
 

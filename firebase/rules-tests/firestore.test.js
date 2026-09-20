@@ -308,6 +308,82 @@ describe('Hub-and-spoke messaging', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Chat attachments, carried inside Firestore because Storage is unprovisioned.
+// ---------------------------------------------------------------------------
+describe('Inline chat attachments (messages/{id}/media/file)', () => {
+  const file = (chars = 100) => ({
+    data: 'x'.repeat(chars),
+    contentType: 'image/jpeg',
+    bytes: chars,
+    name: 'snap.jpg',
+  });
+
+  const pathFor = (db, chatId, messageId) =>
+    doc(db, 'chats', chatId, 'messages', messageId, 'media', 'file');
+
+  it('a member can attach a file to their own conversation', async () => {
+    await assertSucceeds(
+      setDoc(pathFor(as(TEACHER_A), 'chat-a', 'm-new'), file()),
+    );
+  });
+
+  it("a non-member CANNOT attach to someone else's conversation", async () => {
+    await assertFails(
+      setDoc(pathFor(as(TEACHER_A), 'chat-b', 'm-b'), file()),
+    );
+  });
+
+  it("a non-member CANNOT read someone else's attachment", async () => {
+    await assertFails(getDoc(pathFor(as(TEACHER_A), 'chat-b', 'm-b')));
+  });
+
+  it('an unauthenticated caller can do neither', async () => {
+    await assertFails(getDoc(pathFor(anon(), 'chat-a', 'm-a')));
+    await assertFails(setDoc(pathFor(anon(), 'chat-a', 'm-a'), file()));
+  });
+
+  it('the admin can read any conversation attachment', async () => {
+    await assertSucceeds(getDoc(pathFor(as(ADMIN), 'chat-b', 'm-b')));
+  });
+
+  it('a teacher cannot attach anything to a broadcast', async () => {
+    // A broadcast is an announcement, not a thread. The message rule already
+    // refuses the post; this stops an attachment being smuggled in beside it.
+    await assertFails(setDoc(pathFor(as(TEACHER_A), 'bcast', 'm-x'), file()));
+  });
+
+  it('the admin CAN attach to a broadcast', async () => {
+    await assertSucceeds(setDoc(pathFor(as(ADMIN), 'bcast', 'm-x'), file()));
+  });
+
+  it('an oversized attachment is refused', async () => {
+    // Firestore caps a document just under 1 MiB. A document pushed to that
+    // limit can no longer be written at all.
+    await assertFails(
+      setDoc(pathFor(as(TEACHER_A), 'chat-a', 'm-big'), file(800001)),
+    );
+  });
+
+  it('an attachment with no data field is refused', async () => {
+    await assertFails(
+      setDoc(pathFor(as(TEACHER_A), 'chat-a', 'm-empty'), {
+        contentType: 'image/jpeg',
+      }),
+    );
+  });
+
+  it('a deactivated member loses access to attachments too', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', TEACHER_A), {
+        role: 'Teacher', active: false, schoolId: SCHOOL_A,
+      });
+    });
+    await assertFails(getDoc(pathFor(as(TEACHER_A), 'chat-a', 'm-a')));
+    await assertFails(setDoc(pathFor(as(TEACHER_A), 'chat-a', 'm-a'), file()));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Review workflow: approval is the admin's alone.
 // ---------------------------------------------------------------------------
 describe('Review workflow', () => {

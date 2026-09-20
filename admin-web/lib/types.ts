@@ -265,8 +265,43 @@ export interface ChatMessage {
   kind: MessageKind;
   attachmentUrl: string | null;
   attachmentName: string | null;
+
+  /**
+   * Base64 JPEG preview, carried on the message when the attachment travels
+   * inside Firestore rather than through Cloud Storage - which on this
+   * project is always, because the bucket has never existed. The full file
+   * lives in the message's `media/file` document.
+   */
+  attachmentThumb: string | null;
+
+  /** The attachment is in Firestore, not Storage. */
+  attachmentInline: boolean;
+
+  attachmentBytes: number | null;
+
   readBy: string[];
 }
+
+/** Whether there is anything attached, by either route. */
+export const messageHasAttachment = (m: ChatMessage): boolean =>
+  (typeof m.attachmentUrl === 'string' && m.attachmentUrl.length > 0) ||
+  m.attachmentInline;
+
+/**
+ * An `<img src>` for the bubble preview, or null if there is nothing to draw.
+ *
+ * Prefers the Storage URL - it is the full frame and the browser caches it -
+ * and falls back to the inline thumbnail.
+ */
+export const messagePreviewSource = (m: ChatMessage): string | null => {
+  if (typeof m.attachmentUrl === 'string' && m.attachmentUrl.length > 0) {
+    return m.attachmentUrl;
+  }
+  if (typeof m.attachmentThumb === 'string' && m.attachmentThumb.length > 0) {
+    return `data:image/jpeg;base64,${m.attachmentThumb}`;
+  }
+  return null;
+};
 
 /** Recipients of a broadcast, excluding the admin who sent it. */
 export const recipientCount = (c: Chat, senderUid: string): number =>

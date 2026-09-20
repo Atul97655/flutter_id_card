@@ -182,6 +182,10 @@ export function toChatMessage(
     kind: messageKind(d.kind),
     attachmentUrl: strOrNull(d.attachmentUrl),
     attachmentName: strOrNull(d.attachmentName),
+    attachmentThumb: strOrNull(d.attachmentThumb),
+    attachmentInline: d.attachmentInline === true,
+    attachmentBytes:
+      typeof d.attachmentBytes === 'number' ? d.attachmentBytes : null,
     readBy: strList(d.readBy),
   };
 }

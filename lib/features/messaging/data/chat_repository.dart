@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
+import 'package:flutter_id_card/shared/services/firebase/inline_attachment.dart';
 import 'package:uuid/uuid.dart';
 
 /// Firestore access for the messaging module.
@@ -17,11 +19,9 @@ import 'package:uuid/uuid.dart';
 ///
 /// Firestore's own offline cache still covers short dropouts.
 class ChatRepository {
-  ChatRepository({
-    FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
-  })  : _firestoreOverride = firestore,
-        _storageOverride = storage;
+  ChatRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
+    : _firestoreOverride = firestore,
+      _storageOverride = storage;
 
   final FirebaseFirestore? _firestoreOverride;
   final FirebaseStorage? _storageOverride;
@@ -31,7 +31,8 @@ class ChatRepository {
   FirebaseFirestore get _db => _firestoreOverride ?? FirebaseFirestore.instance;
   FirebaseStorage get _bucket => _storageOverride ?? FirebaseStorage.instance;
 
-  CollectionReference<Map<String, Object?>> get _chats => _db.collection('chats');
+  CollectionReference<Map<String, Object?>> get _chats =>
+      _db.collection('chats');
 
   // ------------------------------------------------------------------
   // Chats
@@ -39,13 +40,14 @@ class ChatRepository {
 
   /// Conversations this user belongs to, most recent first.
   Stream<List<Chat>> watchChatsFor(String uid) {
-    return _chats
-        .where('members', arrayContains: uid)
-        .snapshots()
-        .map((QuerySnapshot<Map<String, Object?>> snap) {
+    return _chats.where('members', arrayContains: uid).snapshots().map((
+      QuerySnapshot<Map<String, Object?>> snap,
+    ) {
       final List<Chat> chats = snap.docs
-          .map((QueryDocumentSnapshot<Map<String, Object?>> d) =>
-              Chat.fromFirestoreMap(d.id, d.data()))
+          .map(
+            (QueryDocumentSnapshot<Map<String, Object?>> d) =>
+                Chat.fromFirestoreMap(d.id, d.data()),
+          )
           .toList();
 
       // Sorted client-side rather than with orderBy so the query needs no
@@ -53,8 +55,10 @@ class ChatRepository {
       // Firebase configuration to get wrong during deployment. Chat lists are
       // small enough that this costs nothing.
       chats.sort((Chat a, Chat b) {
-        final DateTime aAt = a.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final DateTime bAt = b.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final DateTime aAt =
+            a.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final DateTime bAt =
+            b.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
         return bAt.compareTo(aAt);
       });
       return chats;
@@ -92,8 +96,10 @@ class ChatRepository {
         .snapshots()
         .map(
           (QuerySnapshot<Map<String, Object?>> snap) => snap.docs
-              .map((QueryDocumentSnapshot<Map<String, Object?>> d) =>
-                  ChatMessage.fromFirestoreMap(d.id, chatId, d.data()))
+              .map(
+                (QueryDocumentSnapshot<Map<String, Object?>> d) =>
+                    ChatMessage.fromFirestoreMap(d.id, chatId, d.data()),
+              )
               .toList(),
         );
   }
@@ -111,12 +117,16 @@ class ChatRepository {
     MessageKind kind = MessageKind.text,
     String? attachmentUrl,
     String? attachmentName,
+    String? attachmentThumb,
+    bool attachmentInline = false,
+    int? attachmentBytes,
+    String? messageId,
   }) async {
-    final String messageId = _uuid.v4();
+    final String id = messageId ?? _uuid.v4();
     final DateTime now = DateTime.now();
 
     final ChatMessage message = ChatMessage(
-      id: messageId,
+      id: id,
       chatId: chat.id,
       senderId: senderId,
       senderName: senderName,
@@ -125,6 +135,9 @@ class ChatRepository {
       kind: kind,
       attachmentUrl: attachmentUrl,
       attachmentName: attachmentName,
+      attachmentThumb: attachmentThumb,
+      attachmentInline: attachmentInline,
+      attachmentBytes: attachmentBytes,
       // The sender has trivially read their own message.
       readBy: <String>[senderId],
     );
@@ -132,7 +145,7 @@ class ChatRepository {
     final WriteBatch batch = _db.batch();
 
     batch.set(
-      _chats.doc(chat.id).collection('messages').doc(messageId),
+      _chats.doc(chat.id).collection('messages').doc(id),
       message.toFirestoreMap(),
     );
 
@@ -141,18 +154,17 @@ class ChatRepository {
       'lastMessageAt': now.toUtc().toIso8601String(),
       'lastSenderId': senderId,
       // Everyone except the sender now has something unread.
-      'unreadFor':
-          chat.members.where((String uid) => uid != senderId).toList(),
+      'unreadFor': chat.members.where((String uid) => uid != senderId).toList(),
     });
 
     await batch.commit();
   }
 
   static String _preview(ChatMessage m) => switch (m.kind) {
-        MessageKind.text => m.body,
-        MessageKind.image => 'Photo',
-        MessageKind.document => m.attachmentName ?? 'Document',
-      };
+    MessageKind.text => m.body,
+    MessageKind.image => 'Photo',
+    MessageKind.document => m.attachmentName ?? 'Document',
+  };
 
   /// Marks the conversation read for [uid] and stamps read receipts on the
   /// messages they had not seen.
@@ -177,11 +189,140 @@ class ChatRepository {
     for (final ChatMessage m in unseen) {
       batch.update(
         _chats.doc(chatId).collection('messages').doc(m.id),
-        <String, Object?>{'readBy': FieldValue.arrayUnion(<String>[uid])},
+        <String, Object?>{
+          'readBy': FieldValue.arrayUnion(<String>[uid]),
+        },
       );
     }
 
     await batch.commit();
+  }
+
+  /// Sends a file into a conversation, whichever route is available.
+  ///
+  /// Cloud Storage first. If that fails - which on this project it always
+  /// does, because the bucket named in `google-services.json` has never been
+  /// created - the file travels inside Firestore instead, exactly as student
+  /// photos do. See `InlineAttachment`.
+  ///
+  /// Before this, picking a photo in a conversation surfaced a raw Firebase
+  /// error and the message never sent. A previous change made that error
+  /// readable, which is not the same as making the feature work; attachments
+  /// were simply unavailable.
+  ///
+  /// Ordering matters. The attachment document is written **before** the
+  /// message, so a message can never appear in the thread advertising a
+  /// picture whose bytes are missing. An orphaned attachment left by a failed
+  /// message write is invisible and harmless.
+  ///
+  /// Returns null on success, or a sentence to show the sender.
+  Future<String?> sendAttachment({
+    required Chat chat,
+    required String senderId,
+    required String senderName,
+    required String body,
+    required File file,
+    required String fileName,
+  }) async {
+    final String? contentType = contentTypeFor(fileName);
+    if (contentType == null) {
+      return 'Cannot send "$fileName". Attachments must be a photo, PDF, '
+          'text, Word or Excel file.';
+    }
+
+    final String messageId = _uuid.v4();
+    final bool isImage = contentType.startsWith('image/');
+    final MessageKind kind = isImage ? MessageKind.image : MessageKind.document;
+
+    // Route 1: Cloud Storage.
+    try {
+      final String url = await uploadAttachment(
+        chatId: chat.id,
+        file: file,
+        fileName: fileName,
+      );
+      await sendMessage(
+        chat: chat,
+        senderId: senderId,
+        senderName: senderName,
+        body: body,
+        kind: kind,
+        attachmentUrl: url,
+        attachmentName: fileName,
+        messageId: messageId,
+      );
+      return null;
+    } on Object catch (e) {
+      if (kDebugMode) debugPrint('Storage attachment upload failed: $e');
+    }
+
+    // Route 2: inside Firestore.
+    final Object packaged = await encodeInlineAttachment(
+      bytes: await file.readAsBytes(),
+      contentType: contentType,
+    );
+    if (packaged is InlineAttachmentFailure) return packaged.message;
+    final InlineAttachment attachment = packaged as InlineAttachment;
+
+    await _chats
+        .doc(chat.id)
+        .collection('messages')
+        .doc(messageId)
+        .collection('media')
+        .doc('file')
+        .set(<String, Object?>{
+          'data': attachment.dataBase64,
+          'contentType': attachment.contentType,
+          'bytes': attachment.bytes,
+          'name': fileName,
+          if (attachment.width != null) 'width': attachment.width,
+          if (attachment.height != null) 'height': attachment.height,
+        });
+
+    await sendMessage(
+      chat: chat,
+      senderId: senderId,
+      senderName: senderName,
+      body: body,
+      kind: kind,
+      attachmentName: fileName,
+      attachmentThumb: attachment.thumbBase64,
+      attachmentInline: true,
+      attachmentBytes: attachment.bytes,
+      messageId: messageId,
+    );
+    return null;
+  }
+
+  /// The bytes of an inlined attachment, as a data URI ready to render or
+  /// hand to a viewer. Null if the message has no inline attachment.
+  ///
+  /// A one-shot read, not a subscription: an attachment never changes once
+  /// sent, and a thread full of live listeners on unchanging blobs would be
+  /// pure cost.
+  Future<String?> fetchInlineAttachment({
+    required String chatId,
+    required String messageId,
+  }) async {
+    final DocumentSnapshot<Map<String, Object?>> snap = await _chats
+        .doc(chatId)
+        .collection('messages')
+        .doc(messageId)
+        .collection('media')
+        .doc('file')
+        .get();
+
+    if (!snap.exists) return null;
+    final Map<String, Object?> d = snap.data() ?? <String, Object?>{};
+    final Object? data = d['data'];
+    if (data is! String || data.isEmpty) return null;
+
+    final Object? type = d['contentType'];
+    final String contentType = type is String && type.isNotEmpty
+        ? type
+        : 'application/octet-stream';
+
+    return 'data:$contentType;base64,$data';
   }
 
   /// Uploads an attachment and returns its download URL.
@@ -230,8 +371,7 @@ class ChatRepository {
       'pdf' => 'application/pdf',
       'txt' || 'csv' => 'text/plain',
       'doc' => 'application/msword',
-      'docx' =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'xls' => 'application/vnd.ms-excel',
       'xlsx' =>
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -249,10 +389,12 @@ class ChatRepository {
     final String needle = query.trim().toLowerCase();
     if (needle.isEmpty) return messages;
     return messages
-        .where((ChatMessage m) =>
-            m.body.toLowerCase().contains(needle) ||
-            m.senderName.toLowerCase().contains(needle) ||
-            (m.attachmentName?.toLowerCase().contains(needle) ?? false))
+        .where(
+          (ChatMessage m) =>
+              m.body.toLowerCase().contains(needle) ||
+              m.senderName.toLowerCase().contains(needle) ||
+              (m.attachmentName?.toLowerCase().contains(needle) ?? false),
+        )
         .toList();
   }
 }
