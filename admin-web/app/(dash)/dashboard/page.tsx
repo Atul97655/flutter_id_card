@@ -18,7 +18,6 @@ import { Topbar } from '@/components/layout/topbar';
 import { StatTile } from '@/components/dashboard/stat-tile';
 import {
   AnimatedNumber,
-  Banner,
   Button,
   EmptyState,
   MOTION,
@@ -102,28 +101,17 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4">
       <Topbar greeting={`Welcome back, ${firstName}`} title="Dashboard" />
 
-      {config.printingEnabled && stats.missingPhoto > 0 ? (
-        <Banner
-          tone="warn"
-          title={`${stats.missingPhoto} approved card${
-            stats.missingPhoto === 1 ? '' : 's'
-          } cannot be printed`}
-          action={
-            <Link
-              href="/print"
-              className="shrink-0 rounded-lg bg-white/80 px-3 py-1.5 text-[12px] font-semibold text-ink-700 transition hover:bg-white"
-            >
-              Open Print Center
-            </Link>
-          }
-        >
-          No photo has reached the server for them yet, so there is nothing to
-          place on a sheet. Submissions made before the current app release left
-          their photo on the phone that took it; each one is sent up
-          automatically the next time that phone syncs. The details are safe and
-          nothing needs re-entering.
-        </Banner>
-      ) : null}
+      {/* There was a banner here reading "N approved cards cannot be printed".
+          It is gone, and not because the underlying fact changed.
+
+          A dashboard banner is for something the person reading it can act on
+          now. Nobody in this office can: the photo is on the phone that took
+          it, and only that phone can send it. So the banner reappeared every
+          session, could not be dismissed, and asked for an action that does
+          not exist - which is how a warning teaches people to ignore warnings.
+
+          The count still lives in the "No photo" tile and in the Print Center,
+          where someone has gone looking for it. */}
 
       {/* Row 1 — review queue + workload */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">

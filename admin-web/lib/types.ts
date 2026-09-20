@@ -271,13 +271,15 @@ export interface PanelConfig {
    * history and the underlying data are untouched, so turning it back on
    * restores the feature exactly as it was.
    *
-   * Defaults to true, so an installation that never sets it behaves as it
-   * always has.
+   * Defaults to FALSE. The client note says "Printer Copies not required",
+   * and until that is resolved the honest default is not to show an office a
+   * section of the panel it may have no use for. Turning it on is one switch
+   * in Settings and restores the feature untouched.
    */
   printingEnabled: boolean;
 }
 
-export const DEFAULT_PANEL_CONFIG: PanelConfig = { printingEnabled: true };
+export const DEFAULT_PANEL_CONFIG: PanelConfig = { printingEnabled: false };
 
 export interface ChatMessage {
   id: string;
