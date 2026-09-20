@@ -71,7 +71,7 @@ class StudentRepository {
   ///   * **Settled.** The document write succeeded, the photo did not, and the
   ///     row reads `synced` with `detailsSyncedAt` set.
   ///   * **Parked.** The photo failure marked the row `failed`; after
-  ///     [maxAttempts] retries it stopped being eligible for upload at all.
+  ///     `maxAttempts` retries it stopped being eligible for upload at all.
   ///     Worse, the v8 migration only stamped `detailsSyncedAt` on rows that
   ///     were `synced`, so a parked row has no record that its details ever
   ///     reached the office even though they did.
@@ -81,6 +81,47 @@ class StudentRepository {
   /// the backfill, which is as stuck as a record can get. Parked rows are now
   /// included, and the caller confirms against the server that the record is
   /// really there before sending anything - see `SyncService._backfillPhotos`.
+  /// Rows the office holds a photo for that this device does not have on
+  /// disk.
+  ///
+  /// The mirror image of `needingPhotoBackfill`, and the reason cards could
+  /// not be printed or even previewed from any device but the one that took
+  /// the picture. The renderer reads a FILE - `localPhotoPath` - so a photo
+  /// sitting in Firestore is invisible to it. Getting the bytes onto disk is
+  /// what makes a downloaded record renderable, and doing it here means the
+  /// renderer needs no knowledge of Firestore at all.
+  ///
+  /// Keyed on the thumbnail rather than on a separate flag: the thumbnail is
+  /// written at the same moment as the full frame, so its presence is exactly
+  /// the statement "the server has this student's photo".
+  Future<List<StudentEntry>> needingPhotoDownload({int limit = 5}) async {
+    final List<StudentEntryRow> rows =
+        await (_db.select(_db.studentEntries)
+              ..where(
+                (StudentEntries t) =>
+                    (t.localPhotoPath.isNull() |
+                        t.localPhotoPath.equals('')) &
+                    t.photoThumb.isNotNull() &
+                    t.photoThumb.isNotValue(''),
+              )
+              ..orderBy(<OrderClauseGenerator<StudentEntries>>[
+                (StudentEntries t) => OrderingTerm(expression: t.createdAt),
+              ])
+              ..limit(limit))
+            .get();
+    return rows.map(_toDomain).toList();
+  }
+
+  /// Points a row at a photo file that now exists on this device.
+  ///
+  /// Deliberately not a sync field: where the bytes live locally says nothing
+  /// about what the server holds, so this must not disturb sync state.
+  Future<void> setLocalPhotoPath(String id, String path) async {
+    await (_db.update(_db.studentEntries)
+          ..where((StudentEntries t) => t.id.equals(id)))
+        .write(StudentEntriesCompanion(localPhotoPath: Value<String?>(path)));
+  }
+
   Future<List<StudentEntry>> needingPhotoBackfill({
     int limit = 5,
     int maxAttempts = 8,

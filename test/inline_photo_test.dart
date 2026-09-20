@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/native.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_id_card/features/photo_capture/data/photo_storage.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
@@ -580,6 +581,176 @@ void main() {
         );
       },
     );
+  });
+
+  group('Bringing a photo down to a device that never took it', () {
+    late AppDatabase db;
+    late StudentRepository students;
+    late SchoolRepository schools;
+    late FakeFirebaseFirestore firestore;
+    late _FakeConnectivity connectivity;
+    late Directory tempDir;
+    late PhotoStorage photos;
+
+    setUp(() {
+      db = AppDatabase.forTesting(NativeDatabase.memory());
+      students = StudentRepository(db);
+      schools = SchoolRepository(db);
+      firestore = FakeFirebaseFirestore();
+      connectivity = _FakeConnectivity();
+      tempDir = Directory.systemTemp.createTempSync('id_entity_download_test');
+      photos = PhotoStorage(baseDirectory: tempDir);
+
+      when(
+        () => connectivity.checkConnectivity(),
+      ).thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.wifi]);
+      when(() => connectivity.onConnectivityChanged)
+          .thenAnswer((_) => const Stream<List<ConnectivityResult>>.empty());
+    });
+
+    tearDown(() async {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      await db.close();
+    });
+
+    SyncService build() => SyncService(
+      students: students,
+      schools: schools,
+      firestore: firestore,
+      connectivity: connectivity,
+      isFirebaseReady: () => true,
+      photoStorage: photos,
+    );
+
+    /// A record as it looks on the admin's device: pulled down from the
+    /// server, complete, and with no photo file anywhere on this machine.
+    Future<void> seedDownloadedEntry({bool withMedia = true}) async {
+      final DateTime then = DateTime(2026, 9, 18);
+
+      await firestore
+          .collection('schools')
+          .doc('school-a')
+          .collection('entries')
+          .doc('remote')
+          .set(<String, Object?>{
+            'schoolId': 'school-a',
+            'name': 'TEJASWINI DASH',
+            'approvalStatus': 'approved',
+            'photoThumb': 'VEhVTUI=',
+            'createdAt': then.toUtc().toIso8601String(),
+            'updatedAt': then.toUtc().toIso8601String(),
+          });
+
+      if (withMedia) {
+        await firestore
+            .collection('schools')
+            .doc('school-a')
+            .collection('entries')
+            .doc('remote')
+            .collection('media')
+            .doc('photo')
+            .set(<String, Object?>{
+              'data': base64Encode(cardPortrait),
+              'contentType': 'image/jpeg',
+              'bytes': cardPortrait.length,
+            });
+      }
+
+      await students.save(
+        StudentEntry(
+          id: 'remote',
+          schoolId: 'school-a',
+          name: 'TEJASWINI DASH',
+          approvalStatus: ApprovalStatus.approved,
+          photoThumb: 'VEhVTUI=',
+          syncStatus: SyncStatus.synced,
+          detailsSyncedAt: then,
+          createdAt: then,
+          updatedAt: then,
+        ),
+      );
+    }
+
+    test(
+      'a record with a server photo but no local file is picked up',
+      () async {
+        await seedDownloadedEntry();
+        expect((await students.needingPhotoDownload()).single.id, 'remote');
+      },
+    );
+
+    test('and the bytes land on disk where the renderer looks', () async {
+      // The whole point. The card renderer and the imposition service read
+      // `localPhotoPath` - a FILE - so until this existed, a photo sitting in
+      // Firestore was invisible to them and the admin rendered an empty photo
+      // box for every card captured on another device.
+      await seedDownloadedEntry();
+      final SyncService sync = build();
+      addTearDown(sync.dispose);
+
+      await sync.syncNow(schoolId: 'school-a');
+
+      final StudentEntry after = (await students.findById('remote'))!;
+      expect(after.localPhotoPath, isNotNull);
+      expect(File(after.localPhotoPath!).existsSync(), isTrue);
+      expect(File(after.localPhotoPath!).readAsBytesSync(), cardPortrait);
+    });
+
+    test('it is not downloaded twice', () async {
+      await seedDownloadedEntry();
+      final SyncService sync = build();
+      addTearDown(sync.dispose);
+
+      await sync.syncNow(schoolId: 'school-a');
+      expect(
+        await students.needingPhotoDownload(),
+        isEmpty,
+        reason:
+            're-fetching an unchanging blob every two minutes is quota '
+            'spent for nothing',
+      );
+    });
+
+    test(
+      'a record whose photo never reached the server is left alone',
+      () async {
+        await students.save(
+          StudentEntry(
+            id: 'no-photo',
+            schoolId: 'school-a',
+            name: 'NOBODY',
+            syncStatus: SyncStatus.synced,
+            createdAt: DateTime(2026, 9, 18),
+            updatedAt: DateTime(2026, 9, 18),
+          ),
+        );
+        expect(await students.needingPhotoDownload(), isEmpty);
+      },
+    );
+
+    test('a missing media document does not strand the row', () async {
+      // The entry advertises a thumbnail but the frame is gone. It must not
+      // be written as an empty file, and it must stay eligible so a later
+      // pass can still succeed.
+      await seedDownloadedEntry(withMedia: false);
+      final SyncService sync = build();
+      addTearDown(sync.dispose);
+
+      await sync.syncNow(schoolId: 'school-a');
+
+      final StudentEntry after = (await students.findById('remote'))!;
+      expect(after.localPhotoPath, isNull);
+      expect((await students.needingPhotoDownload()).single.id, 'remote');
+    });
+
+    test("a device's own capture is never overwritten", () async {
+      // An operator's own photo is already the best copy. Re-downloading over
+      // it would replace a local original with a re-encoded round trip.
+      await seedDownloadedEntry();
+      await students.setLocalPhotoPath('remote', '/device/photos/mine.png');
+
+      expect(await students.needingPhotoDownload(), isEmpty);
+    });
   });
 
   group('Review decisions coming back down to the operator', () {

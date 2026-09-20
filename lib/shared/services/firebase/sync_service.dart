@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -6,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_id_card/features/photo_capture/data/photo_storage.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
@@ -85,7 +87,9 @@ class SyncService {
     FirebaseStorage? storage,
     Connectivity? connectivity,
     bool Function()? isFirebaseReady,
-  }) : _firestoreOverride = firestore,
+    PhotoStorage? photoStorage,
+  }) : _photos = photoStorage ?? PhotoStorage(),
+       _firestoreOverride = firestore,
        _storageOverride = storage,
        _connectivity = connectivity ?? Connectivity(),
        _isFirebaseReady =
@@ -103,6 +107,9 @@ class SyncService {
   final FirebaseFirestore? _firestoreOverride;
   final FirebaseStorage? _storageOverride;
   final Connectivity _connectivity;
+
+  /// Where a downloaded photo is written so the renderer can find it.
+  final PhotoStorage _photos;
 
   /// Whether Firebase has finished starting up.
   ///
@@ -231,6 +238,7 @@ class SyncService {
       _emit(_state.copyWith(activity: SyncActivity.uploading));
       final int uploaded = await _pushEntries();
       await _backfillPhotos();
+      await _downloadPhotos();
 
       final List<StudentEntry> stillPending = await _students.dueForUpload(
         limit: 1000,
@@ -578,6 +586,50 @@ class SyncService {
         // fine and already at the office. A backfill that cannot complete is
         // retried on the next pass and otherwise costs nobody anything.
         if (kDebugMode) debugPrint('Photo backfill failed for ${entry.id}: $e');
+      }
+    }
+    return done;
+  }
+
+  /// Brings photos the office holds down onto this device.
+  ///
+  /// The other half of making a card printable from a machine that did not
+  /// take the picture. Photos now reach the server, but the card renderer
+  /// reads a FILE - `localPhotoPath` - so a photo sitting in Firestore was
+  /// invisible to it: an admin could see a face in the review queue and
+  /// still render a card with an empty photo box.
+  ///
+  /// Resolved here rather than in the renderer on purpose. The renderer and
+  /// the imposition service are pure functions over bytes, and teaching them
+  /// to fetch from Firestore would put the network inside the one part of
+  /// this app that has to be predictable. Instead the bytes are on disk by
+  /// the time anything renders, and the renderer is untouched.
+  ///
+  /// Failures are silent and retried next pass: a photo that will not
+  /// download is a card that cannot be printed yet, which the print screens
+  /// already report. It is not worth interrupting a sync for.
+  Future<int> _downloadPhotos() async {
+    final List<StudentEntry> rows = await _students.needingPhotoDownload();
+    if (rows.isEmpty) return 0;
+
+    int done = 0;
+    for (final StudentEntry entry in rows) {
+      try {
+        final DocumentSnapshot<Map<String, Object?>> snap = await _photoDoc(
+          entry,
+        ).get();
+        if (!snap.exists) continue;
+
+        final Object? data = (snap.data() ?? <String, Object?>{})['data'];
+        if (data is! String || data.isEmpty) continue;
+
+        final String path = await _photos.save(base64Decode(data));
+        await _students.setLocalPhotoPath(entry.id, path);
+        done++;
+      } on Object catch (e) {
+        if (kDebugMode) {
+          debugPrint('Photo download failed for ${entry.id}: $e');
+        }
       }
     }
     return done;
