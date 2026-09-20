@@ -49,6 +49,13 @@
 
 :root {
   color-scheme: light;
+
+  /* The page ground as a flat colour.
+     The body paints a gradient, which a fixed overlay cannot inherit - a
+     translucent drawer over scrolling content shows the page sliding behind
+     it. Anything that must sit ON TOP of the page rather than in it uses
+     this. */
+  --color-surface-solid: #f2f5f7;
 }
 
 html,

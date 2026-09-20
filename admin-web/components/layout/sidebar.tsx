@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart3,
   Building2,
@@ -14,6 +15,7 @@ import {
   ScrollText,
   Settings,
   Users,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { MOTION } from '@/components/ui/primitives';
@@ -67,7 +69,115 @@ const GROUPS: { label: string | null; items: NavItem[] }[] = [
   },
 ];
 
+/**
+ * The navigation rail on a wide screen.
+ *
+ * Hidden below `lg`, where 228px of a 375px phone would leave 147px for the
+ * page itself. The same links appear there through [NavDrawer].
+ */
 export function Sidebar({
+  pendingCount,
+  unreadCount,
+}: {
+  pendingCount: number;
+  unreadCount: number;
+}) {
+  return (
+    <aside className="hidden w-[228px] shrink-0 flex-col px-3 py-5 lg:flex">
+      <NavBody pendingCount={pendingCount} unreadCount={unreadCount} />
+    </aside>
+  );
+}
+
+/**
+ * The same navigation, as a sheet that slides in from the left on a phone.
+ *
+ * A drawer rather than a bottom bar: there are eleven destinations in four
+ * groups, and a bottom bar that fits five would mean hiding the rest behind a
+ * "more" tab - which is where the things people rarely touch go to be
+ * forgotten. The grouping is the point of this navigation and it survives here.
+ */
+export function NavDrawer({
+  open,
+  onClose,
+  pendingCount,
+  unreadCount,
+}: {
+  open: boolean;
+  onClose: () => void;
+  pendingCount: number;
+  unreadCount: number;
+}) {
+  const pathname = usePathname();
+
+  // Navigating is what closes it. Without this, tapping a link leaves the
+  // sheet sitting over the page it just opened.
+  useEffect(() => {
+    onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  // A phone's back gesture is a system gesture, so Escape is the only key
+  // dismissal - but this also runs on a small laptop window, where it is the
+  // one people reach for.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  // The page behind must not scroll while the sheet is over it.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open ? (
+        <>
+          <motion.button
+            type="button"
+            aria-label="Close menu"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: MOTION.fast }}
+            className="fixed inset-0 z-40 bg-ink-900/35 backdrop-blur-[2px] lg:hidden"
+          />
+
+          <motion.aside
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ duration: MOTION.normal, ease: MOTION.ease }}
+            className="fixed inset-y-0 left-0 z-50 flex w-[268px] max-w-[85vw] flex-col overflow-y-auto bg-[var(--color-surface-solid)] px-3 py-5 shadow-[0_0_60px_-10px_rgb(18_26_34/0.45)] lg:hidden"
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close menu"
+              className="absolute right-3 top-5 grid size-9 place-items-center rounded-xl text-ink-500 transition hover:bg-ink-400/10"
+            >
+              <X size={18} />
+            </button>
+            <NavBody pendingCount={pendingCount} unreadCount={unreadCount} />
+          </motion.aside>
+        </>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function NavBody({
   pendingCount,
   unreadCount,
 }: {
@@ -83,7 +193,7 @@ export function Sidebar({
   };
 
   return (
-    <aside className="flex w-[228px] shrink-0 flex-col px-3 py-5">
+    <>
       <div className="mb-7 flex items-center gap-2.5 px-3">
         <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-mint-500 to-mint-700 text-white shadow-[0_6px_14px_-6px_rgb(38_133_115/0.8)]">
           <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden>
@@ -179,6 +289,6 @@ export function Sidebar({
           </div>
         ))}
       </nav>
-    </aside>
+    </>
   );
 }

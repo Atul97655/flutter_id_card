@@ -31,7 +31,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <Sidebar pendingCount={pending} unreadCount={unread} />
 
-      <main className="min-w-0 flex-1 px-5 pb-8 pt-5 md:px-7">
+      <main className="min-w-0 flex-1 px-4 pb-10 pt-4 sm:px-5 sm:pt-5 md:px-7 md:pb-8">
         {error ? (
           <div className="mb-4">
             <Banner

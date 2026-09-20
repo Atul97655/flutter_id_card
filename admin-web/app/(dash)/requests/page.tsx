@@ -304,7 +304,8 @@ export default function RequestsPage() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[720px] border-collapse">
               <thead>
                 <tr className="border-b border-ink-400/10 text-[10.5px] uppercase tracking-wider text-ink-400">
@@ -346,6 +347,31 @@ export default function RequestsPage() {
               </p>
             ) : null}
           </div>
+
+          {/* Below lg the same rows are cards.
+              A 720px table on a 375px phone means dragging sideways to read a
+              name and then back again to see its status - on the screen the
+              office spends most of its day in. The card carries the same
+              fields in the order they are actually read. */}
+          <ul className="flex flex-col gap-2 p-3 lg:hidden">
+            {filtered.slice(0, 200).map((e, i) => (
+              <MobileRow
+                key={key(e)}
+                entry={e}
+                school={schoolName(e.schoolId)}
+                checked={selected.has(key(e))}
+                onToggle={() => toggle(e)}
+                index={i}
+              />
+            ))}
+            {filtered.length > 200 ? (
+              <li className="px-1 py-2 text-[12.5px] text-ink-400">
+                Showing the first 200 of {filtered.length}. Narrow the search or
+                filter to see the rest.
+              </li>
+            ) : null}
+            </ul>
+          </>
         )}
       </Panel>
     </div>
@@ -397,6 +423,93 @@ function FilterChip({
     >
       {label} <span className="nums opacity-70">({count})</span>
     </button>
+  );
+}
+
+/**
+ * One submission as a card, for phone-width screens.
+ *
+ * Same data as [Row] and the same selection behaviour - the checkbox has to
+ * work here too, or bulk approve becomes desktop-only.
+ */
+function MobileRow({
+  entry,
+  school,
+  checked,
+  onToggle,
+  index,
+}: {
+  entry: StudentEntry;
+  school: string;
+  checked: boolean;
+  onToggle: () => void;
+  index: number;
+}) {
+  const blocked = isPrintable(entry.approvalStatus) && !hasPhoto(entry);
+
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: MOTION.normal,
+        ease: MOTION.ease,
+        delay: staggerDelay(index),
+      }}
+      className={`rounded-[var(--radius-card)] border transition-colors ${
+        checked
+          ? 'border-mint-500/40 bg-mint-500/8'
+          : 'border-ink-400/10 bg-white/65'
+      }`}
+    >
+      <div className="flex items-start gap-3 p-3">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggle}
+          aria-label={`Select ${entry.name || 'unnamed student'}`}
+          className="mt-1 size-4 shrink-0 cursor-pointer accent-[var(--color-mint-600)]"
+        />
+
+        <Link
+          href={`/requests/${entry.schoolId}/${entry.id}`}
+          className="flex min-w-0 flex-1 items-start gap-3"
+        >
+          <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-400/10 text-ink-400">
+            <EntryPhoto entry={entry} iconSize={16} />
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14px] font-semibold text-ink-700">
+              {entry.name || 'UNNAMED'}
+            </span>
+            <span className="mt-0.5 block truncate text-[12px] text-ink-400">
+              {school}
+            </span>
+            <span className="mt-0.5 block truncate text-[12px] text-ink-400">
+              {entry.studentClass || 'No class'}
+              {entry.division ? ` / ${entry.division}` : ''}
+              {entry.rollNumber ? ` · Roll ${entry.rollNumber}` : ''}
+            </span>
+
+            <span className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusChip status={entry.approvalStatus} dense />
+              {blocked ? (
+                <span className="text-[10.5px] font-semibold text-[var(--color-status-rejected)]">
+                  no photo — cannot print
+                </span>
+              ) : null}
+            </span>
+          </span>
+
+          <ChevronRight
+            size={16}
+            className="mt-1 shrink-0 text-ink-400"
+            aria-hidden
+          />
+        </Link>
+      </div>
+    </motion.li>
   );
 }
 

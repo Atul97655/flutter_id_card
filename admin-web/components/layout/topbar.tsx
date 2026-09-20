@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, LogOut, Search, WifiOff } from 'lucide-react';
+import { Bell, LogOut, Menu, Search, WifiOff, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
 import { MOTION, StatusChip } from '@/components/ui/primitives';
 import { hasPhoto, isPrintable } from '@/lib/types';
+import { NavDrawer } from '@/components/layout/sidebar';
 import Link from 'next/link';
 
 export function Topbar({
@@ -26,6 +27,10 @@ export function Topbar({
   const { entries, chats } = useStore();
   const [showBell, setShowBell] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showNav, setShowNav] = useState(false);
+  // On a phone the search box cannot sit permanently beside a 24px title, so
+  // it opens over the header instead of being cut from the feature set.
+  const [showSearch, setShowSearch] = useState(false);
 
   const pending = entries.filter((e) => e.approvalStatus === 'pending');
   const unreadChats = chats.filter((c) => c.unreadFor.includes(profile?.uid ?? ''));
@@ -44,16 +49,49 @@ export function Topbar({
       .map((s) => s[0]?.toUpperCase())
       .join('') || 'A';
 
-  return (
-    <header className="flex items-start justify-between gap-4 pb-1">
-      <div>
-        <p className="text-[13px] font-medium text-mint-600">{greeting}</p>
-        <h1 className="mt-0.5 text-[30px] font-bold leading-tight tracking-tight text-ink-900">
-          {title}
-        </h1>
+  const header = (
+    <header className="flex items-start justify-between gap-3 pb-1">
+      <NavDrawer
+        open={showNav}
+        onClose={() => setShowNav(false)}
+        pendingCount={pending.length}
+        unreadCount={unreadChats.length}
+      />
+
+      <div className="flex min-w-0 items-start gap-2">
+        {/* The only way to reach the other pages on a phone, where the rail
+            is hidden. */}
+        <button
+          type="button"
+          onClick={() => setShowNav(true)}
+          aria-label="Open menu"
+          className="-ml-1 mt-1 grid size-10 shrink-0 place-items-center rounded-xl text-ink-600 transition hover:bg-white/70 active:scale-95 lg:hidden"
+        >
+          <Menu size={20} />
+        </button>
+
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-mint-600 sm:text-[13px]">
+            {greeting}
+          </p>
+          <h1 className="mt-0.5 truncate text-[22px] font-bold leading-tight tracking-tight text-ink-900 sm:text-[26px] lg:text-[30px]">
+            {title}
+          </h1>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2.5 pt-1">
+      <div className="flex items-center gap-1.5 pt-1 sm:gap-2.5">
+        {onSearch ? (
+          <button
+            type="button"
+            onClick={() => setShowSearch((v) => !v)}
+            aria-label={showSearch ? 'Close search' : 'Search'}
+            className="grid size-10 place-items-center rounded-xl text-ink-600 transition hover:bg-white/70 active:scale-95 md:hidden"
+          >
+            {showSearch ? <X size={18} /> : <Search size={18} />}
+          </button>
+        ) : null}
+
         {onSearch ? (
           <div className="relative hidden md:block">
             <Search
@@ -103,7 +141,7 @@ export function Topbar({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
                   transition={{ duration: MOTION.normal, ease: MOTION.ease }}
-                  className="glass absolute right-0 top-11 z-50 w-[310px] overflow-hidden rounded-[var(--radius-card)] p-1.5"
+                  className="glass absolute right-0 top-11 z-50 w-[310px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[var(--radius-card)] p-1.5"
                 >
                   <p className="px-3 py-2 text-[12px] font-bold uppercase tracking-wide text-ink-400">
                     Needs attention
@@ -202,7 +240,7 @@ export function Topbar({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
                   transition={{ duration: MOTION.normal, ease: MOTION.ease }}
-                  className="glass absolute right-0 top-11 z-50 w-[248px] overflow-hidden rounded-[var(--radius-card)] p-1.5"
+                  className="glass absolute right-0 top-11 z-50 w-[248px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[var(--radius-card)] p-1.5"
                 >
                   <div className="px-3 py-2.5">
                     <p className="truncate text-[13px] font-semibold text-ink-700">
@@ -228,5 +266,39 @@ export function Topbar({
         </div>
       </div>
     </header>
+  );
+
+  // Search on a phone: a row that expands under the header rather than a
+  // field squeezed beside the title. Wrapped with the header so callers keep
+  // rendering one element.
+  return (
+    <div>
+      {header}
+      <AnimatePresence initial={false}>
+        {onSearch && showSearch ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: MOTION.normal, ease: MOTION.ease }}
+            className="overflow-hidden md:hidden"
+          >
+            <div className="relative pb-1 pt-2.5">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
+              />
+              <input
+                autoFocus
+                value={searchValue ?? ''}
+                onChange={(e) => onSearch(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full rounded-full border border-white/70 bg-white/80 py-2.5 pl-9 pr-3.5 text-[14px] text-ink-700 outline-none backdrop-blur transition placeholder:text-ink-400/80 focus:border-mint-400 focus:bg-white"
+              />
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
