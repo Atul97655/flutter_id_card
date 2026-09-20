@@ -12,6 +12,7 @@ import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
 import 'package:flutter_id_card/shared/services/firebase/inline_photo.dart';
+import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_id_card/shared/services/local/audit_repository.dart';
 import 'package:flutter_id_card/shared/services/local/school_repository.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
@@ -82,6 +83,7 @@ class SyncService {
   SyncService({
     required StudentRepository students,
     required SchoolRepository schools,
+    AppFlagRepository? flags,
     AuditRepository? auditRepo,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
@@ -99,11 +101,14 @@ class SyncService {
        // ignore: prefer_initializing_formals
        _schools = schools,
        // ignore: prefer_initializing_formals
-       _auditRepo = auditRepo;
+       _auditRepo = auditRepo,
+       // ignore: prefer_initializing_formals
+       _flags = flags;
 
   final StudentRepository _students;
   final SchoolRepository _schools;
   final AuditRepository? _auditRepo;
+  final AppFlagRepository? _flags;
   final FirebaseFirestore? _firestoreOverride;
   final FirebaseStorage? _storageOverride;
   final Connectivity _connectivity;
@@ -228,6 +233,8 @@ class SyncService {
       _emit(
         _state.copyWith(activity: SyncActivity.downloading, clearError: true),
       );
+      await _pullPanelConfig();
+
       if (isAdmin) {
         await _pullEverythingForAdmin();
       } else if (schoolId != null) {
@@ -343,6 +350,41 @@ class SyncService {
       // this device already had rather than blanking a face it can render.
       photoThumb: remote.photoThumb ?? local?.photoThumb,
     );
+  }
+
+  /// Mirrors the panel's installation settings down to this device.
+  ///
+  /// Currently one flag: whether this office prints cards at all. The panel
+  /// gained a switch for it and the app did not, which left the two disagreeing
+  /// about whether a whole feature exists - the panel hiding the Print Center
+  /// while the app still offered it two taps away.
+  ///
+  /// Cached rather than read live, for the same reason school settings are:
+  /// this runs on a school's dead connection, and a feature that vanishes when
+  /// the signal drops is worse than one that is plainly on or off.
+  ///
+  /// Silent on failure. A settings document that cannot be read leaves the
+  /// last known answer in place, which is better than a feature flickering
+  /// because a sync pass timed out.
+  Future<void> _pullPanelConfig() async {
+    final AppFlagRepository? flags = _flags;
+    if (flags == null) return;
+
+    try {
+      final DocumentSnapshot<Map<String, Object?>> snap = await _db
+          .collection('config')
+          .doc('panel')
+          .get();
+
+      final Object? value =
+          (snap.data() ?? <String, Object?>{})['printingEnabled'];
+      await flags.writeBool(
+        AppFlagRepository.printingEnabledKey,
+        value is bool ? value : false,
+      );
+    } on Object catch (e) {
+      if (kDebugMode) debugPrint('Panel config pull failed: $e');
+    }
   }
 
   /// Brings the office's review decisions back down to the operator.

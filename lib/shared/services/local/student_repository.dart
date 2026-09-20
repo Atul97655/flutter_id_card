@@ -99,8 +99,7 @@ class StudentRepository {
         await (_db.select(_db.studentEntries)
               ..where(
                 (StudentEntries t) =>
-                    (t.localPhotoPath.isNull() |
-                        t.localPhotoPath.equals('')) &
+                    (t.localPhotoPath.isNull() | t.localPhotoPath.equals('')) &
                     t.photoThumb.isNotNull() &
                     t.photoThumb.isNotValue(''),
               )

@@ -25,17 +25,17 @@ class AuditEntry {
 
   /// Human-readable label for the action verb.
   String get actionLabel => switch (action) {
-        'approve' => 'Approved',
-        'reject' => 'Rejected',
-        'bulk_approve' => 'Bulk Approved',
-        'bulk_reject' => 'Bulk Rejected',
-        'export_csv' => 'CSV Exported',
-        'print_batch' => 'Print Batch',
-        'create_school' => 'School Created',
-        'update_school' => 'School Updated',
-        'sync_pass' => 'Sync Pass',
-        _ => action,
-      };
+    'approve' => 'Approved',
+    'reject' => 'Rejected',
+    'bulk_approve' => 'Bulk Approved',
+    'bulk_reject' => 'Bulk Rejected',
+    'export_csv' => 'CSV Exported',
+    'print_batch' => 'Print Batch',
+    'create_school' => 'School Created',
+    'update_school' => 'School Updated',
+    'sync_pass' => 'Sync Pass',
+    _ => action,
+  };
 }
 
 /// All persistence for the immutable audit trail.
@@ -60,15 +60,15 @@ class AuditRepository {
     required String actorUid,
     Map<String, Object?>? details,
   }) async {
-    await _db.into(_db.auditLogs).insert(
+    await _db
+        .into(_db.auditLogs)
+        .insert(
           AuditLogsCompanion.insert(
             action: action,
             entityType: entityType,
             entityId: entityId,
             actorUid: actorUid,
-            details: Value<String>(
-              details != null ? jsonEncode(details) : '',
-            ),
+            details: Value<String>(details != null ? jsonEncode(details) : ''),
             createdAt: DateTime.now(),
           ),
         );
@@ -90,8 +90,8 @@ class AuditRepository {
           ])
           ..limit(limit);
     return query.watch().map(
-          (List<AuditLogRow> rows) => rows.map(_toDomain).toList(),
-        );
+      (List<AuditLogRow> rows) => rows.map(_toDomain).toList(),
+    );
   }
 
   /// Entries for one specific entity (e.g. one student's approval history).
@@ -99,16 +99,22 @@ class AuditRepository {
     String entityType,
     String entityId,
   ) async {
-    final List<AuditLogRow> rows = await (_db.select(_db.auditLogs)
-          ..where((AuditLogs t) =>
-              t.entityType.equals(entityType) & t.entityId.equals(entityId))
-          ..orderBy(<OrderClauseGenerator<AuditLogs>>[
-            (AuditLogs t) =>
-                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
-            (AuditLogs t) =>
-                OrderingTerm(expression: t.id, mode: OrderingMode.desc),
-          ]))
-        .get();
+    final List<AuditLogRow> rows =
+        await (_db.select(_db.auditLogs)
+              ..where(
+                (AuditLogs t) =>
+                    t.entityType.equals(entityType) &
+                    t.entityId.equals(entityId),
+              )
+              ..orderBy(<OrderClauseGenerator<AuditLogs>>[
+                (AuditLogs t) => OrderingTerm(
+                  expression: t.createdAt,
+                  mode: OrderingMode.desc,
+                ),
+                (AuditLogs t) =>
+                    OrderingTerm(expression: t.id, mode: OrderingMode.desc),
+              ]))
+            .get();
     return rows.map(_toDomain).toList();
   }
 
@@ -117,16 +123,19 @@ class AuditRepository {
     String action, {
     int limit = 100,
   }) async {
-    final List<AuditLogRow> rows = await (_db.select(_db.auditLogs)
-          ..where((AuditLogs t) => t.action.equals(action))
-          ..orderBy(<OrderClauseGenerator<AuditLogs>>[
-            (AuditLogs t) =>
-                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
-            (AuditLogs t) =>
-                OrderingTerm(expression: t.id, mode: OrderingMode.desc),
-          ])
-          ..limit(limit))
-        .get();
+    final List<AuditLogRow> rows =
+        await (_db.select(_db.auditLogs)
+              ..where((AuditLogs t) => t.action.equals(action))
+              ..orderBy(<OrderClauseGenerator<AuditLogs>>[
+                (AuditLogs t) => OrderingTerm(
+                  expression: t.createdAt,
+                  mode: OrderingMode.desc,
+                ),
+                (AuditLogs t) =>
+                    OrderingTerm(expression: t.id, mode: OrderingMode.desc),
+              ])
+              ..limit(limit))
+            .get();
     return rows.map(_toDomain).toList();
   }
 
@@ -146,8 +155,8 @@ class AuditRepository {
           ])
           ..limit(limit);
     return query.watch().map(
-          (List<AuditLogRow> rows) => rows.map(_toDomain).toList(),
-        );
+      (List<AuditLogRow> rows) => rows.map(_toDomain).toList(),
+    );
   }
 
   /// Total count of entries for an action verb.

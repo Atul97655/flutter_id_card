@@ -24,11 +24,11 @@ class PrintBatch {
 
   /// Human label for the sheet type column.
   String get sheetTypeLabel => switch (sheetType) {
-        '12x18' => '12 × 18 in',
-        'a4' => 'A4 Landscape',
-        'single' => 'Single Cards',
-        _ => sheetType,
-      };
+    '12x18' => '12 × 18 in',
+    'a4' => 'A4 Landscape',
+    'single' => 'Single Cards',
+    _ => sheetType,
+  };
 }
 
 /// Persistence for print batch tracking.
@@ -58,7 +58,9 @@ class PrintBatchRepository {
     DateTime? createdAt,
   }) async {
     final String id = _uuid.v4();
-    await _db.into(_db.printBatches).insert(
+    await _db
+        .into(_db.printBatches)
+        .insert(
           PrintBatchesCompanion.insert(
             id: id,
             schoolId: schoolId,
@@ -86,8 +88,8 @@ class PrintBatchRepository {
                 OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
           ]);
     return query.watch().map(
-          (List<PrintBatchRow> rows) => rows.map(_toDomain).toList(),
-        );
+      (List<PrintBatchRow> rows) => rows.map(_toDomain).toList(),
+    );
   }
 
   /// Global view across all schools, for the export dashboard.
@@ -100,8 +102,8 @@ class PrintBatchRepository {
           ])
           ..limit(limit);
     return query.watch().map(
-          (List<PrintBatchRow> rows) => rows.map(_toDomain).toList(),
-        );
+      (List<PrintBatchRow> rows) => rows.map(_toDomain).toList(),
+    );
   }
 
   /// One-shot count of all batches for a school. Lighter than streaming when
@@ -132,12 +134,12 @@ class PrintBatchRepository {
   // ------------------------------------------------------------------
 
   static PrintBatch _toDomain(PrintBatchRow row) => PrintBatch(
-        id: row.id,
-        schoolId: row.schoolId,
-        cardCount: row.cardCount,
-        sheetType: row.sheetType,
-        sheetCount: row.sheetCount,
-        generatedBy: row.generatedBy,
-        createdAt: row.createdAt,
-      );
+    id: row.id,
+    schoolId: row.schoolId,
+    cardCount: row.cardCount,
+    sheetType: row.sheetType,
+    sheetCount: row.sheetCount,
+    generatedBy: row.generatedBy,
+    createdAt: row.createdAt,
+  );
 }

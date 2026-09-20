@@ -19,6 +19,16 @@ class AppFlagRepository {
   /// exists to answer.
   static const String notificationsSeenAtKey = 'notificationsSeenAt';
 
+  /// Whether this installation prints cards, mirrored down from the panel's
+  /// `config/panel` document.
+  ///
+  /// Cached locally rather than read live for the same reason school settings
+  /// are: the app has to work on a school's dead connection, and a feature
+  /// that disappears when the signal drops is worse than one that is simply
+  /// on or off. Absent until the first sync, which reads as off - matching
+  /// the panel's own default.
+  static const String printingEnabledKey = 'printingEnabled';
+
   Stream<DateTime?> watchDateTime(String key) {
     return (_db.select(
       _db.appFlags,
@@ -43,6 +53,24 @@ class AppFlagRepository {
           AppFlagsCompanion(
             key: Value<String>(key),
             value: Value<String>(value.toUtc().toIso8601String()),
+            updatedAt: Value<DateTime>(DateTime.now()),
+          ),
+        );
+  }
+
+  Stream<bool> watchBool(String key, {bool orElse = false}) {
+    return (_db.select(_db.appFlags)..where((AppFlags t) => t.key.equals(key)))
+        .watchSingleOrNull()
+        .map((AppFlagRow? row) => row == null ? orElse : row.value == 'true');
+  }
+
+  Future<void> writeBool(String key, bool value) {
+    return _db
+        .into(_db.appFlags)
+        .insertOnConflictUpdate(
+          AppFlagsCompanion(
+            key: Value<String>(key),
+            value: Value<String>(value ? 'true' : 'false'),
             updatedAt: Value<DateTime>(DateTime.now()),
           ),
         );

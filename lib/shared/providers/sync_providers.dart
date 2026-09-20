@@ -7,11 +7,14 @@ import 'package:flutter_id_card/shared/services/firebase/sync_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The single sync worker for the process.
-final Provider<SyncService> syncServiceProvider = Provider<SyncService>((Ref ref) {
+final Provider<SyncService> syncServiceProvider = Provider<SyncService>((
+  Ref ref,
+) {
   final SyncService service = SyncService(
     students: ref.watch(studentRepositoryProvider),
     schools: ref.watch(schoolRepositoryProvider),
     auditRepo: ref.watch(auditRepositoryProvider),
+    flags: ref.watch(appFlagRepositoryProvider),
   );
   ref.onDispose(service.dispose);
   return service;
@@ -46,7 +49,9 @@ final Provider<void> syncLifecycleProvider = Provider<void>((Ref ref) {
 
 /// Live sync state for the UI. Seeded with the service's current value so a
 /// screen opened between passes shows the last known state rather than blank.
-final StreamProvider<SyncState> syncStateProvider = StreamProvider<SyncState>((Ref ref) {
+final StreamProvider<SyncState> syncStateProvider = StreamProvider<SyncState>((
+  Ref ref,
+) {
   final SyncService service = ref.watch(syncServiceProvider);
   return service.stateStream;
 });

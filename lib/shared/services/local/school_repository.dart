@@ -20,25 +20,27 @@ class SchoolRepository {
         _db.select(_db.schoolConfigs)
           ..where((SchoolConfigs t) => t.id.equals(schoolId))
           ..limit(1);
-    return query
-        .watchSingleOrNull()
-        .map((SchoolConfigRow? row) => row == null ? null : _toDomain(row));
+    return query.watchSingleOrNull().map(
+      (SchoolConfigRow? row) => row == null ? null : _toDomain(row),
+    );
   }
 
   Future<SchoolConfig?> find(String schoolId) async {
-    final SchoolConfigRow? row = await (_db.select(_db.schoolConfigs)
-          ..where((SchoolConfigs t) => t.id.equals(schoolId))
-          ..limit(1))
-        .getSingleOrNull();
+    final SchoolConfigRow? row =
+        await (_db.select(_db.schoolConfigs)
+              ..where((SchoolConfigs t) => t.id.equals(schoolId))
+              ..limit(1))
+            .getSingleOrNull();
     return row == null ? null : _toDomain(row);
   }
 
   Future<List<SchoolConfig>> listAll() async {
-    final List<SchoolConfigRow> rows = await (_db.select(_db.schoolConfigs)
-          ..orderBy(<OrderClauseGenerator<SchoolConfigs>>[
-            (SchoolConfigs t) => OrderingTerm(expression: t.name),
-          ]))
-        .get();
+    final List<SchoolConfigRow> rows =
+        await (_db.select(_db.schoolConfigs)
+              ..orderBy(<OrderClauseGenerator<SchoolConfigs>>[
+                (SchoolConfigs t) => OrderingTerm(expression: t.name),
+              ]))
+            .get();
     return rows.map(_toDomain).toList();
   }
 
@@ -48,13 +50,15 @@ class SchoolRepository {
           ..orderBy(<OrderClauseGenerator<SchoolConfigs>>[
             (SchoolConfigs t) => OrderingTerm(expression: t.name),
           ]);
-    return query
-        .watch()
-        .map((List<SchoolConfigRow> rows) => rows.map(_toDomain).toList());
+    return query.watch().map(
+      (List<SchoolConfigRow> rows) => rows.map(_toDomain).toList(),
+    );
   }
 
   Future<void> save(SchoolConfig config) async {
-    await _db.into(_db.schoolConfigs).insertOnConflictUpdate(_toCompanion(config));
+    await _db
+        .into(_db.schoolConfigs)
+        .insertOnConflictUpdate(_toCompanion(config));
   }
 
   Future<void> saveAll(List<SchoolConfig> configs) async {
@@ -67,9 +71,9 @@ class SchoolRepository {
   }
 
   Future<void> delete(String schoolId) async {
-    await (_db.delete(_db.schoolConfigs)
-          ..where((SchoolConfigs t) => t.id.equals(schoolId)))
-        .go();
+    await (_db.delete(
+      _db.schoolConfigs,
+    )..where((SchoolConfigs t) => t.id.equals(schoolId))).go();
   }
 
   // ------------------------------------------------------------------
@@ -85,7 +89,8 @@ class SchoolRepository {
       .where((String s) => s.isNotEmpty)
       .toSet();
 
-  static String encodeFieldKeys(Set<String> keys) => (keys.toList()..sort()).join(',');
+  static String encodeFieldKeys(Set<String> keys) =>
+      (keys.toList()..sort()).join(',');
 
   /// Division colours are stored as a JSON object of division -> ARGB int.
   /// Malformed JSON decodes to an empty map so a corrupted row falls back to
@@ -110,26 +115,27 @@ class SchoolRepository {
       colors.isEmpty ? '{}' : jsonEncode(colors);
 
   static SchoolConfig _toDomain(SchoolConfigRow row) => SchoolConfig(
-        id: row.id,
-        name: row.name,
-        addressLine: row.addressLine,
-        contactLine: row.contactLine,
-        logoUrl: row.logoUrl,
-        localLogoPath: row.localLogoPath,
-        principalSignatureUrl: row.principalSignatureUrl,
-        localPrincipalSignaturePath: row.localPrincipalSignaturePath,
-        cardSizeId: row.cardSizeId,
-        templateId: row.templateId,
-        enabledFieldKeys: decodeFieldKeys(row.enabledFields),
-        primaryColorHex: row.primaryColor,
-        secondaryColorHex: row.secondaryColor,
-        headerColorHex: row.headerColor,
-        photoBackgroundHex: row.photoBackground,
-        divisionColors: decodeDivisionColors(row.divisionColors),
-        updatedAt: row.updatedAt,
-      );
+    id: row.id,
+    name: row.name,
+    addressLine: row.addressLine,
+    contactLine: row.contactLine,
+    logoUrl: row.logoUrl,
+    localLogoPath: row.localLogoPath,
+    principalSignatureUrl: row.principalSignatureUrl,
+    localPrincipalSignaturePath: row.localPrincipalSignaturePath,
+    cardSizeId: row.cardSizeId,
+    templateId: row.templateId,
+    enabledFieldKeys: decodeFieldKeys(row.enabledFields),
+    primaryColorHex: row.primaryColor,
+    secondaryColorHex: row.secondaryColor,
+    headerColorHex: row.headerColor,
+    photoBackgroundHex: row.photoBackground,
+    divisionColors: decodeDivisionColors(row.divisionColors),
+    updatedAt: row.updatedAt,
+  );
 
-  static SchoolConfigsCompanion _toCompanion(SchoolConfig c) => SchoolConfigsCompanion(
+  static SchoolConfigsCompanion _toCompanion(SchoolConfig c) =>
+      SchoolConfigsCompanion(
         id: Value<String>(c.id),
         name: Value<String>(c.name),
         addressLine: Value<String>(c.addressLine),
@@ -137,7 +143,9 @@ class SchoolRepository {
         logoUrl: Value<String?>(c.logoUrl),
         localLogoPath: Value<String?>(c.localLogoPath),
         principalSignatureUrl: Value<String?>(c.principalSignatureUrl),
-        localPrincipalSignaturePath: Value<String?>(c.localPrincipalSignaturePath),
+        localPrincipalSignaturePath: Value<String?>(
+          c.localPrincipalSignaturePath,
+        ),
         cardSizeId: Value<String>(c.cardSizeId),
         templateId: Value<String>(c.templateId),
         enabledFields: Value<String>(encodeFieldKeys(c.enabledFieldKeys)),

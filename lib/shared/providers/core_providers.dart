@@ -34,6 +34,19 @@ final Provider<AuditRepository> auditRepositoryProvider =
       (Ref ref) => AuditRepository(ref.watch(appDatabaseProvider)),
     );
 
+/// Whether this installation prints cards.
+///
+/// Mirrored down from the admin panel by the sync worker. Defaults to false,
+/// matching the panel: an office that has never answered the question is not
+/// shown a feature it may have no use for.
+final StreamProvider<bool> printingEnabledProvider = StreamProvider<bool>((
+  Ref ref,
+) {
+  return ref
+      .watch(appFlagRepositoryProvider)
+      .watchBool(AppFlagRepository.printingEnabledKey);
+});
+
 final Provider<AppFlagRepository> appFlagRepositoryProvider =
     Provider<AppFlagRepository>(
       (Ref ref) => AppFlagRepository(ref.watch(appDatabaseProvider)),

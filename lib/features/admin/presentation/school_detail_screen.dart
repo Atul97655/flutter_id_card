@@ -136,12 +136,16 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
             onPressed: () =>
                 context.push('/admin/schools/${widget.schoolId}/export'),
           ),
-          IconButton(
-            tooltip: 'Print cards',
-            icon: const Icon(Icons.local_printshop_outlined),
-            onPressed: () =>
-                context.push('/admin/schools/${widget.schoolId}/print'),
-          ),
+          // Hidden when this installation does not print. The panel gained a
+          // switch for that and the app did not, which left the two
+          // disagreeing about whether the feature exists at all.
+          if (ref.watch(printingEnabledProvider).value ?? false)
+            IconButton(
+              tooltip: 'Print cards',
+              icon: const Icon(Icons.local_printshop_outlined),
+              onPressed: () =>
+                  context.push('/admin/schools/${widget.schoolId}/print'),
+            ),
           IconButton(
             tooltip: 'School settings',
             icon: const Icon(Icons.settings_outlined),
