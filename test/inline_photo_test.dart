@@ -124,6 +124,82 @@ void main() {
     });
   });
 
+  group('What this costs at a real school', () {
+    // Carrying a thumbnail on every entry is what makes a list of submissions
+    // show faces without a read per row. It also means the admin panel's one
+    // collection-group query - which reads EVERY entry across EVERY school -
+    // now carries that thumbnail for every student in the system.
+    //
+    // That trade is worth measuring rather than assuming, because the failure
+    // mode is not an error: it is a dashboard that takes ten seconds to open
+    // and a data bill, on someone else's phone, discovered in production.
+    //
+    // These numbers are a budget, not a benchmark. If a future change to the
+    // encoder pushes them up, this fails and says so.
+
+    test('one thumbnail stays inside its per-row budget', () async {
+      final InlinePhoto photo = (await encodeInlinePhoto(cardPortrait))!;
+      final int perRow = photo.thumbBase64.length;
+
+      expect(
+        perRow,
+        lessThan(12 * 1024),
+        reason: 'the per-row cost of showing a face in a list',
+      );
+    });
+
+    test('a 500-student school loads in a few megabytes, not tens', () async {
+      final InlinePhoto photo = (await encodeInlinePhoto(cardPortrait))!;
+
+      // A single large school. The client has one school today; this is the
+      // shape of the problem at the size they are selling into.
+      const int students = 500;
+      final double megabytes =
+          (photo.thumbBase64.length * students) / (1024 * 1024);
+
+      expect(
+        megabytes,
+        lessThan(6),
+        reason:
+            'the dashboard reads every entry at once - past a few MB this '
+            'stops being a page load and starts being a download',
+      );
+    });
+
+    test('the full frames are NOT part of that', () async {
+      final InlinePhoto photo = (await encodeInlinePhoto(cardPortrait))!;
+
+      const int students = 500;
+      final double thumbsMb =
+          (photo.thumbBase64.length * students) / (1024 * 1024);
+      final double fullMb =
+          (photo.fullBase64.length * students) / (1024 * 1024);
+
+      // The reason the two are stored apart. Were the full frame on the entry
+      // document, opening the dashboard would pull this instead.
+      expect(
+        fullMb,
+        greaterThan(thumbsMb * 4),
+        reason:
+            'if these ever converge, the split has stopped paying for '
+            'itself and the storage layout should be revisited',
+      );
+    });
+
+    test(
+      'a photo stays well inside the free Firestore tier per student',
+      () async {
+        final InlinePhoto photo = (await encodeInlinePhoto(cardPortrait))!;
+        final int perStudent = photo.fullBytes + photo.thumbBase64.length;
+
+        // 1 GiB free. At this size that is roughly 15,000 students, which is
+        // far beyond anything this client is selling - so inline photos do not
+        // quietly create a bill.
+        expect(perStudent, lessThan(70 * 1024));
+      },
+    );
+  });
+
   group('When Storage refuses the photo', () {
     late AppDatabase db;
     late StudentRepository students;
