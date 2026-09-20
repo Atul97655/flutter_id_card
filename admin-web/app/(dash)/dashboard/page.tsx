@@ -35,7 +35,7 @@ import { EntryPhoto } from '@/components/ui/entry-photo';
 
 export default function DashboardPage() {
   const { profile } = useAuth();
-  const { entries, schools, users, chats, loading } = useStore();
+  const { entries, schools, users, chats, loading, config } = useStore();
   const schoolName = useSchoolName();
 
   const stats = useMemo(() => {
@@ -102,7 +102,7 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4">
       <Topbar greeting={`Welcome back, ${firstName}`} title="Dashboard" />
 
-      {stats.missingPhoto > 0 ? (
+      {config.printingEnabled && stats.missingPhoto > 0 ? (
         <Banner
           tone="warn"
           title={`${stats.missingPhoto} approved card${
@@ -221,24 +221,48 @@ export default function DashboardPage() {
             hint="signed off, not yet printed"
             index={1}
           />
-          <StatTile
-            label="Ready to print"
-            value={stats.readyToPrint}
-            icon={Printer}
-            tint="var(--color-status-printed)"
-            href="/print"
-            hint="approved and has a photo"
-            index={2}
-          />
-          <StatTile
-            label="No photo"
-            value={stats.missingPhoto}
-            icon={ImageOff}
-            tint="var(--color-status-rejected)"
-            href="/print"
-            hint="blocked from printing"
-            index={3}
-          />
+          {config.printingEnabled ? (
+            <>
+              <StatTile
+                label="Ready to print"
+                value={stats.readyToPrint}
+                icon={Printer}
+                tint="var(--color-status-printed)"
+                href="/print"
+                hint="approved and has a photo"
+                index={2}
+              />
+              <StatTile
+                label="No photo"
+                value={stats.missingPhoto}
+                icon={ImageOff}
+                tint="var(--color-status-rejected)"
+                href="/print"
+                hint="blocked from printing"
+                index={3}
+              />
+            </>
+          ) : (
+            <>
+              <StatTile
+                label="Rejected"
+                value={stats.rejected}
+                icon={ImageOff}
+                tint="var(--color-status-rejected)"
+                href="/requests?status=rejected"
+                hint="sent back for a correction"
+                index={2}
+              />
+              <StatTile
+                label="Schools"
+                value={schools.length}
+                icon={Printer}
+                tint="var(--color-mint-600)"
+                href="/schools"
+                index={3}
+              />
+            </>
+          )}
         </div>
       </div>
 

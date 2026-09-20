@@ -1,12 +1,14 @@
 'use client';
 
-import { Database, ExternalLink, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Database, ExternalLink, Printer, ShieldCheck } from 'lucide-react';
 import { Topbar } from '@/components/layout/topbar';
 import { Banner, Panel, PanelHeader } from '@/components/ui/primitives';
 import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
 import { FIREBASE_PROJECT_ID } from '@/lib/firebase';
 import { hasPhoto } from '@/lib/types';
+import { savePanelConfig } from '@/lib/data';
 
 /**
  * Settings.
@@ -17,7 +19,9 @@ import { hasPhoto } from '@/lib/types';
  */
 export default function SettingsPage() {
   const { profile } = useAuth();
-  const { schools, entries, users } = useStore();
+  const { schools, entries, users, config } = useStore();
+  const [savingPrint, setSavingPrint] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   const noPhoto = entries.filter((e) => !hasPhoto(e)).length;
 
@@ -25,7 +29,7 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-4">
       <Topbar greeting="Installation" title="Settings" />
 
-      {noPhoto > 0 ? (
+      {config.printingEnabled && noPhoto > 0 ? (
         <Banner tone="warn" title={`${noPhoto} submission${noPhoto === 1 ? '' : 's'} without a photo`}>
           {noPhoto} of {entries.length} records have no picture on the server
           yet. Photos travel inside Firestore on this project — Cloud Storage is
@@ -34,6 +38,67 @@ export default function SettingsPage() {
           uploads by itself on that phone&apos;s next sync, with no re-entry.
         </Banner>
       ) : null}
+
+      <Panel>
+        <PanelHeader title="Card printing" />
+        <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-mint-500/12 text-mint-700">
+            <Printer size={18} />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] leading-relaxed text-ink-600">
+              Whether this office prints the cards itself. Turning it off hides
+              the Print Center, the print-readiness tiles and every &ldquo;cannot
+              be printed&rdquo; warning — which are otherwise permanent alarms
+              about a job nobody is doing.
+            </p>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-ink-400">
+              Nothing is deleted. The A4 and 12&nbsp;×&nbsp;18 sheet pipeline,
+              the batch history and every card stay exactly as they are, so
+              turning it back on restores the feature untouched.
+            </p>
+
+            {printError ? (
+              <p className="mt-2 text-[12.5px] font-medium text-[var(--color-status-rejected)]">
+                {printError}
+              </p>
+            ) : null}
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={config.printingEnabled}
+            aria-label="Card printing"
+            disabled={savingPrint}
+            onClick={async () => {
+              setSavingPrint(true);
+              setPrintError(null);
+              try {
+                await savePanelConfig({
+                  printingEnabled: !config.printingEnabled,
+                });
+              } catch (e) {
+                setPrintError(
+                  e instanceof Error ? e.message : 'Could not save that.',
+                );
+              } finally {
+                setSavingPrint(false);
+              }
+            }}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+              config.printingEnabled ? 'bg-mint-600' : 'bg-ink-400/30'
+            }`}
+          >
+            <span
+              className={`absolute top-1 size-5 rounded-full bg-white shadow transition-[left] duration-200 ${
+                config.printingEnabled ? 'left-6' : 'left-1'
+              }`}
+            />
+          </button>
+        </div>
+      </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel>

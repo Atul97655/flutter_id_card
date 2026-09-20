@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { MOTION } from '@/components/ui/primitives';
+import { useStore } from '@/lib/store';
 
 interface NavItem {
   href: string;
@@ -186,6 +187,18 @@ function NavBody({
 }) {
   const pathname = usePathname();
 
+  const { config } = useStore();
+
+  // Hidden rather than disabled: a greyed-out destination still asks to be
+  // clicked, and an installation that does not print has no use for the
+  // question.
+  const groups = config.printingEnabled
+    ? GROUPS
+    : GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter((i) => i.href !== '/print'),
+      })).filter((g) => g.items.length > 0);
+
   const badgeFor = (item: NavItem): number => {
     if (item.badgeKey === 'pending') return pendingCount;
     if (item.badgeKey === 'unread') return unreadCount;
@@ -230,7 +243,7 @@ function NavBody({
       </div>
 
       <nav className="flex flex-1 flex-col gap-5 overflow-y-auto">
-        {GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label ?? 'root'}>
             {group.label ? (
               <p className="mb-1.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-ink-400/80">

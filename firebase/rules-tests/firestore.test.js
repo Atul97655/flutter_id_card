@@ -413,6 +413,47 @@ describe('Hub-and-spoke messaging', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Installation settings.
+// ---------------------------------------------------------------------------
+describe('Panel settings (config/panel)', () => {
+  it('every active account can read them', async () => {
+    // Both the panel and the app need to know which features are part of this
+    // installation before they can decide what to show.
+    await assertSucceeds(getDoc(doc(as(TEACHER_A), 'config', 'panel')));
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'config', 'panel')));
+  });
+
+  it('only the admin can change them', async () => {
+    // A feature switch an operator can flip is a feature switch that flips by
+    // accident - and this one hides a whole section of the panel.
+    await assertFails(
+      setDoc(doc(as(TEACHER_A), 'config', 'panel'), { printingEnabled: false }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as(ADMIN), 'config', 'panel'), { printingEnabled: false }),
+    );
+  });
+
+  it('an unauthenticated caller can do neither', async () => {
+    await assertFails(getDoc(doc(anon(), 'config', 'panel')));
+    await assertFails(
+      setDoc(doc(anon(), 'config', 'panel'), { printingEnabled: false }),
+    );
+  });
+
+  it('a deactivated admin loses the ability to change them', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', ADMIN), {
+        role: 'Admin', active: false,
+      });
+    });
+    await assertFails(
+      setDoc(doc(as(ADMIN), 'config', 'panel'), { printingEnabled: false }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Chat attachments, carried inside Firestore because Storage is unprovisioned.
 // ---------------------------------------------------------------------------
 describe('Inline chat attachments (messages/{id}/media/file)', () => {

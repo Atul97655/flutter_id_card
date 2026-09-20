@@ -1,14 +1,16 @@
 import { Timestamp, type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
-import type {
-  ApprovalStatus,
-  Chat,
-  ChatKind,
-  ChatMessage,
-  ManagedUser,
-  MessageKind,
-  SchoolConfig,
-  StudentEntry,
-  UserRole,
+import {
+  DEFAULT_PANEL_CONFIG,
+  type ApprovalStatus,
+  type Chat,
+  type ChatKind,
+  type ChatMessage,
+  type ManagedUser,
+  type MessageKind,
+  type PanelConfig,
+  type SchoolConfig,
+  type StudentEntry,
+  type UserRole,
 } from './types';
 
 /**
@@ -164,6 +166,23 @@ export function toChat(snap: QueryDocumentSnapshot<DocumentData>): Chat {
     lastMessageAt: isoDate(d.lastMessageAt),
     lastSenderId: strOrNull(d.lastSenderId),
     unreadFor: strList(d.unreadFor),
+  };
+}
+
+/**
+ * Panel settings, defaulting anything absent or malformed to the current
+ * behaviour. A settings document that has never been written must not change
+ * how the panel works.
+ */
+export function toPanelConfig(
+  data: DocumentData | undefined,
+): PanelConfig {
+  if (!data) return DEFAULT_PANEL_CONFIG;
+  return {
+    printingEnabled:
+      typeof data.printingEnabled === 'boolean'
+        ? data.printingEnabled
+        : DEFAULT_PANEL_CONFIG.printingEnabled,
   };
 }
 

@@ -24,6 +24,7 @@ import {
   toChat,
   toChatMessage,
   toManagedUser,
+  toPanelConfig,
   toSchoolConfig,
   toStudentEntry,
 } from './converters';
@@ -32,6 +33,7 @@ import type {
   Chat,
   ChatMessage,
   ManagedUser,
+  PanelConfig,
   SchoolConfig,
   StudentEntry,
 } from './types';
@@ -319,6 +321,31 @@ export async function fetchEntryPhoto(
 // ---------------------------------------------------------------------------
 // Accounts
 // ---------------------------------------------------------------------------
+
+/**
+ * Live panel settings. Falls back to the defaults when the document does not
+ * exist, which is the normal state until an admin changes something.
+ */
+export function watchPanelConfig(
+  onData: (config: PanelConfig) => void,
+  onError?: (e: Error) => void,
+): Unsubscribe {
+  const db = firebaseDb();
+  return onSnapshot(
+    doc(db, 'config', 'panel'),
+    (snap) => onData(toPanelConfig(snap.data())),
+    (e) => onError?.(e),
+  );
+}
+
+export async function savePanelConfig(patch: Partial<PanelConfig>): Promise<void> {
+  const db = firebaseDb();
+  await setDoc(
+    doc(db, 'config', 'panel'),
+    { ...patch, updatedAt: new Date().toISOString() },
+    { merge: true },
+  );
+}
 
 export function watchUsers(
   onData: (users: ManagedUser[]) => void,

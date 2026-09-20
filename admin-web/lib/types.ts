@@ -255,6 +255,30 @@ export interface Chat {
   unreadFor: string[];
 }
 
+/**
+ * Panel-wide settings, at `config/panel`.
+ *
+ * One document rather than a field on each school: whether this office prints
+ * cards at all is a property of the installation, not of a school.
+ */
+export interface PanelConfig {
+  /**
+   * Whether the card-printing feature is part of this installation.
+   *
+   * Off hides the Print Center, the print-readiness tiles and every "cannot
+   * be printed" warning - which are otherwise permanent alarms about a job
+   * nobody is doing. Nothing is deleted: the sheet pipeline, the print batch
+   * history and the underlying data are untouched, so turning it back on
+   * restores the feature exactly as it was.
+   *
+   * Defaults to true, so an installation that never sets it behaves as it
+   * always has.
+   */
+  printingEnabled: boolean;
+}
+
+export const DEFAULT_PANEL_CONFIG: PanelConfig = { printingEnabled: true };
+
 export interface ChatMessage {
   id: string;
   chatId: string;

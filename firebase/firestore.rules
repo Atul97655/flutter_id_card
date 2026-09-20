@@ -195,6 +195,20 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // --- installation settings ---------------------------------------
+    //
+    // One document describing the installation rather than any one school -
+    // currently just whether this office prints cards at all.
+    //
+    // Readable by every active account, because the app and the panel both
+    // need to know which features are part of this installation before they
+    // can decide what to show. Writable by an admin alone: a feature switch
+    // an operator could flip is a feature switch that flips by accident.
+    match /config/{docId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
     // --- messaging (Phase 5) -----------------------------------------
 
     match /chats/{chatId} {

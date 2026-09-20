@@ -44,7 +44,7 @@ import { EntryPhoto } from '@/components/ui/entry-photo';
  */
 export default function RequestsPage() {
   const { profile } = useAuth();
-  const { entries, schools, loading } = useStore();
+  const { entries, schools, loading, config } = useStore();
   const schoolName = useSchoolName();
 
   const [status, setStatus] = useState<ApprovalStatus | 'all'>('pending');
@@ -335,6 +335,7 @@ export default function RequestsPage() {
                     checked={selected.has(key(e))}
                     onToggle={() => toggle(e)}
                     index={i}
+                    printingEnabled={config.printingEnabled}
                   />
                 ))}
               </tbody>
@@ -362,6 +363,7 @@ export default function RequestsPage() {
                 checked={selected.has(key(e))}
                 onToggle={() => toggle(e)}
                 index={i}
+                printingEnabled={config.printingEnabled}
               />
             ))}
             {filtered.length > 200 ? (
@@ -438,14 +440,17 @@ function MobileRow({
   checked,
   onToggle,
   index,
+  printingEnabled,
 }: {
   entry: StudentEntry;
   school: string;
   checked: boolean;
   onToggle: () => void;
   index: number;
+  printingEnabled: boolean;
 }) {
-  const blocked = isPrintable(entry.approvalStatus) && !hasPhoto(entry);
+  const blocked =
+    printingEnabled && isPrintable(entry.approvalStatus) && !hasPhoto(entry);
 
   return (
     <motion.li
@@ -519,16 +524,19 @@ function Row({
   checked,
   onToggle,
   index,
+  printingEnabled,
 }: {
   entry: StudentEntry;
   school: string;
   checked: boolean;
   onToggle: () => void;
   index: number;
+  printingEnabled: boolean;
 }) {
   // Approved but with no photo can never be printed. Flagged inline because
   // it otherwise looks complete in every count until someone tries to print.
-  const blocked = isPrintable(entry.approvalStatus) && !hasPhoto(entry);
+  const blocked =
+    printingEnabled && isPrintable(entry.approvalStatus) && !hasPhoto(entry);
 
   return (
     <motion.tr

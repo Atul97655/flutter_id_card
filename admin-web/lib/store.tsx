@@ -12,10 +12,18 @@ import { useAuth } from './auth-context';
 import {
   watchAllEntries,
   watchChats,
+  watchPanelConfig,
   watchSchools,
   watchUsers,
 } from './data';
-import type { Chat, ManagedUser, SchoolConfig, StudentEntry } from './types';
+import {
+  DEFAULT_PANEL_CONFIG,
+  type Chat,
+  type ManagedUser,
+  type PanelConfig,
+  type SchoolConfig,
+  type StudentEntry,
+} from './types';
 
 /**
  * One live mirror of the whole dataset, shared by every screen.
@@ -32,6 +40,7 @@ interface StoreState {
   entries: StudentEntry[];
   users: ManagedUser[];
   chats: Chat[];
+  config: PanelConfig;
   loading: boolean;
   /** Set when a subscription is refused or needs an index - surfaced, not swallowed. */
   error: string | null;
@@ -54,6 +63,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<StudentEntry[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
+  const [config, setConfig] = useState<PanelConfig>(DEFAULT_PANEL_CONFIG);
 
   const [ready, setReady] = useState({
     schools: false,
@@ -106,6 +116,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         },
         fail('chats'),
       ),
+      // Deliberately not part of `loading` and deliberately not surfaced
+      // through `fail`: the panel has working defaults without it, and a
+      // settings document that has never been written must not hold the
+      // whole dashboard on a spinner or raise an error banner.
+      watchPanelConfig(setConfig, () => {}),
     ];
 
     return () => unsubs.forEach((u) => u());
@@ -117,11 +132,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       entries,
       users,
       chats,
+      config,
       loading: !(ready.schools && ready.entries && ready.users && ready.chats),
       error,
       indexUrl,
     }),
-    [schools, entries, users, chats, ready, error, indexUrl],
+    [schools, entries, users, chats, config, ready, error, indexUrl],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
