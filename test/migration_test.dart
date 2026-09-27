@@ -303,6 +303,107 @@ void main() {
     expect(db.schemaVersion, kExpectedSchemaVersion);
   });
 
+  group('v9 -> v10, attribution and assignment', () {
+    test('existing cards are not attributed to anyone', () async {
+      final AppDatabase db = AppDatabase.forTesting(
+        NativeDatabase.opened(seededV9()),
+      );
+      addTearDown(db.close);
+
+      final List<StudentEntryRow> rows = await db
+          .select(db.studentEntries)
+          .get();
+
+      expect(rows, hasLength(4));
+      for (final StudentEntryRow r in rows) {
+        expect(
+          r.submittedByUid,
+          isNull,
+          reason:
+              'a card captured before v10 has no recorded submitter, and '
+              'the only available guess - whoever is signed in during the '
+              'upgrade - would credit work to someone who did not do it',
+        );
+        expect(r.submittedByName, isNull);
+      }
+    });
+
+    test('the new columns accept a submitter once one is known', () async {
+      final AppDatabase db = AppDatabase.forTesting(
+        NativeDatabase.opened(seededV9()),
+      );
+      addTearDown(db.close);
+
+      await (db.update(
+        db.studentEntries,
+      )..where(($StudentEntriesTable t) => t.id.equals('e-synced'))).write(
+        const StudentEntriesCompanion(
+          submittedByUid: Value<String>('teacher-uid'),
+          submittedByName: Value<String>('SUNITA DESHPANDE'),
+        ),
+      );
+
+      final StudentEntryRow row =
+          await (db.select(db.studentEntries)
+                ..where(($StudentEntriesTable t) => t.id.equals('e-synced')))
+              .getSingle();
+
+      expect(row.submittedByUid, 'teacher-uid');
+      expect(row.submittedByName, 'SUNITA DESHPANDE');
+      expect(row.name, 'ADITYA KUMAR', reason: 'the rest of the row is intact');
+    });
+
+    test('no teacher is scoped to a section by the upgrade itself', () async {
+      final AppDatabase db = AppDatabase.forTesting(
+        NativeDatabase.opened(seededV9()),
+      );
+      addTearDown(db.close);
+
+      expect(
+        await db.select(db.teacherAssignments).get(),
+        isEmpty,
+        reason:
+            'an empty assignment table means no narrowing - an upgrade '
+            'must never silently hide a teacher own students from them',
+      );
+    });
+
+    test('an assignment round-trips with its pending state', () async {
+      final AppDatabase db = AppDatabase.forTesting(
+        NativeDatabase.opened(seededV9()),
+      );
+      addTearDown(db.close);
+
+      await db
+          .into(db.teacherAssignments)
+          .insert(
+            TeacherAssignmentsCompanion.insert(
+              uid: 'teacher-uid',
+              schoolId: 'SJS-2026-0041',
+              requestedAt: DateTime.utc(2026, 3, 3, 9, 14),
+              updatedAt: DateTime.utc(2026, 3, 3, 9, 14),
+            ),
+          );
+
+      final TeacherAssignmentRow row = await db
+          .select(db.teacherAssignments)
+          .getSingle();
+
+      expect(row.uid, 'teacher-uid');
+      expect(row.schoolId, 'SJS-2026-0041');
+      expect(
+        row.status,
+        'pending',
+        reason:
+            'a teacher who has scanned but not been assigned is pending - '
+            'the default has to be the state that grants nothing',
+      );
+      expect(row.classLevel, isEmpty);
+      expect(row.division, isEmpty);
+      expect(row.assignedBy, isNull);
+    });
+  });
+
   group('v8 -> v9, the last migration that actually moved schema', () {
     /// A v8 database with one student in it.
     ///

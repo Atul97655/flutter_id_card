@@ -34,6 +34,8 @@ class StudentEntry {
     this.rejectionReason,
     this.reviewedBy,
     this.reviewedAt,
+    this.submittedByUid,
+    this.submittedByName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -120,6 +122,14 @@ class StudentEntry {
   final String? reviewedBy;
   final DateTime? reviewedAt;
 
+  /// Auth UID of the teacher who submitted this card, and their name as it
+  /// stood at the time.
+  ///
+  /// Null on anything captured before v10 - those rows genuinely have no
+  /// answer, and the panel renders that as "unknown" rather than guessing.
+  final String? submittedByUid;
+  final String? submittedByName;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -196,6 +206,8 @@ class StudentEntry {
     bool clearRejectionReason = false,
     String? reviewedBy,
     DateTime? reviewedAt,
+    String? submittedByUid,
+    String? submittedByName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -227,6 +239,8 @@ class StudentEntry {
           : (rejectionReason ?? this.rejectionReason),
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewedAt: reviewedAt ?? this.reviewedAt,
+      submittedByUid: submittedByUid ?? this.submittedByUid,
+      submittedByName: submittedByName ?? this.submittedByName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -252,6 +266,8 @@ class StudentEntry {
     'rejectionReason': rejectionReason,
     'reviewedBy': reviewedBy,
     'reviewedAt': reviewedAt?.toUtc().toIso8601String(),
+    'submittedByUid': submittedByUid,
+    'submittedByName': submittedByName,
     'createdAt': createdAt.toUtc().toIso8601String(),
     'updatedAt': updatedAt.toUtc().toIso8601String(),
   };
@@ -276,6 +292,8 @@ class StudentEntry {
       rejectionReason: map['rejectionReason'] as String?,
       reviewedBy: map['reviewedBy'] as String?,
       reviewedAt: _parseDate(map['reviewedAt'] as String?),
+      submittedByUid: map['submittedByUid'] as String?,
+      submittedByName: map['submittedByName'] as String?,
       createdAt: _parseDate(map['createdAt'] as String?) ?? DateTime.now(),
       updatedAt: _parseDate(map['updatedAt'] as String?) ?? DateTime.now(),
     );

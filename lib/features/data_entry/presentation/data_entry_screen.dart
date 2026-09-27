@@ -321,6 +321,12 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       // actually reaches the server.
       syncStatus: SyncStatus.pending,
       syncAttempts: 0,
+      // Attribution is stamped once, at creation, and never rewritten. An
+      // admin correcting a typo is not the person who submitted the card, and
+      // a record that quietly changes hands on edit is worse than one with no
+      // name on it at all. Pre-v10 rows keep their null.
+      submittedByUid: _existing?.submittedByUid ?? session?.uid,
+      submittedByName: _existing?.submittedByName ?? session?.displayName,
       createdAt: _existing?.createdAt ?? now,
       updatedAt: now,
     );

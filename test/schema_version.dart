@@ -4,4 +4,4 @@
 /// migration used to mean chasing all three. Bump this when
 /// `AppDatabase.schemaVersion` changes - the mismatch is the point, it forces
 /// a deliberate acknowledgement that the schema moved.
-const int kExpectedSchemaVersion = 9;
+const int kExpectedSchemaVersion = 10;

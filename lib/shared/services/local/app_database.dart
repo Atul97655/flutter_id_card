@@ -82,11 +82,83 @@ class StudentEntries extends Table {
   TextColumn get reviewedBy => text().nullable()();
   DateTimeColumn get reviewedAt => dateTime().nullable()();
 
+  /// Auth UID of the teacher who captured and submitted this card.
+  ///
+  /// Without it a card can be traced to a school but not to a person, which
+  /// is most of what the office wants to know: who is behind on their
+  /// section, whose photos keep coming back blurred, who to ask about a
+  /// specific child. The panel's per-teacher views are unanswerable without
+  /// this column.
+  ///
+  /// Nullable because every row captured before v10 genuinely has no answer.
+  /// Inventing one - attributing old cards to whoever happens to be signed in
+  /// now - would put a name against work they did not do.
+  TextColumn get submittedByUid => text().nullable()();
+
+  /// The submitting teacher's display name at the time of submission.
+  ///
+  /// Denormalised on purpose. The alternative is joining every entry to
+  /// `users` to render a list, which the panel reads across schools via a
+  /// collection-group query where that join is not available. It also keeps
+  /// the record honest: if a teacher leaves and their account is reused or
+  /// renamed, the card still says who actually submitted it.
+  TextColumn get submittedByName => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+/// Which class and section a teacher may submit for.
+///
+/// Separate from the `users` document rather than two more columns on it,
+/// because the lifecycle is different: a join arrives before any assignment
+/// exists, an assignment can be changed by the office without touching the
+/// account, and the pending state has to be representable on its own. A
+/// teacher who has scanned a QR code but has no class yet is a row here with
+/// `status = 'pending'` - which is exactly what the office's Pending Joins
+/// list reads.
+///
+/// This is a local mirror. The authority is the Firestore document and, in
+/// the end, the security rules: a client-side scope check decides what to
+/// draw, never what may be read.
+@DataClassName('TeacherAssignmentRow')
+class TeacherAssignments extends Table {
+  /// Firebase Auth UID. One assignment per teacher - a teacher covering two
+  /// sections is a case the office has not asked for, and guessing at it now
+  /// would mean guessing at how the scope rules compose.
+  TextColumn get uid => text()();
+
+  TextColumn get schoolId => text()();
+
+  /// Empty until the office assigns one. Named to match `studentClass` on the
+  /// entry rather than the UI's word for it.
+  TextColumn get classLevel => text().withDefault(const Constant(''))();
+
+  /// The spec calls this "section". The wire, the Drift schema, the card
+  /// templates and the per-division colour map all call it `division`, and
+  /// renaming it would be a large diff that changes nothing a user sees.
+  TextColumn get division => text().withDefault(const Constant(''))();
+
+  /// `pending` | `active` | `declined`. Text for the same reason
+  /// [StudentEntries.syncStatus] is text: a database dump has to be readable
+  /// during a support call.
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+
+  /// Auth UID of the admin who approved the join, and when.
+  TextColumn get assignedBy => text().nullable()();
+  DateTimeColumn get assignedAt => dateTime().nullable()();
+
+  /// When the teacher scanned the code. Drives the ordering of the office's
+  /// pending list, so the person who has been waiting longest is at the top.
+  DateTimeColumn get requestedAt => dateTime()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{uid};
 }
 
 @DataClassName('SchoolConfigRow')
@@ -201,6 +273,7 @@ class AppFlags extends Table {
     AuditLogs,
     PrintBatches,
     AppFlags,
+    TeacherAssignments,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -210,7 +283,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -339,6 +412,31 @@ UPDATE school_configs
           studentEntries.photoThumb as GeneratedColumn<Object>,
         );
         await m.createTable(appFlags);
+      }
+
+      // v9 -> v10: attribute a card to the teacher who sent it, and give a
+      // teacher a class and section.
+      //
+      // Both entry columns are nullable with no backfill, deliberately. A row
+      // captured before this release has no recorded submitter, and the only
+      // available guess - whoever is signed in during the upgrade - would put
+      // a name against work they did not do. Null reads as "we do not know",
+      // which is true.
+      //
+      // `teacher_assignments` starts empty. An existing teacher keeps working
+      // exactly as before until the office assigns them a section: no row
+      // here means no narrowing, so an upgrade cannot silently hide a
+      // teacher's own students from them.
+      if (from < 10) {
+        await m.addColumn(
+          studentEntries,
+          studentEntries.submittedByUid as GeneratedColumn<Object>,
+        );
+        await m.addColumn(
+          studentEntries,
+          studentEntries.submittedByName as GeneratedColumn<Object>,
+        );
+        await m.createTable(teacherAssignments);
       }
     },
     beforeOpen: (OpeningDetails details) async {

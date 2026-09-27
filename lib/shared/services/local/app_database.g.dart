@@ -267,6 +267,28 @@ class $StudentEntriesTable extends StudentEntries
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _submittedByUidMeta = const VerificationMeta(
+    'submittedByUid',
+  );
+  @override
+  late final GeneratedColumn<String> submittedByUid = GeneratedColumn<String>(
+    'submitted_by_uid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _submittedByNameMeta = const VerificationMeta(
+    'submittedByName',
+  );
+  @override
+  late final GeneratedColumn<String> submittedByName = GeneratedColumn<String>(
+    'submitted_by_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -314,6 +336,8 @@ class $StudentEntriesTable extends StudentEntries
     rejectionReason,
     reviewedBy,
     reviewedAt,
+    submittedByUid,
+    submittedByName,
     createdAt,
     updatedAt,
   ];
@@ -492,6 +516,24 @@ class $StudentEntriesTable extends StudentEntries
         reviewedAt.isAcceptableOrUnknown(data['reviewed_at']!, _reviewedAtMeta),
       );
     }
+    if (data.containsKey('submitted_by_uid')) {
+      context.handle(
+        _submittedByUidMeta,
+        submittedByUid.isAcceptableOrUnknown(
+          data['submitted_by_uid']!,
+          _submittedByUidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('submitted_by_name')) {
+      context.handle(
+        _submittedByNameMeta,
+        submittedByName.isAcceptableOrUnknown(
+          data['submitted_by_name']!,
+          _submittedByNameMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -609,6 +651,14 @@ class $StudentEntriesTable extends StudentEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}reviewed_at'],
       ),
+      submittedByUid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}submitted_by_uid'],
+      ),
+      submittedByName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}submitted_by_name'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -692,6 +742,28 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
   /// wrong card reaches a school.
   final String? reviewedBy;
   final DateTime? reviewedAt;
+
+  /// Auth UID of the teacher who captured and submitted this card.
+  ///
+  /// Without it a card can be traced to a school but not to a person, which
+  /// is most of what the office wants to know: who is behind on their
+  /// section, whose photos keep coming back blurred, who to ask about a
+  /// specific child. The panel's per-teacher views are unanswerable without
+  /// this column.
+  ///
+  /// Nullable because every row captured before v10 genuinely has no answer.
+  /// Inventing one - attributing old cards to whoever happens to be signed in
+  /// now - would put a name against work they did not do.
+  final String? submittedByUid;
+
+  /// The submitting teacher's display name at the time of submission.
+  ///
+  /// Denormalised on purpose. The alternative is joining every entry to
+  /// `users` to render a list, which the panel reads across schools via a
+  /// collection-group query where that join is not available. It also keeps
+  /// the record honest: if a teacher leaves and their account is reused or
+  /// renamed, the card still says who actually submitted it.
+  final String? submittedByName;
   final DateTime createdAt;
   final DateTime updatedAt;
   const StudentEntryRow({
@@ -718,6 +790,8 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     this.rejectionReason,
     this.reviewedBy,
     this.reviewedAt,
+    this.submittedByUid,
+    this.submittedByName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -767,6 +841,12 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     if (!nullToAbsent || reviewedAt != null) {
       map['reviewed_at'] = Variable<DateTime>(reviewedAt);
     }
+    if (!nullToAbsent || submittedByUid != null) {
+      map['submitted_by_uid'] = Variable<String>(submittedByUid);
+    }
+    if (!nullToAbsent || submittedByName != null) {
+      map['submitted_by_name'] = Variable<String>(submittedByName);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -815,6 +895,12 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       reviewedAt: reviewedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(reviewedAt),
+      submittedByUid: submittedByUid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(submittedByUid),
+      submittedByName: submittedByName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(submittedByName),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -851,6 +937,8 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       rejectionReason: serializer.fromJson<String?>(json['rejectionReason']),
       reviewedBy: serializer.fromJson<String?>(json['reviewedBy']),
       reviewedAt: serializer.fromJson<DateTime?>(json['reviewedAt']),
+      submittedByUid: serializer.fromJson<String?>(json['submittedByUid']),
+      submittedByName: serializer.fromJson<String?>(json['submittedByName']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -882,6 +970,8 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       'rejectionReason': serializer.toJson<String?>(rejectionReason),
       'reviewedBy': serializer.toJson<String?>(reviewedBy),
       'reviewedAt': serializer.toJson<DateTime?>(reviewedAt),
+      'submittedByUid': serializer.toJson<String?>(submittedByUid),
+      'submittedByName': serializer.toJson<String?>(submittedByName),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -911,6 +1001,8 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     Value<String?> rejectionReason = const Value.absent(),
     Value<String?> reviewedBy = const Value.absent(),
     Value<DateTime?> reviewedAt = const Value.absent(),
+    Value<String?> submittedByUid = const Value.absent(),
+    Value<String?> submittedByName = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => StudentEntryRow(
@@ -947,6 +1039,12 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
         : this.rejectionReason,
     reviewedBy: reviewedBy.present ? reviewedBy.value : this.reviewedBy,
     reviewedAt: reviewedAt.present ? reviewedAt.value : this.reviewedAt,
+    submittedByUid: submittedByUid.present
+        ? submittedByUid.value
+        : this.submittedByUid,
+    submittedByName: submittedByName.present
+        ? submittedByName.value
+        : this.submittedByName,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -1005,6 +1103,12 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
       reviewedAt: data.reviewedAt.present
           ? data.reviewedAt.value
           : this.reviewedAt,
+      submittedByUid: data.submittedByUid.present
+          ? data.submittedByUid.value
+          : this.submittedByUid,
+      submittedByName: data.submittedByName.present
+          ? data.submittedByName.value
+          : this.submittedByName,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1036,6 +1140,8 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           ..write('rejectionReason: $rejectionReason, ')
           ..write('reviewedBy: $reviewedBy, ')
           ..write('reviewedAt: $reviewedAt, ')
+          ..write('submittedByUid: $submittedByUid, ')
+          ..write('submittedByName: $submittedByName, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1067,6 +1173,8 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
     rejectionReason,
     reviewedBy,
     reviewedAt,
+    submittedByUid,
+    submittedByName,
     createdAt,
     updatedAt,
   ]);
@@ -1097,6 +1205,8 @@ class StudentEntryRow extends DataClass implements Insertable<StudentEntryRow> {
           other.rejectionReason == this.rejectionReason &&
           other.reviewedBy == this.reviewedBy &&
           other.reviewedAt == this.reviewedAt &&
+          other.submittedByUid == this.submittedByUid &&
+          other.submittedByName == this.submittedByName &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1125,6 +1235,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
   final Value<String?> rejectionReason;
   final Value<String?> reviewedBy;
   final Value<DateTime?> reviewedAt;
+  final Value<String?> submittedByUid;
+  final Value<String?> submittedByName;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -1152,6 +1264,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.rejectionReason = const Value.absent(),
     this.reviewedBy = const Value.absent(),
     this.reviewedAt = const Value.absent(),
+    this.submittedByUid = const Value.absent(),
+    this.submittedByName = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1180,6 +1294,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     this.rejectionReason = const Value.absent(),
     this.reviewedBy = const Value.absent(),
     this.reviewedAt = const Value.absent(),
+    this.submittedByUid = const Value.absent(),
+    this.submittedByName = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -1211,6 +1327,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Expression<String>? rejectionReason,
     Expression<String>? reviewedBy,
     Expression<DateTime>? reviewedAt,
+    Expression<String>? submittedByUid,
+    Expression<String>? submittedByName,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -1239,6 +1357,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       if (rejectionReason != null) 'rejection_reason': rejectionReason,
       if (reviewedBy != null) 'reviewed_by': reviewedBy,
       if (reviewedAt != null) 'reviewed_at': reviewedAt,
+      if (submittedByUid != null) 'submitted_by_uid': submittedByUid,
+      if (submittedByName != null) 'submitted_by_name': submittedByName,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1269,6 +1389,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     Value<String?>? rejectionReason,
     Value<String?>? reviewedBy,
     Value<DateTime?>? reviewedAt,
+    Value<String?>? submittedByUid,
+    Value<String?>? submittedByName,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -1297,6 +1419,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
       rejectionReason: rejectionReason ?? this.rejectionReason,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewedAt: reviewedAt ?? this.reviewedAt,
+      submittedByUid: submittedByUid ?? this.submittedByUid,
+      submittedByName: submittedByName ?? this.submittedByName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -1375,6 +1499,12 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
     if (reviewedAt.present) {
       map['reviewed_at'] = Variable<DateTime>(reviewedAt.value);
     }
+    if (submittedByUid.present) {
+      map['submitted_by_uid'] = Variable<String>(submittedByUid.value);
+    }
+    if (submittedByName.present) {
+      map['submitted_by_name'] = Variable<String>(submittedByName.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1413,6 +1543,8 @@ class StudentEntriesCompanion extends UpdateCompanion<StudentEntryRow> {
           ..write('rejectionReason: $rejectionReason, ')
           ..write('reviewedBy: $reviewedBy, ')
           ..write('reviewedAt: $reviewedAt, ')
+          ..write('submittedByUid: $submittedByUid, ')
+          ..write('submittedByName: $submittedByName, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -3647,6 +3779,595 @@ class AppFlagsCompanion extends UpdateCompanion<AppFlagRow> {
   }
 }
 
+class $TeacherAssignmentsTable extends TeacherAssignments
+    with TableInfo<$TeacherAssignmentsTable, TeacherAssignmentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TeacherAssignmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+    'uid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _schoolIdMeta = const VerificationMeta(
+    'schoolId',
+  );
+  @override
+  late final GeneratedColumn<String> schoolId = GeneratedColumn<String>(
+    'school_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _classLevelMeta = const VerificationMeta(
+    'classLevel',
+  );
+  @override
+  late final GeneratedColumn<String> classLevel = GeneratedColumn<String>(
+    'class_level',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _divisionMeta = const VerificationMeta(
+    'division',
+  );
+  @override
+  late final GeneratedColumn<String> division = GeneratedColumn<String>(
+    'division',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _assignedByMeta = const VerificationMeta(
+    'assignedBy',
+  );
+  @override
+  late final GeneratedColumn<String> assignedBy = GeneratedColumn<String>(
+    'assigned_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _assignedAtMeta = const VerificationMeta(
+    'assignedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> assignedAt = GeneratedColumn<DateTime>(
+    'assigned_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _requestedAtMeta = const VerificationMeta(
+    'requestedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> requestedAt = GeneratedColumn<DateTime>(
+    'requested_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    uid,
+    schoolId,
+    classLevel,
+    division,
+    status,
+    assignedBy,
+    assignedAt,
+    requestedAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'teacher_assignments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TeacherAssignmentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uid')) {
+      context.handle(
+        _uidMeta,
+        uid.isAcceptableOrUnknown(data['uid']!, _uidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_uidMeta);
+    }
+    if (data.containsKey('school_id')) {
+      context.handle(
+        _schoolIdMeta,
+        schoolId.isAcceptableOrUnknown(data['school_id']!, _schoolIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolIdMeta);
+    }
+    if (data.containsKey('class_level')) {
+      context.handle(
+        _classLevelMeta,
+        classLevel.isAcceptableOrUnknown(data['class_level']!, _classLevelMeta),
+      );
+    }
+    if (data.containsKey('division')) {
+      context.handle(
+        _divisionMeta,
+        division.isAcceptableOrUnknown(data['division']!, _divisionMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('assigned_by')) {
+      context.handle(
+        _assignedByMeta,
+        assignedBy.isAcceptableOrUnknown(data['assigned_by']!, _assignedByMeta),
+      );
+    }
+    if (data.containsKey('assigned_at')) {
+      context.handle(
+        _assignedAtMeta,
+        assignedAt.isAcceptableOrUnknown(data['assigned_at']!, _assignedAtMeta),
+      );
+    }
+    if (data.containsKey('requested_at')) {
+      context.handle(
+        _requestedAtMeta,
+        requestedAt.isAcceptableOrUnknown(
+          data['requested_at']!,
+          _requestedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_requestedAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {uid};
+  @override
+  TeacherAssignmentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TeacherAssignmentRow(
+      uid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uid'],
+      )!,
+      schoolId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}school_id'],
+      )!,
+      classLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}class_level'],
+      )!,
+      division: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}division'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      assignedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_by'],
+      ),
+      assignedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}assigned_at'],
+      ),
+      requestedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}requested_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $TeacherAssignmentsTable createAlias(String alias) {
+    return $TeacherAssignmentsTable(attachedDatabase, alias);
+  }
+}
+
+class TeacherAssignmentRow extends DataClass
+    implements Insertable<TeacherAssignmentRow> {
+  /// Firebase Auth UID. One assignment per teacher - a teacher covering two
+  /// sections is a case the office has not asked for, and guessing at it now
+  /// would mean guessing at how the scope rules compose.
+  final String uid;
+  final String schoolId;
+
+  /// Empty until the office assigns one. Named to match `studentClass` on the
+  /// entry rather than the UI's word for it.
+  final String classLevel;
+
+  /// The spec calls this "section". The wire, the Drift schema, the card
+  /// templates and the per-division colour map all call it `division`, and
+  /// renaming it would be a large diff that changes nothing a user sees.
+  final String division;
+
+  /// `pending` | `active` | `declined`. Text for the same reason
+  /// [StudentEntries.syncStatus] is text: a database dump has to be readable
+  /// during a support call.
+  final String status;
+
+  /// Auth UID of the admin who approved the join, and when.
+  final String? assignedBy;
+  final DateTime? assignedAt;
+
+  /// When the teacher scanned the code. Drives the ordering of the office's
+  /// pending list, so the person who has been waiting longest is at the top.
+  final DateTime requestedAt;
+  final DateTime updatedAt;
+  const TeacherAssignmentRow({
+    required this.uid,
+    required this.schoolId,
+    required this.classLevel,
+    required this.division,
+    required this.status,
+    this.assignedBy,
+    this.assignedAt,
+    required this.requestedAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uid'] = Variable<String>(uid);
+    map['school_id'] = Variable<String>(schoolId);
+    map['class_level'] = Variable<String>(classLevel);
+    map['division'] = Variable<String>(division);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || assignedBy != null) {
+      map['assigned_by'] = Variable<String>(assignedBy);
+    }
+    if (!nullToAbsent || assignedAt != null) {
+      map['assigned_at'] = Variable<DateTime>(assignedAt);
+    }
+    map['requested_at'] = Variable<DateTime>(requestedAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  TeacherAssignmentsCompanion toCompanion(bool nullToAbsent) {
+    return TeacherAssignmentsCompanion(
+      uid: Value(uid),
+      schoolId: Value(schoolId),
+      classLevel: Value(classLevel),
+      division: Value(division),
+      status: Value(status),
+      assignedBy: assignedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedBy),
+      assignedAt: assignedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedAt),
+      requestedAt: Value(requestedAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory TeacherAssignmentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TeacherAssignmentRow(
+      uid: serializer.fromJson<String>(json['uid']),
+      schoolId: serializer.fromJson<String>(json['schoolId']),
+      classLevel: serializer.fromJson<String>(json['classLevel']),
+      division: serializer.fromJson<String>(json['division']),
+      status: serializer.fromJson<String>(json['status']),
+      assignedBy: serializer.fromJson<String?>(json['assignedBy']),
+      assignedAt: serializer.fromJson<DateTime?>(json['assignedAt']),
+      requestedAt: serializer.fromJson<DateTime>(json['requestedAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uid': serializer.toJson<String>(uid),
+      'schoolId': serializer.toJson<String>(schoolId),
+      'classLevel': serializer.toJson<String>(classLevel),
+      'division': serializer.toJson<String>(division),
+      'status': serializer.toJson<String>(status),
+      'assignedBy': serializer.toJson<String?>(assignedBy),
+      'assignedAt': serializer.toJson<DateTime?>(assignedAt),
+      'requestedAt': serializer.toJson<DateTime>(requestedAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  TeacherAssignmentRow copyWith({
+    String? uid,
+    String? schoolId,
+    String? classLevel,
+    String? division,
+    String? status,
+    Value<String?> assignedBy = const Value.absent(),
+    Value<DateTime?> assignedAt = const Value.absent(),
+    DateTime? requestedAt,
+    DateTime? updatedAt,
+  }) => TeacherAssignmentRow(
+    uid: uid ?? this.uid,
+    schoolId: schoolId ?? this.schoolId,
+    classLevel: classLevel ?? this.classLevel,
+    division: division ?? this.division,
+    status: status ?? this.status,
+    assignedBy: assignedBy.present ? assignedBy.value : this.assignedBy,
+    assignedAt: assignedAt.present ? assignedAt.value : this.assignedAt,
+    requestedAt: requestedAt ?? this.requestedAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  TeacherAssignmentRow copyWithCompanion(TeacherAssignmentsCompanion data) {
+    return TeacherAssignmentRow(
+      uid: data.uid.present ? data.uid.value : this.uid,
+      schoolId: data.schoolId.present ? data.schoolId.value : this.schoolId,
+      classLevel: data.classLevel.present
+          ? data.classLevel.value
+          : this.classLevel,
+      division: data.division.present ? data.division.value : this.division,
+      status: data.status.present ? data.status.value : this.status,
+      assignedBy: data.assignedBy.present
+          ? data.assignedBy.value
+          : this.assignedBy,
+      assignedAt: data.assignedAt.present
+          ? data.assignedAt.value
+          : this.assignedAt,
+      requestedAt: data.requestedAt.present
+          ? data.requestedAt.value
+          : this.requestedAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TeacherAssignmentRow(')
+          ..write('uid: $uid, ')
+          ..write('schoolId: $schoolId, ')
+          ..write('classLevel: $classLevel, ')
+          ..write('division: $division, ')
+          ..write('status: $status, ')
+          ..write('assignedBy: $assignedBy, ')
+          ..write('assignedAt: $assignedAt, ')
+          ..write('requestedAt: $requestedAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    uid,
+    schoolId,
+    classLevel,
+    division,
+    status,
+    assignedBy,
+    assignedAt,
+    requestedAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TeacherAssignmentRow &&
+          other.uid == this.uid &&
+          other.schoolId == this.schoolId &&
+          other.classLevel == this.classLevel &&
+          other.division == this.division &&
+          other.status == this.status &&
+          other.assignedBy == this.assignedBy &&
+          other.assignedAt == this.assignedAt &&
+          other.requestedAt == this.requestedAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class TeacherAssignmentsCompanion
+    extends UpdateCompanion<TeacherAssignmentRow> {
+  final Value<String> uid;
+  final Value<String> schoolId;
+  final Value<String> classLevel;
+  final Value<String> division;
+  final Value<String> status;
+  final Value<String?> assignedBy;
+  final Value<DateTime?> assignedAt;
+  final Value<DateTime> requestedAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const TeacherAssignmentsCompanion({
+    this.uid = const Value.absent(),
+    this.schoolId = const Value.absent(),
+    this.classLevel = const Value.absent(),
+    this.division = const Value.absent(),
+    this.status = const Value.absent(),
+    this.assignedBy = const Value.absent(),
+    this.assignedAt = const Value.absent(),
+    this.requestedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TeacherAssignmentsCompanion.insert({
+    required String uid,
+    required String schoolId,
+    this.classLevel = const Value.absent(),
+    this.division = const Value.absent(),
+    this.status = const Value.absent(),
+    this.assignedBy = const Value.absent(),
+    this.assignedAt = const Value.absent(),
+    required DateTime requestedAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : uid = Value(uid),
+       schoolId = Value(schoolId),
+       requestedAt = Value(requestedAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<TeacherAssignmentRow> custom({
+    Expression<String>? uid,
+    Expression<String>? schoolId,
+    Expression<String>? classLevel,
+    Expression<String>? division,
+    Expression<String>? status,
+    Expression<String>? assignedBy,
+    Expression<DateTime>? assignedAt,
+    Expression<DateTime>? requestedAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (uid != null) 'uid': uid,
+      if (schoolId != null) 'school_id': schoolId,
+      if (classLevel != null) 'class_level': classLevel,
+      if (division != null) 'division': division,
+      if (status != null) 'status': status,
+      if (assignedBy != null) 'assigned_by': assignedBy,
+      if (assignedAt != null) 'assigned_at': assignedAt,
+      if (requestedAt != null) 'requested_at': requestedAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TeacherAssignmentsCompanion copyWith({
+    Value<String>? uid,
+    Value<String>? schoolId,
+    Value<String>? classLevel,
+    Value<String>? division,
+    Value<String>? status,
+    Value<String?>? assignedBy,
+    Value<DateTime?>? assignedAt,
+    Value<DateTime>? requestedAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return TeacherAssignmentsCompanion(
+      uid: uid ?? this.uid,
+      schoolId: schoolId ?? this.schoolId,
+      classLevel: classLevel ?? this.classLevel,
+      division: division ?? this.division,
+      status: status ?? this.status,
+      assignedBy: assignedBy ?? this.assignedBy,
+      assignedAt: assignedAt ?? this.assignedAt,
+      requestedAt: requestedAt ?? this.requestedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
+    if (schoolId.present) {
+      map['school_id'] = Variable<String>(schoolId.value);
+    }
+    if (classLevel.present) {
+      map['class_level'] = Variable<String>(classLevel.value);
+    }
+    if (division.present) {
+      map['division'] = Variable<String>(division.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (assignedBy.present) {
+      map['assigned_by'] = Variable<String>(assignedBy.value);
+    }
+    if (assignedAt.present) {
+      map['assigned_at'] = Variable<DateTime>(assignedAt.value);
+    }
+    if (requestedAt.present) {
+      map['requested_at'] = Variable<DateTime>(requestedAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TeacherAssignmentsCompanion(')
+          ..write('uid: $uid, ')
+          ..write('schoolId: $schoolId, ')
+          ..write('classLevel: $classLevel, ')
+          ..write('division: $division, ')
+          ..write('status: $status, ')
+          ..write('assignedBy: $assignedBy, ')
+          ..write('assignedAt: $assignedAt, ')
+          ..write('requestedAt: $requestedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3655,6 +4376,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AuditLogsTable auditLogs = $AuditLogsTable(this);
   late final $PrintBatchesTable printBatches = $PrintBatchesTable(this);
   late final $AppFlagsTable appFlags = $AppFlagsTable(this);
+  late final $TeacherAssignmentsTable teacherAssignments =
+      $TeacherAssignmentsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3665,6 +4388,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     auditLogs,
     printBatches,
     appFlags,
+    teacherAssignments,
   ];
 }
 
@@ -3693,6 +4417,8 @@ typedef $$StudentEntriesTableCreateCompanionBuilder =
       Value<String?> rejectionReason,
       Value<String?> reviewedBy,
       Value<DateTime?> reviewedAt,
+      Value<String?> submittedByUid,
+      Value<String?> submittedByName,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -3722,6 +4448,8 @@ typedef $$StudentEntriesTableUpdateCompanionBuilder =
       Value<String?> rejectionReason,
       Value<String?> reviewedBy,
       Value<DateTime?> reviewedAt,
+      Value<String?> submittedByUid,
+      Value<String?> submittedByName,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -3848,6 +4576,16 @@ class $$StudentEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get reviewedAt => $composableBuilder(
     column: $table.reviewedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get submittedByUid => $composableBuilder(
+    column: $table.submittedByUid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get submittedByName => $composableBuilder(
+    column: $table.submittedByName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3986,6 +4724,16 @@ class $$StudentEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get submittedByUid => $composableBuilder(
+    column: $table.submittedByUid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get submittedByName => $composableBuilder(
+    column: $table.submittedByName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4105,6 +4853,16 @@ class $$StudentEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get submittedByUid => $composableBuilder(
+    column: $table.submittedByUid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get submittedByName => $composableBuilder(
+    column: $table.submittedByName,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -4172,6 +4930,8 @@ class $$StudentEntriesTableTableManager
                 Value<String?> rejectionReason = const Value.absent(),
                 Value<String?> reviewedBy = const Value.absent(),
                 Value<DateTime?> reviewedAt = const Value.absent(),
+                Value<String?> submittedByUid = const Value.absent(),
+                Value<String?> submittedByName = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4199,6 +4959,8 @@ class $$StudentEntriesTableTableManager
                 rejectionReason: rejectionReason,
                 reviewedBy: reviewedBy,
                 reviewedAt: reviewedAt,
+                submittedByUid: submittedByUid,
+                submittedByName: submittedByName,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -4228,6 +4990,8 @@ class $$StudentEntriesTableTableManager
                 Value<String?> rejectionReason = const Value.absent(),
                 Value<String?> reviewedBy = const Value.absent(),
                 Value<DateTime?> reviewedAt = const Value.absent(),
+                Value<String?> submittedByUid = const Value.absent(),
+                Value<String?> submittedByName = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -4255,6 +5019,8 @@ class $$StudentEntriesTableTableManager
                 rejectionReason: rejectionReason,
                 reviewedBy: reviewedBy,
                 reviewedAt: reviewedAt,
+                submittedByUid: submittedByUid,
+                submittedByName: submittedByName,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -5371,6 +6137,303 @@ typedef $$AppFlagsTableProcessedTableManager =
       AppFlagRow,
       PrefetchHooks Function()
     >;
+typedef $$TeacherAssignmentsTableCreateCompanionBuilder =
+    TeacherAssignmentsCompanion Function({
+      required String uid,
+      required String schoolId,
+      Value<String> classLevel,
+      Value<String> division,
+      Value<String> status,
+      Value<String?> assignedBy,
+      Value<DateTime?> assignedAt,
+      required DateTime requestedAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$TeacherAssignmentsTableUpdateCompanionBuilder =
+    TeacherAssignmentsCompanion Function({
+      Value<String> uid,
+      Value<String> schoolId,
+      Value<String> classLevel,
+      Value<String> division,
+      Value<String> status,
+      Value<String?> assignedBy,
+      Value<DateTime?> assignedAt,
+      Value<DateTime> requestedAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$TeacherAssignmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $TeacherAssignmentsTable> {
+  $$TeacherAssignmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get schoolId => $composableBuilder(
+    column: $table.schoolId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get classLevel => $composableBuilder(
+    column: $table.classLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get division => $composableBuilder(
+    column: $table.division,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedBy => $composableBuilder(
+    column: $table.assignedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get assignedAt => $composableBuilder(
+    column: $table.assignedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get requestedAt => $composableBuilder(
+    column: $table.requestedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TeacherAssignmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TeacherAssignmentsTable> {
+  $$TeacherAssignmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get schoolId => $composableBuilder(
+    column: $table.schoolId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get classLevel => $composableBuilder(
+    column: $table.classLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get division => $composableBuilder(
+    column: $table.division,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assignedBy => $composableBuilder(
+    column: $table.assignedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get assignedAt => $composableBuilder(
+    column: $table.assignedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get requestedAt => $composableBuilder(
+    column: $table.requestedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TeacherAssignmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TeacherAssignmentsTable> {
+  $$TeacherAssignmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
+
+  GeneratedColumn<String> get schoolId =>
+      $composableBuilder(column: $table.schoolId, builder: (column) => column);
+
+  GeneratedColumn<String> get classLevel => $composableBuilder(
+    column: $table.classLevel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get division =>
+      $composableBuilder(column: $table.division, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get assignedBy => $composableBuilder(
+    column: $table.assignedBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get assignedAt => $composableBuilder(
+    column: $table.assignedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get requestedAt => $composableBuilder(
+    column: $table.requestedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$TeacherAssignmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TeacherAssignmentsTable,
+          TeacherAssignmentRow,
+          $$TeacherAssignmentsTableFilterComposer,
+          $$TeacherAssignmentsTableOrderingComposer,
+          $$TeacherAssignmentsTableAnnotationComposer,
+          $$TeacherAssignmentsTableCreateCompanionBuilder,
+          $$TeacherAssignmentsTableUpdateCompanionBuilder,
+          (
+            TeacherAssignmentRow,
+            BaseReferences<
+              _$AppDatabase,
+              $TeacherAssignmentsTable,
+              TeacherAssignmentRow
+            >,
+          ),
+          TeacherAssignmentRow,
+          PrefetchHooks Function()
+        > {
+  $$TeacherAssignmentsTableTableManager(
+    _$AppDatabase db,
+    $TeacherAssignmentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TeacherAssignmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TeacherAssignmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TeacherAssignmentsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> uid = const Value.absent(),
+                Value<String> schoolId = const Value.absent(),
+                Value<String> classLevel = const Value.absent(),
+                Value<String> division = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> assignedBy = const Value.absent(),
+                Value<DateTime?> assignedAt = const Value.absent(),
+                Value<DateTime> requestedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TeacherAssignmentsCompanion(
+                uid: uid,
+                schoolId: schoolId,
+                classLevel: classLevel,
+                division: division,
+                status: status,
+                assignedBy: assignedBy,
+                assignedAt: assignedAt,
+                requestedAt: requestedAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String uid,
+                required String schoolId,
+                Value<String> classLevel = const Value.absent(),
+                Value<String> division = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> assignedBy = const Value.absent(),
+                Value<DateTime?> assignedAt = const Value.absent(),
+                required DateTime requestedAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => TeacherAssignmentsCompanion.insert(
+                uid: uid,
+                schoolId: schoolId,
+                classLevel: classLevel,
+                division: division,
+                status: status,
+                assignedBy: assignedBy,
+                assignedAt: assignedAt,
+                requestedAt: requestedAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TeacherAssignmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TeacherAssignmentsTable,
+      TeacherAssignmentRow,
+      $$TeacherAssignmentsTableFilterComposer,
+      $$TeacherAssignmentsTableOrderingComposer,
+      $$TeacherAssignmentsTableAnnotationComposer,
+      $$TeacherAssignmentsTableCreateCompanionBuilder,
+      $$TeacherAssignmentsTableUpdateCompanionBuilder,
+      (
+        TeacherAssignmentRow,
+        BaseReferences<
+          _$AppDatabase,
+          $TeacherAssignmentsTable,
+          TeacherAssignmentRow
+        >,
+      ),
+      TeacherAssignmentRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5385,4 +6448,6 @@ class $AppDatabaseManager {
       $$PrintBatchesTableTableManager(_db, _db.printBatches);
   $$AppFlagsTableTableManager get appFlags =>
       $$AppFlagsTableTableManager(_db, _db.appFlags);
+  $$TeacherAssignmentsTableTableManager get teacherAssignments =>
+      $$TeacherAssignmentsTableTableManager(_db, _db.teacherAssignments);
 }
