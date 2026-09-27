@@ -7,7 +7,8 @@ const {
   assertSucceeds,
 } = require('@firebase/rules-unit-testing');
 const {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, collectionGroup, getDocs,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collectionGroup, collection,
+  getDocs,
 } = require('firebase/firestore');
 
 // Teacher A and Teacher B belong to DIFFERENT schools - that is the whole
@@ -638,5 +639,432 @@ describe('Privilege escalation', () => {
     });
     await assertFails(getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'entry-a')));
     await assertFails(getDoc(doc(as(TEACHER_A), 'chats', 'chat-a')));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// QR onboarding (screens 15-18, pages A8 and A10).
+//
+// Opening Firebase Auth sign-up to the public is what makes the QR flow
+// possible, and it is also the single largest change to this project's threat
+// model. From here on, anybody can hold a valid identity. Everything that
+// keeps a stranger away from a school's student records now lives in the
+// rules, so these tests are the guarantee - not the onboarding screens, which
+// had not been written when this was committed.
+// ---------------------------------------------------------------------------
+
+const STRANGER = 'uid-stranger';
+const JOIN_TOKEN = 'Kx7Rm2Qp';
+
+describe('Self-registration', () => {
+  it('a new account can create its own profile as a teacher', async () => {
+    await assertSucceeds(setDoc(doc(as(STRANGER), 'users', STRANGER), {
+      role: 'Teacher', active: true, displayName: 'RAMESH PATIL',
+    }));
+  });
+
+  it('a new account cannot make itself an admin', async () => {
+    await assertFails(setDoc(doc(as(STRANGER), 'users', STRANGER), {
+      role: 'Admin', active: true,
+    }));
+  });
+
+  it('a new account cannot give itself a school', async () => {
+    await assertFails(setDoc(doc(as(STRANGER), 'users', STRANGER), {
+      role: 'Teacher', active: true, schoolId: SCHOOL_A,
+    }));
+  });
+
+  it('a new account cannot give itself a section', async () => {
+    await assertFails(setDoc(doc(as(STRANGER), 'users', STRANGER), {
+      role: 'Teacher',
+      active: true,
+      assignment: {
+        schoolId: SCHOOL_A, classLevel: '10', division: 'A', status: 'active',
+      },
+    }));
+  });
+
+  it('a new account cannot create a profile for somebody else', async () => {
+    await assertFails(setDoc(doc(as(STRANGER), 'users', 'uid-someone-else'), {
+      role: 'Teacher', active: true,
+    }));
+  });
+
+  // The load-bearing assertion of this whole feature.
+  it('a self-registered account can read nothing at all', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', STRANGER), {
+        role: 'Teacher', active: true,
+      });
+    });
+
+    await assertFails(getDoc(doc(as(STRANGER), 'schools', SCHOOL_A)));
+    await assertFails(
+      getDoc(doc(as(STRANGER), 'schools', SCHOOL_A, 'entries', 'entry-a')),
+    );
+    await assertFails(getDocs(collectionGroup(as(STRANGER), 'entries')));
+    await assertFails(getDoc(doc(as(STRANGER), 'chats', 'chat-a')));
+  });
+});
+
+describe('QR join codes', () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'joinCodes', JOIN_TOKEN), {
+        schoolId: SCHOOL_A, schoolName: 'SCHOOL A',
+      });
+      await setDoc(doc(db, 'users', STRANGER), {
+        role: 'Teacher', active: true,
+      });
+    });
+  });
+
+  it('holding a code reveals the school name', async () => {
+    const snap = await assertSucceeds(
+      getDoc(doc(as(STRANGER), 'joinCodes', JOIN_TOKEN)),
+    );
+    assert.strictEqual(snap.data().schoolName, 'SCHOOL A');
+  });
+
+  it('an anonymous scanner gets nothing', async () => {
+    await assertFails(getDoc(doc(anon(), 'joinCodes', JOIN_TOKEN)));
+  });
+
+  // Without this, one leaked login is a way into every school at once.
+  it('codes cannot be enumerated', async () => {
+    await assertFails(getDocs(collection(as(STRANGER), 'joinCodes')));
+  });
+
+  it('a teacher cannot mint a code', async () => {
+    await assertFails(setDoc(doc(as(TEACHER_A), 'joinCodes', 'forged'), {
+      schoolId: SCHOOL_A, schoolName: 'SCHOOL A',
+    }));
+  });
+
+  it('an admin can issue and revoke one', async () => {
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'joinCodes', 'fresh'), {
+      schoolId: SCHOOL_A, schoolName: 'SCHOOL A',
+    }));
+    await assertSucceeds(deleteDoc(doc(as(ADMIN), 'joinCodes', JOIN_TOKEN)));
+  });
+
+  // Rotation has to be safe for the people already inside.
+  it('revoking a code does not disturb a teacher who already joined', async () => {
+    await assertSucceeds(deleteDoc(doc(as(ADMIN), 'joinCodes', JOIN_TOKEN)));
+    await assertSucceeds(
+      getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'entry-a')),
+    );
+  });
+
+  it('a revoked code stops resolving', async () => {
+    await assertSucceeds(deleteDoc(doc(as(ADMIN), 'joinCodes', JOIN_TOKEN)));
+    const snap = await getDoc(doc(as(STRANGER), 'joinCodes', JOIN_TOKEN));
+    assert.strictEqual(snap.exists(), false);
+  });
+});
+
+describe('Pending joins', () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', STRANGER), {
+        role: 'Teacher', active: true,
+      });
+    });
+  });
+
+  const request = () => ({
+    uid: STRANGER,
+    schoolId: SCHOOL_A,
+    status: 'pending',
+    displayName: 'RAMESH PATIL',
+    requestedAt: new Date().toISOString(),
+  });
+
+  const queue = (db) => setDoc(
+    doc(db, 'schools', SCHOOL_A, 'joinRequests', STRANGER),
+    request(),
+  );
+
+  it('a scanner can queue themselves once', async () => {
+    await assertSucceeds(queue(as(STRANGER)));
+  });
+
+  it('a scanner cannot arrive pre-approved', async () => {
+    await assertFails(setDoc(
+      doc(as(STRANGER), 'schools', SCHOOL_A, 'joinRequests', STRANGER),
+      Object.assign(request(), { status: 'active' }),
+    ));
+  });
+
+  it('a scanner cannot queue under another name', async () => {
+    await assertFails(setDoc(
+      doc(as(STRANGER), 'schools', SCHOOL_A, 'joinRequests', TEACHER_B),
+      Object.assign(request(), { uid: TEACHER_B }),
+    ));
+  });
+
+  it('a scanner can check their own request', async () => {
+    await queue(as(STRANGER));
+    await assertSucceeds(getDoc(
+      doc(as(STRANGER), 'schools', SCHOOL_A, 'joinRequests', STRANGER),
+    ));
+  });
+
+  it('a scanner cannot read another request', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), 'schools', SCHOOL_A, 'joinRequests', TEACHER_B),
+        { uid: TEACHER_B, schoolId: SCHOOL_A, status: 'pending' },
+      );
+    });
+    await assertFails(getDoc(
+      doc(as(STRANGER), 'schools', SCHOOL_A, 'joinRequests', TEACHER_B),
+    ));
+  });
+
+  // Self-approval is the exact failure this flow exists to prevent.
+  it('a scanner cannot approve themselves', async () => {
+    await queue(as(STRANGER));
+    await assertFails(updateDoc(
+      doc(as(STRANGER), 'schools', SCHOOL_A, 'joinRequests', STRANGER),
+      { status: 'active' },
+    ));
+  });
+
+  it('a scanner cannot withdraw a request to hide it', async () => {
+    await queue(as(STRANGER));
+    await assertFails(deleteDoc(
+      doc(as(STRANGER), 'schools', SCHOOL_A, 'joinRequests', STRANGER),
+    ));
+  });
+
+  it('the office sees every pending join across all schools', async () => {
+    await queue(as(STRANGER));
+    const snap = await assertSucceeds(
+      getDocs(collectionGroup(as(ADMIN), 'joinRequests')),
+    );
+    assert.strictEqual(snap.size, 1);
+  });
+
+  it('a teacher cannot sweep the pending list', async () => {
+    await assertFails(getDocs(collectionGroup(as(TEACHER_A), 'joinRequests')));
+  });
+
+  it('the office can approve and decline', async () => {
+    await queue(as(STRANGER));
+    await assertSucceeds(updateDoc(
+      doc(as(ADMIN), 'schools', SCHOOL_A, 'joinRequests', STRANGER),
+      { status: 'active', classLevel: '10', division: 'C' },
+    ));
+    await assertSucceeds(deleteDoc(
+      doc(as(ADMIN), 'schools', SCHOOL_A, 'joinRequests', STRANGER),
+    ));
+  });
+
+  // Approving is really two writes: the request, and the schoolId that
+  // actually grants access. Only the second one matters for security.
+  it('access arrives only when the office writes schoolId', async () => {
+    await assertFails(
+      getDoc(doc(as(STRANGER), 'schools', SCHOOL_A, 'entries', 'entry-a')),
+    );
+
+    await assertSucceeds(updateDoc(doc(as(ADMIN), 'users', STRANGER), {
+      schoolId: SCHOOL_A,
+    }));
+
+    await assertSucceeds(
+      getDoc(doc(as(STRANGER), 'schools', SCHOOL_A, 'entries', 'entry-a')),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Section scope (screens 19, 20 and page A9).
+//
+// The narrowest boundary in the project: not "which school" but "which
+// section of which school". Every assertion here is about a teacher who is
+// legitimately inside a school and must still be kept out of part of it.
+// ---------------------------------------------------------------------------
+
+describe('Section scope', () => {
+  const scope = (classLevel, division, status = 'active') => ({
+    role: 'Teacher',
+    active: true,
+    schoolId: SCHOOL_A,
+    assignment: { schoolId: SCHOOL_A, classLevel, division, status },
+  });
+
+  const student = (id, classLevel, division) => ({
+    schoolId: SCHOOL_A,
+    name: 'STUDENT ' + id.toUpperCase(),
+    studentClass: classLevel,
+    division,
+    approvalStatus: 'pending',
+  });
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'schools', SCHOOL_A, 'entries', 'in-10a'),
+        student('in-10a', '10', 'A'));
+      await setDoc(doc(db, 'schools', SCHOOL_A, 'entries', 'in-10b'),
+        student('in-10b', '10', 'B'));
+      await setDoc(
+        doc(db, 'schools', SCHOOL_A, 'entries', 'in-10b', 'media', 'photo'),
+        { data: 'BBBB' },
+      );
+    });
+  });
+
+  const assign = (classLevel, division, status) => testEnv
+    .withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), 'users', TEACHER_A),
+        scope(classLevel, division, status),
+      );
+    });
+
+  it('a scoped teacher reads their own section', async () => {
+    await assign('10', 'A');
+    await assertSucceeds(
+      getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10a')),
+    );
+  });
+
+  // The one that matters.
+  it('a scoped teacher cannot read the next section along', async () => {
+    await assign('10', 'A');
+    await assertFails(
+      getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10b')),
+    );
+  });
+
+  // A photograph of a child is the most sensitive thing in this database.
+  it('a scoped teacher cannot read a photo from another section', async () => {
+    await assign('10', 'A');
+    await assertFails(getDoc(doc(
+      as(TEACHER_A),
+      'schools', SCHOOL_A, 'entries', 'in-10b', 'media', 'photo',
+    )));
+  });
+
+  it('a scoped teacher cannot file a student into another section', async () => {
+    await assign('10', 'A');
+    await assertFails(setDoc(
+      doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'new-10b'),
+      student('new-10b', '10', 'B'),
+    ));
+  });
+
+  it('a scoped teacher can file into their own section', async () => {
+    await assign('10', 'A');
+    await assertSucceeds(setDoc(
+      doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'new-10a'),
+      student('new-10a', '10', 'A'),
+    ));
+  });
+
+  // Moving a card out of your own section is how a scope gets escaped.
+  it('a scoped teacher cannot move a card out of their section', async () => {
+    await assign('10', 'A');
+    await assertFails(updateDoc(
+      doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10a'),
+      { division: 'B' },
+    ));
+  });
+
+  it('a scoped teacher cannot reach into another section by editing', async () => {
+    await assign('10', 'A');
+    await assertFails(updateDoc(
+      doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10b'),
+      { name: 'RENAMED' },
+    ));
+  });
+
+  // Grandfathering: an installation that upgrades must not narrow anyone
+  // until the office actually assigns a section.
+  it('a teacher with no assignment still sees the whole school', async () => {
+    await assertSucceeds(
+      getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10a')),
+    );
+    await assertSucceeds(
+      getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10b')),
+    );
+  });
+
+  it('a pending assignment does not narrow anything either', async () => {
+    await assign('10', 'A', 'pending');
+    await assertSucceeds(
+      getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10b')),
+    );
+  });
+
+  it('a half-filled assignment does not narrow anything', async () => {
+    await assign('10', '');
+    await assertSucceeds(
+      getDoc(doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'in-10b')),
+    );
+  });
+
+  it('a teacher cannot widen their own scope', async () => {
+    await assign('10', 'A');
+    await assertFails(updateDoc(doc(as(TEACHER_A), 'users', TEACHER_A), {
+      assignment: {
+        schoolId: SCHOOL_A, classLevel: '10', division: 'B', status: 'active',
+      },
+    }));
+  });
+
+  it('the office can move a teacher to another section', async () => {
+    await assign('10', 'A');
+    await assertSucceeds(updateDoc(doc(as(ADMIN), 'users', TEACHER_A), {
+      assignment: {
+        schoolId: SCHOOL_A, classLevel: '10', division: 'C', status: 'active',
+      },
+    }));
+  });
+
+  it('an admin is never narrowed', async () => {
+    await assign('10', 'A');
+    await assertSucceeds(
+      getDoc(doc(as(ADMIN), 'schools', SCHOOL_A, 'entries', 'in-10b')),
+    );
+  });
+});
+
+describe('Attribution', () => {
+  it('a teacher cannot submit a card under another name', async () => {
+    await assertFails(setDoc(
+      doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'forged'),
+      {
+        schoolId: SCHOOL_A,
+        name: 'STUDENT X',
+        approvalStatus: 'pending',
+        submittedByUid: TEACHER_B,
+      },
+    ));
+  });
+
+  it('a teacher can submit under their own', async () => {
+    await assertSucceeds(setDoc(
+      doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'honest'),
+      {
+        schoolId: SCHOOL_A,
+        name: 'STUDENT Y',
+        approvalStatus: 'pending',
+        submittedByUid: TEACHER_A,
+      },
+    ));
+  });
+
+  // Pre-v10 rows have no submitter, and the app still writes some without
+  // one when no session name is available.
+  it('a card with no submitter is still accepted', async () => {
+    await assertSucceeds(setDoc(
+      doc(as(TEACHER_A), 'schools', SCHOOL_A, 'entries', 'anon'),
+      { schoolId: SCHOOL_A, name: 'STUDENT Z', approvalStatus: 'pending' },
+    ));
   });
 });

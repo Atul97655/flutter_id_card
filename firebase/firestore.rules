@@ -66,15 +66,89 @@ service cloud.firestore {
       return isOperator() && operatorSchoolId() == schoolId;
     }
 
+    // --- section scope -------------------------------------------------
+    //
+    // An assignment narrows a teacher from a whole school to one class and
+    // section. It lives on the user document and only an admin can write it
+    // (see the `users` rules below), which is what makes it a boundary
+    // rather than a preference.
+    //
+    // Note what is NOT here: nothing grants access. An assignment can only
+    // ever take access away from someone who already had it through
+    // `belongsToSchool`. A teacher with an assignment but no `schoolId` -
+    // which is every teacher between scanning a QR code and being approved -
+    // reads nothing at all, because the gate they have to pass first is
+    // still `schoolId`, and only an admin can write that.
+    function assignment() {
+      return userDoc().get('assignment', {});
+    }
+
+    // A scope exists only when the office has actually set one. An empty or
+    // pending assignment deliberately means "no narrowing", so that
+    // upgrading an existing installation cannot silently hide a teacher's
+    // own students from them on the day this ships.
+    function hasSectionScope() {
+      return assignment().get('status', '') == 'active'
+        && assignment().get('classLevel', '') != ''
+        && assignment().get('division', '') != '';
+    }
+
+    // Whether a given entry falls inside the caller's section.
+    //
+    // Reading this on a LIST is stricter than it looks: Firestore refuses the
+    // whole query unless every document it returns satisfies the rule, so a
+    // scoped teacher must put the matching `where` clauses on their query or
+    // get nothing. That is intentional - it forces the client to be explicit
+    // about the scope rather than fetching everything and filtering in the
+    // widget, which would leak the data it was meant to be hiding.
+    function inSectionScope(data) {
+      return !hasSectionScope()
+        || (data.get('studentClass', '') == assignment().get('classLevel', '')
+            && data.get('division', '') == assignment().get('division', ''));
+    }
+
     // --- users -------------------------------------------------------
 
     match /users/{uid} {
       // You can read your own profile; admins can read anyone's.
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
 
-      // Only admins create or delete accounts. Critically, this stops an
-      // operator from writing role: "Admin" onto their own document.
-      allow create, delete: if isAdmin();
+      // Only admins delete accounts.
+      allow delete: if isAdmin();
+
+      // Creation is an admin's job, with one exception: a teacher signing
+      // themselves up before scanning their school's QR code.
+      //
+      // Self-registration exists because the alternative does not work. The
+      // panel cannot mint an account - creating a Firebase Auth user from the
+      // browser SDK signs the admin out of their own session, and doing it
+      // properly needs the Admin SDK on a server this project does not have.
+      //
+      // The trade is that anyone can hold an identity in this project. That
+      // is safe only because of what a fresh account is forbidden from
+      // writing onto itself:
+      //
+      //   role      - pinned to 'Teacher'. Without this the first thing a
+      //               stranger would write is role: 'Admin'.
+      //   schoolId  - must be ABSENT. This is the load-bearing one. Every
+      //               read rule in this file reaches a school through
+      //               `belongsToSchool`, which compares against this field,
+      //               so an account without it can read nothing anywhere.
+      //               Only an admin can add it, and that is precisely what
+      //               approving a pending join means.
+      //   assignment- must be ABSENT, for the same reason.
+      //
+      // So a self-registered account is an identity and nothing else until
+      // someone in the office acts.
+      allow create: if isAdmin()
+        || (
+          isSignedIn()
+          && request.auth.uid == uid
+          && request.resource.data.role == 'Teacher'
+          && request.resource.data.get('active', true) == true
+          && !('schoolId' in request.resource.data)
+          && !('assignment' in request.resource.data)
+        );
 
       // Admins may update anything. A user may update only their own
       // lastLoginDate - nothing else, and specifically not role or schoolId.
@@ -96,10 +170,39 @@ service cloud.firestore {
       // operator must not be able to switch a required field off.
       allow create, update, delete: if isAdmin();
 
+      // --- pending joins ---------------------------------------------
+      //
+      // A teacher who has scanned this school's code and is waiting for the
+      // office to give them a class. Keyed by their uid so one teacher
+      // cannot queue up twice, and so the record is trivially findable when
+      // the office acts on it.
+      //
+      // The teacher may read their own request - that is the whole of screen
+      // 18's "Check again" - and may create it once. They may not update it
+      // or delete it: a request that could rewrite its own status is not a
+      // request, and self-approval is the exact failure this flow exists to
+      // prevent.
+      match /joinRequests/{uid} {
+        allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+
+        allow create: if isSignedIn()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && request.resource.data.schoolId == schoolId
+          && request.resource.data.status == 'pending';
+
+        // Approving, declining and clearing are all the office's.
+        allow update, delete: if isAdmin();
+      }
+
       // --- student entries -------------------------------------------
 
       match /entries/{entryId} {
-        allow read: if isAdmin() || belongsToSchool(schoolId);
+        // A section assignment narrows this; no assignment leaves it as it
+        // was. See `inSectionScope` for why a scoped LIST needs matching
+        // `where` clauses on the client query.
+        allow read: if isAdmin()
+          || (belongsToSchool(schoolId) && inSectionScope(resource.data));
 
         // The review decision is the admin's alone. An operator approving
         // their own submission would make the whole review step decorative,
@@ -132,14 +235,24 @@ service cloud.firestore {
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && hasValidTextCapitalization()
+          && inSectionScope(request.resource.data)
+          && (isAdmin()
+              || !('submittedByUid' in request.resource.data)
+              || request.resource.data.submittedByUid == request.auth.uid)
           && (isAdmin()
               || !('approvalStatus' in request.resource.data)
               || request.resource.data.approvalStatus == 'pending');
 
         // Admins may change anything, including the review decision.
         // Operators may correct the student's details but never the review.
+        // Both the before and after states are checked against the scope. A
+        // teacher must not be able to edit a card out of their own section,
+        // nor reach into a section they were never given.
         allow update: if (isAdmin()
-                          || (belongsToSchool(schoolId) && reviewFieldsUnchanged()))
+                          || (belongsToSchool(schoolId)
+                              && reviewFieldsUnchanged()
+                              && inSectionScope(resource.data)
+                              && inSectionScope(request.resource.data)))
           && request.resource.data.schoolId == schoolId
           && hasValidTextCapitalization();
 
@@ -161,7 +274,23 @@ service cloud.firestore {
         // Same audience as the entry it belongs to: whoever may read the
         // student's details may see their picture, and nobody else.
         match /media/{mediaId} {
-          allow read: if isAdmin() || belongsToSchool(schoolId);
+          // The section scope has to be re-checked here against the entry
+          // this photo belongs to. A media document carries no class or
+          // division of its own, so without this lookup a teacher scoped to
+          // 10-A who knew an entry id could still fetch the photograph of a
+          // child in 10-B - which is the most sensitive thing in the whole
+          // database to get wrong.
+          //
+          // This costs one extra document read per evaluation. That is worth
+          // paying: the alternative is denormalising class and division onto
+          // every media document, where they would be a second copy that can
+          // drift out of step with the entry.
+          function parentEntry() {
+            return get(/databases/$(database)/documents/schools/$(schoolId)/entries/$(entryId)).data;
+          }
+
+          allow read: if isAdmin()
+            || (belongsToSchool(schoolId) && inSectionScope(parentEntry()));
 
           // The size cap is the point of writing this rule out rather than
           // reusing the entry rule. A document may hold just under 1 MiB, and
@@ -192,6 +321,47 @@ service cloud.firestore {
     // exactly what an operator must never be able to do; operators read their
     // own school through the scoped path above, which still applies.
     match /{path=**}/entries/{entryId} {
+      allow read: if isAdmin();
+    }
+
+    // --- QR join codes -------------------------------------------------
+    //
+    // One document per live code, keyed BY the token itself, holding the
+    // school's id and its name and nothing else.
+    //
+    // Keyed by the token on purpose. The alternative - storing the token on
+    // the school and querying `where('qrToken', '==', x)` - would require
+    // read access to the schools collection to run the query, which is the
+    // access this whole flow exists to withhold. Here the token is the
+    // document id, so the only way to read one is to already have it.
+    //
+    // What possessing a code buys you is therefore exactly one thing: the
+    // name of the school you are about to ask to join. That is what screen 17
+    // has to show before the teacher confirms, and it is the least that can
+    // be shown to make that screen honest.
+    //
+    // `list` is denied explicitly. Without it any signed-in account could
+    // enumerate every code in the installation, which would turn one leaked
+    // login into a way into every school at once. `get` and `list` are
+    // separate operations in this ruleset for this reason; `read` would have
+    // granted both.
+    //
+    // Rotation (screen A8) is deleting this document and writing a new one
+    // under a new token. Every printed copy of the old code stops resolving
+    // immediately. Teachers who already joined are untouched, because their
+    // access comes from `users/{uid}.schoolId` and never references a token.
+    match /joinCodes/{token} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow write: if isAdmin();
+    }
+
+    // --- pending joins, as a collection group --------------------------
+    //
+    // The office's Pending Joins page (A10) reads across every school at
+    // once, and as with entries a collection group query does not match the
+    // nested rule. Admin-only, for the same reason.
+    match /{path=**}/joinRequests/{requestId} {
       allow read: if isAdmin();
     }
 
