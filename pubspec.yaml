@@ -64,6 +64,13 @@ dev_dependencies:
   mocktail: ^1.0.5
   fake_cloud_firestore: ^4.2.0
 
+  # Used only by the migration harness, which builds a database at an OLD
+  # schema version and then lets `AppDatabase` upgrade it. That needs raw
+  # SQL on a connection drift is not managing yet, which is exactly what
+  # this package is. Already present transitively via `drift`; named here
+  # because a test imports it directly.
+  sqlite3: ^3.5.2
+
 flutter:
   uses-material-design: true
 
