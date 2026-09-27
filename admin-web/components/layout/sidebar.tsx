@@ -14,6 +14,7 @@ import {
   Printer,
   ScrollText,
   Settings,
+  UserCheck,
   Users,
   X,
   type LucideIcon,
@@ -26,7 +27,7 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   /** Shown as a live count badge when non-zero. */
-  badgeKey?: 'pending' | 'unread';
+  badgeKey?: 'pending' | 'unread' | 'joins';
 }
 
 /**
@@ -58,6 +59,12 @@ const GROUPS: { label: string | null; items: NavItem[] }[] = [
       { href: '/messages', label: 'Messages', icon: MessageSquare, badgeKey: 'unread' },
       { href: '/broadcast', label: 'Bulk Message', icon: Megaphone },
       { href: '/accounts', label: 'Teachers & Schools', icon: Users },
+      {
+        href: '/pending-joins',
+        label: 'Pending Joins',
+        icon: UserCheck,
+        badgeKey: 'joins',
+      },
     ],
   },
   {
@@ -187,7 +194,7 @@ function NavBody({
 }) {
   const pathname = usePathname();
 
-  const { config } = useStore();
+  const { config, joinRequests } = useStore();
 
   // Hidden rather than disabled: a greyed-out destination still asks to be
   // clicked, and an installation that does not print has no use for the
@@ -202,6 +209,11 @@ function NavBody({
   const badgeFor = (item: NavItem): number => {
     if (item.badgeKey === 'pending') return pendingCount;
     if (item.badgeKey === 'unread') return unreadCount;
+    // Unlike the notification badge in the app, this one is SUPPOSED to
+    // persist. It counts work nobody has done yet, not something unread -
+    // it clears when a teacher is approved or declined, and never because
+    // somebody looked at the page.
+    if (item.badgeKey === 'joins') return joinRequests.length;
     return 0;
   };
 

@@ -16,9 +16,11 @@ import {
   watchSchools,
   watchUsers,
 } from './data';
+import { watchJoinRequests } from './joins';
 import {
   DEFAULT_PANEL_CONFIG,
   type Chat,
+  type JoinRequest,
   type ManagedUser,
   type PanelConfig,
   type SchoolConfig,
@@ -40,6 +42,13 @@ interface StoreState {
   entries: StudentEntry[];
   users: ManagedUser[];
   chats: Chat[];
+  /**
+   * Teachers who have scanned a school's QR code and are waiting for a
+   * class. Empty is the normal state, so this is deliberately NOT part of
+   * `loading` - a panel that spun until the pending list arrived would spin
+   * on every page for a list that is usually nothing.
+   */
+  joinRequests: JoinRequest[];
   config: PanelConfig;
   loading: boolean;
   /** Set when a subscription is refused or needs an index - surfaced, not swallowed. */
@@ -64,6 +73,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [config, setConfig] = useState<PanelConfig>(DEFAULT_PANEL_CONFIG);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
 
   const [ready, setReady] = useState({
     schools: false,
@@ -121,6 +131,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // settings document that has never been written must not hold the
       // whole dashboard on a spinner or raise an error banner.
       watchPanelConfig(setConfig, () => {}),
+      // Also outside `loading`. A pending join is work the office has not
+      // done yet rather than data a page needs to render, and the collection
+      // group behind it is admin-only - a non-admin session would fail this
+      // subscription and must not be shown an error banner for it.
+      watchJoinRequests(setJoinRequests, () => {}),
     ];
 
     return () => unsubs.forEach((u) => u());
@@ -132,12 +147,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       entries,
       users,
       chats,
+      joinRequests,
       config,
       loading: !(ready.schools && ready.entries && ready.users && ready.chats),
       error,
       indexUrl,
     }),
-    [schools, entries, users, chats, config, ready, error, indexUrl],
+    [
+      schools,
+      entries,
+      users,
+      chats,
+      joinRequests,
+      config,
+      ready,
+      error,
+      indexUrl,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
