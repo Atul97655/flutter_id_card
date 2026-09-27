@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Topbar } from '@/components/layout/topbar';
 import { StatTile } from '@/components/dashboard/stat-tile';
+import { SubmissionsBreakdown } from '@/components/dashboard/submissions-breakdown';
 import {
   AnimatedNumber,
   Button,
@@ -386,7 +387,9 @@ export default function DashboardPage() {
             />
           </div>
 
-          <Panel index={6} className="overflow-hidden">
+          <SubmissionsBreakdown entries={entries} users={users} index={6} />
+
+          <Panel index={8} className="overflow-hidden">
             <PanelHeader
               title="Recent submissions"
               action={
