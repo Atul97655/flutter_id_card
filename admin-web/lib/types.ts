@@ -109,6 +109,19 @@ export interface StudentEntry {
   reviewedBy: string | null;
   /** ISO-8601 UTC. */
   reviewedAt: string | null;
+
+  /**
+   * The teacher who captured and submitted this card, and their name at the
+   * time.
+   *
+   * Null on everything captured before attribution existed. Those rows
+   * genuinely have no answer - guessing one would credit work to somebody who
+   * did not do it - so anywhere this is counted has to say how many cards it
+   * could not attribute rather than quietly reporting zero.
+   */
+  submittedByUid: string | null;
+  submittedByName: string | null;
+
   createdAt: string | null;
   updatedAt: string | null;
 }

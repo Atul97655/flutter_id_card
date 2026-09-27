@@ -102,6 +102,8 @@ export function toStudentEntry(
     address: str(d.address),
     photoUrl: strOrNull(d.photoUrl),
     photoThumb: strOrNull(d.photoThumb),
+    submittedByUid: strOrNull(d.submittedByUid),
+    submittedByName: strOrNull(d.submittedByName),
     approvalStatus: approval(d.approvalStatus),
     rejectionReason: strOrNull(d.rejectionReason),
     reviewedBy: strOrNull(d.reviewedBy),

@@ -15,7 +15,14 @@ import {
 } from '@/components/ui/primitives';
 import { useStore } from '@/lib/store';
 import { setUserActive, updateUser } from '@/lib/data';
-import type { ManagedUser } from '@/lib/types';
+import { assignSection, clearSection } from '@/lib/joins';
+import { useAuth } from '@/lib/auth-context';
+import {
+  isScoped,
+  sectionLabel,
+  type ManagedUser,
+  type SchoolConfig,
+} from '@/lib/types';
 
 /**
  * Teacher and school accounts.
@@ -29,6 +36,7 @@ import type { ManagedUser } from '@/lib/types';
  */
 export default function AccountsPage() {
   const { users, schools, entries, loading } = useStore();
+  const { user: me } = useAuth();
 
   const [search, setSearch] = useState('');
   const [busyUid, setBusyUid] = useState<string | null>(null);
@@ -50,14 +58,60 @@ export default function AccountsPage() {
 
   const admins = users.filter((u) => u.role === 'Admin');
 
-  /** Cards submitted per account, so activity is visible without a report. */
+  /**
+   * Cards submitted per TEACHER, not per school.
+   *
+   * This used to count by school, which meant every teacher at one school
+   * showed the same number - the school's total - as though each of them had
+   * personally submitted all of it. With `submittedByUid` on the entry the
+   * real answer is available, and a per-teacher figure is the only one this
+   * column can honestly be labelled "Cards".
+   */
   const submissionCount = useMemo(() => {
+    const byUid = new Map<string, number>();
+    for (const e of entries) {
+      if (!e.submittedByUid) continue;
+      byUid.set(e.submittedByUid, (byUid.get(e.submittedByUid) ?? 0) + 1);
+    }
+    return byUid;
+  }, [entries]);
+
+  /**
+   * Cards with nobody recorded against them, per school.
+   *
+   * Everything captured before attribution existed is in here. Without
+   * saying so, a school with 400 old cards and two teachers showing 0 each
+   * reads as two teachers who have done nothing.
+   */
+  const unattributed = useMemo(() => {
     const bySchool = new Map<string, number>();
     for (const e of entries) {
+      if (e.submittedByUid) continue;
       bySchool.set(e.schoolId, (bySchool.get(e.schoolId) ?? 0) + 1);
     }
     return bySchool;
   }, [entries]);
+
+  const unattributedTotal = useMemo(
+    () => [...unattributed.values()].reduce((a, b) => a + b, 0),
+    [unattributed],
+  );
+
+  async function setSection(u: ManagedUser, classLevel: string, division: string) {
+    setBusyUid(u.uid);
+    setError(null);
+    try {
+      if (!classLevel || !division) {
+        await clearSection(u.uid);
+      } else if (u.schoolId) {
+        await assignSection(u.uid, u.schoolId, classLevel, division, me?.uid ?? '');
+      }
+    } catch (e) {
+      setError(`Could not change the section: ${(e as Error).message}`);
+    } finally {
+      setBusyUid(null);
+    }
+  }
 
   const toggleActive = async (u: ManagedUser) => {
     setBusyUid(u.uid);
@@ -95,15 +149,34 @@ export default function AccountsPage() {
 
       {error ? <Banner tone="error" title="Could not update the account">{error}</Banner> : null}
 
-      <Banner tone="info" title="New accounts are created in the mobile app">
-        An account needs a Firebase Auth user and a matching{' '}
-        <code className="rounded bg-white/70 px-1 py-0.5 font-mono text-[11.5px]">
-          users/&#123;uid&#125;
-        </code>{' '}
-        document keyed by that user&rsquo;s UID. Creating the Auth user from a
-        browser would sign you out of your own session, so the app does it. This
-        page manages the accounts that already exist.
+      <Banner tone="info" title="Teachers add themselves with your school's QR code">
+        <p>
+          There is no &ldquo;add teacher&rdquo; button here on purpose. An
+          account needs a Firebase Auth user and a matching{' '}
+          <code className="rounded bg-white/70 px-1 py-0.5 font-mono text-[11.5px]">
+            users/&#123;uid&#125;
+          </code>{' '}
+          document keyed by that user&rsquo;s UID, and creating the Auth user
+          from a browser would sign you out of your own session.
+        </p>
+        <p className="mt-2">
+          So the teacher signs themselves up and scans your school&rsquo;s QR
+          code. They arrive in <strong>Pending Joins</strong> able to see
+          nothing at all, and it is you assigning their class that gives them
+          access. Print a code from a school&rsquo;s page.
+        </p>
       </Banner>
+
+      {unattributedTotal > 0 ? (
+        <Banner
+          tone="warn"
+          title={`${unattributedTotal} cards have no teacher recorded against them`}
+        >
+          Cards captured before this panel started recording who submitted them
+          are not counted in any teacher&rsquo;s total below. The figures are
+          therefore complete only from that point on, not for the whole year.
+        </Banner>
+      ) : null}
 
       <Panel className="overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
@@ -132,12 +205,13 @@ export default function AccountsPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse">
+            <table className="w-full min-w-[860px] border-collapse">
               <thead>
                 <tr className="border-b border-ink-400/10 text-[10.5px] uppercase tracking-wider text-ink-400">
                   <th className="px-5 py-2.5 text-left font-bold">Account</th>
                   <th className="px-2 py-2.5 text-left font-bold">Role</th>
                   <th className="px-2 py-2.5 text-left font-bold">School</th>
+                  <th className="px-2 py-2.5 text-left font-bold">Class / Section</th>
                   <th className="px-2 py-2.5 text-right font-bold">Cards</th>
                   <th className="px-2 py-2.5 text-left font-bold">Last sign-in</th>
                   <th className="px-5 py-2.5 text-right font-bold">Access</th>
@@ -187,8 +261,17 @@ export default function AccountsPage() {
                       </select>
                     </td>
 
+                    <td className="px-2 py-3">
+                      <SectionCell
+                        user={u}
+                        school={schools.find((s) => s.id === u.schoolId)}
+                        disabled={busyUid === u.uid || !u.schoolId}
+                        onChange={(c, d) => void setSection(u, c, d)}
+                      />
+                    </td>
+
                     <td className="nums px-2 py-3 text-right text-[12.5px] text-ink-600">
-                      {u.schoolId ? (submissionCount.get(u.schoolId) ?? 0) : '—'}
+                      {u.schoolId ? (submissionCount.get(u.uid) ?? 0) : '—'}
                     </td>
 
                     <td className="px-2 py-3 text-[12px] text-ink-400">
@@ -269,6 +352,82 @@ export default function AccountsPage() {
           </div>
         </Panel>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Which section a teacher covers, and a way to change it.
+ *
+ * Shows a dash rather than an empty control for an unscoped teacher, because
+ * unscoped is a real and currently common state - it means the whole school,
+ * which is what every account had before sections existed - and a blank
+ * dropdown would read as broken.
+ *
+ * Disabled entirely for an account with no school. A section without a school
+ * is not a narrower scope, it is a contradiction, and the rules would refuse
+ * it anyway.
+ */
+function SectionCell({
+  user,
+  school,
+  disabled,
+  onChange,
+}: {
+  user: ManagedUser;
+  school: SchoolConfig | undefined;
+  disabled: boolean;
+  onChange: (classLevel: string, division: string) => void;
+}) {
+  const classes = school?.classes ?? [];
+  const divisions = school?.divisions ?? [];
+  const current = user.assignment;
+
+  if (!user.schoolId) {
+    return <span className="text-[12px] text-ink-400">—</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <select
+        aria-label="Class"
+        value={current?.classLevel ?? ''}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value, current?.division ?? '')}
+        className="w-[72px] rounded-lg border border-ink-400/20 bg-white/80 px-1.5 py-1 text-[12px] text-ink-600 outline-none transition focus:border-mint-500 disabled:opacity-50"
+      >
+        <option value="">—</option>
+        {classes.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+
+      <select
+        aria-label="Section"
+        value={current?.division ?? ''}
+        disabled={disabled}
+        onChange={(e) => onChange(current?.classLevel ?? '', e.target.value)}
+        className="w-[64px] rounded-lg border border-ink-400/20 bg-white/80 px-1.5 py-1 text-[12px] text-ink-600 outline-none transition focus:border-mint-500 disabled:opacity-50"
+      >
+        <option value="">—</option>
+        {divisions.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+      </select>
+
+      {isScoped(user) ? (
+        <span className="hidden shrink-0 rounded-md bg-mint-600/10 px-1.5 py-0.5 text-[11px] font-semibold text-mint-700 xl:inline">
+          {sectionLabel(current)}
+        </span>
+      ) : (
+        <span className="hidden shrink-0 text-[11px] text-ink-400 xl:inline">
+          whole school
+        </span>
+      )}
     </div>
   );
 }
