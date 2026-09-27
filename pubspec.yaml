@@ -46,6 +46,15 @@ dependencies:
   google_mlkit_face_detection: ^0.15.1
   permission_handler: ^13.0.1
 
+  # --- QR onboarding ----------------------------------------------------
+  #
+  # A teacher joins a school by scanning a code the office printed. The
+  # scanner shares the CameraX stack the photo capture already uses, so this
+  # adds no new runtime permission - the camera prompt the teacher answers on
+  # their first card is the same one.
+  mobile_scanner: ^7.1.4
+  qr_flutter: ^4.1.0
+
   # --- Misc -------------------------------------------------------------
   go_router: ^18.0.0
   intl: ^0.20.3
