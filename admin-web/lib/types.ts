@@ -225,6 +225,23 @@ export const STUDENT_FIELDS: {
  * The security rules look users up by `request.auth.uid`. A document with any
  * other id cannot be found, and every request from that account is denied.
  */
+export type JoinStatus = 'pending' | 'active' | 'declined';
+
+/**
+ * Which class and section a teacher may submit for.
+ *
+ * `division` is the wire name for what the UI calls a Section. The two words
+ * mean the same thing; the database, the card templates and the per-division
+ * colour map all say `division`, so renaming it would be a wide diff that
+ * changes nothing anyone sees. Use `sectionLabel` when rendering.
+ */
+export interface TeacherAssignment {
+  schoolId: string;
+  classLevel: string;
+  division: string;
+  status: JoinStatus;
+}
+
 export interface ManagedUser {
   uid: string;
   email: string;
@@ -232,9 +249,53 @@ export interface ManagedUser {
   schoolId: string | null;
   displayName: string;
   active: boolean;
+  /**
+   * Null when the office has not scoped this teacher to a section, which is
+   * every account that predates the feature. Null means "the whole school",
+   * not "nothing" - the rules are written the same way round.
+   */
+  assignment: TeacherAssignment | null;
   /** Firestore Timestamps here, unlike entries. */
   lastLoginDate: Timestamp | null;
   createdAt: Timestamp | null;
+}
+
+/** A teacher scoped to one section, as opposed to the whole school. */
+export const isScoped = (u: ManagedUser): boolean =>
+  u.assignment !== null &&
+  u.assignment.status === 'active' &&
+  u.assignment.classLevel !== '' &&
+  u.assignment.division !== '';
+
+/** "10 - A", or a dash when there is no assignment to show. */
+export const sectionLabel = (a: TeacherAssignment | null): string =>
+  a && a.classLevel && a.division ? `${a.classLevel} - ${a.division}` : '—';
+
+/**
+ * A teacher who scanned a school's QR code and is waiting to be given a
+ * class. Lives at `schools/{schoolId}/joinRequests/{uid}`.
+ */
+export interface JoinRequest {
+  uid: string;
+  schoolId: string;
+  displayName: string;
+  email: string;
+  status: JoinStatus;
+  requestedAt: string | null;
+}
+
+/**
+ * A live QR join code, at `joinCodes/{token}`.
+ *
+ * Keyed by the token itself, so possessing a code is the only way to read
+ * one. It carries the school's name and nothing else - just enough for the
+ * app to ask "Join this school?" honestly before the teacher confirms.
+ */
+export interface JoinCode {
+  token: string;
+  schoolId: string;
+  schoolName: string;
+  issuedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------

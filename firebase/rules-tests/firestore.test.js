@@ -733,8 +733,16 @@ describe('QR join codes', () => {
   });
 
   // Without this, one leaked login is a way into every school at once.
-  it('codes cannot be enumerated', async () => {
+  it('a teacher cannot enumerate codes', async () => {
     await assertFails(getDocs(collection(as(STRANGER), 'joinCodes')));
+    await assertFails(getDocs(collection(as(TEACHER_A), 'joinCodes')));
+  });
+
+  // The office needs this: the QR page has to find whichever code a school
+  // currently holds.
+  it('the office can enumerate codes', async () => {
+    const snap = await assertSucceeds(getDocs(collection(as(ADMIN), 'joinCodes')));
+    assert.strictEqual(snap.size, 1);
   });
 
   it('a teacher cannot mint a code', async () => {

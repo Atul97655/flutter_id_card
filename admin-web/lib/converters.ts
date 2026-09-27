@@ -1,15 +1,24 @@
-import { Timestamp, type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
+import {
+  Timestamp,
+  type DocumentData,
+  type DocumentSnapshot,
+  type QueryDocumentSnapshot,
+} from 'firebase/firestore';
 import {
   DEFAULT_PANEL_CONFIG,
   type ApprovalStatus,
   type Chat,
   type ChatKind,
   type ChatMessage,
+  type JoinCode,
+  type JoinRequest,
+  type JoinStatus,
   type ManagedUser,
   type MessageKind,
   type PanelConfig,
   type SchoolConfig,
   type StudentEntry,
+  type TeacherAssignment,
   type UserRole,
 } from './types';
 
@@ -149,8 +158,71 @@ export function toManagedUser(
     // Absent means active: an account created before this field existed must
     // not silently lose access.
     active: bool(d.active, true),
+    assignment: assignment(d.assignment),
     lastLoginDate: ts(d.lastLoginDate),
     createdAt: ts(d.createdAt),
+  };
+}
+
+/**
+ * Reads a teacher's section assignment.
+ *
+ * Returns null for anything that is not a well-formed assignment, including
+ * one that names a school but no class. Null means "not scoped", which the
+ * rules treat as the whole school - so the failure direction here is towards
+ * the teacher keeping the access they already had, never towards a silent
+ * lock-out that would look like data loss to them.
+ */
+function assignment(v: unknown): TeacherAssignment | null {
+  if (typeof v !== 'object' || v === null) return null;
+  const d = v as Record<string, unknown>;
+  const schoolId = str(d.schoolId);
+  if (!schoolId) return null;
+  return {
+    schoolId,
+    classLevel: str(d.classLevel),
+    division: str(d.division),
+    status: joinStatus(d.status),
+  };
+}
+
+const JOIN_STATUSES: JoinStatus[] = ['pending', 'active', 'declined'];
+
+/**
+ * Unknown values fall back to `pending`, the state that grants nothing. A
+ * status written by a newer build must never read as approved here.
+ */
+const joinStatus = (v: unknown): JoinStatus =>
+  JOIN_STATUSES.includes(v as JoinStatus) ? (v as JoinStatus) : 'pending';
+
+export function toJoinRequest(
+  snap: QueryDocumentSnapshot<DocumentData>,
+): JoinRequest {
+  const d = snap.data();
+  return {
+    uid: snap.id,
+    // Falls back to the path when the field is absent: the parent of the
+    // `joinRequests` collection is the school document. Guarded all the way
+    // down because a snapshot that carries no ref is a real shape in tests
+    // and in cached reads, and a crash here would take out the whole
+    // pending list rather than one row of it.
+    schoolId: str(d.schoolId) || (snap.ref?.parent?.parent?.id ?? ''),
+    displayName: str(d.displayName),
+    email: str(d.email),
+    status: joinStatus(d.status),
+    requestedAt: isoDate(d.requestedAt),
+  };
+}
+
+export function toJoinCode(
+  snap: DocumentSnapshot<DocumentData>,
+): JoinCode {
+  const d = snap.data() ?? {};
+  return {
+    token: snap.id,
+    schoolId: str(d.schoolId),
+    schoolName: str(d.schoolName),
+    issuedAt: isoDate(d.issuedAt),
   };
 }
 

@@ -340,11 +340,16 @@ service cloud.firestore {
     // has to show before the teacher confirms, and it is the least that can
     // be shown to make that screen honest.
     //
-    // `list` is denied explicitly. Without it any signed-in account could
-    // enumerate every code in the installation, which would turn one leaked
-    // login into a way into every school at once. `get` and `list` are
-    // separate operations in this ruleset for this reason; `read` would have
-    // granted both.
+    // `list` is admin-only, and that asymmetry is the point. Any signed-in
+    // account may `get` a code it already holds; only the office may
+    // enumerate them. Without the split, one leaked teacher login would be a
+    // way into every school in the installation at once. `read` would have
+    // granted both operations, which is why they are spelled out separately.
+    //
+    // The office needs `list` because the QR page (A8) has to find whichever
+    // code a school currently holds, and the alternative - storing the token
+    // on the school document - would put it in reach of every account in
+    // that school rather than just the admin.
     //
     // Rotation (screen A8) is deleting this document and writing a new one
     // under a new token. Every printed copy of the old code stops resolving
@@ -352,7 +357,7 @@ service cloud.firestore {
     // access comes from `users/{uid}.schoolId` and never references a token.
     match /joinCodes/{token} {
       allow get: if isSignedIn();
-      allow list: if false;
+      allow list: if isAdmin();
       allow write: if isAdmin();
     }
 

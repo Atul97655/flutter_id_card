@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import {
   toChatMessage,
+  toJoinCode,
+  toJoinRequest,
   toManagedUser,
   toPanelConfig,
   toStudentEntry,
 } from './converters';
+import { generateJoinToken } from './joins';
 import {
   hasPhoto,
   isOperator,
+  isScoped,
+  sectionLabel,
   isPrintable,
   isReadyToPrint,
   messageHasAttachment,
@@ -242,5 +247,200 @@ describe('Broadcast delivery', () => {
 
   it('reports zero recipients rather than a negative count', () => {
     expect(recipientCount({ ...chat, members: ['admin-1'] }, 'admin-1')).toBe(0);
+  });
+});
+
+/**
+ * Section assignments and QR joins.
+ *
+ * The reading side of the boundary added in the screen spec. The dangerous
+ * direction here is not what these let through - the rules decide that - but
+ * what they read as "scoped" when it is not, because a teacher wrongly shown
+ * as scoped is a teacher the office believes is covered when nobody is.
+ */
+describe('teacher assignments', () => {
+  it('reads a complete assignment', () => {
+    const u = toManagedUser(
+      snap('u1', {
+        role: 'Teacher',
+        schoolId: 'sjs',
+        assignment: {
+          schoolId: 'sjs',
+          classLevel: '10',
+          division: 'A',
+          status: 'active',
+        },
+      }),
+    );
+
+    expect(u.assignment).toEqual({
+      schoolId: 'sjs',
+      classLevel: '10',
+      division: 'A',
+      status: 'active',
+    });
+    expect(isScoped(u)).toBe(true);
+  });
+
+  // The failure direction that matters: unreadable means unscoped, which
+  // means the whole school - the access the teacher already had. Reading it
+  // the other way would look like data loss to them.
+  it('a missing assignment is unscoped, not locked out', () => {
+    const u = toManagedUser(snap('u1', { role: 'Teacher', schoolId: 'sjs' }));
+
+    expect(u.assignment).toBeNull();
+    expect(isScoped(u)).toBe(false);
+  });
+
+  it('a garbage assignment is unscoped', () => {
+    for (const bad of [42, 'ten-a', [], null, {}]) {
+      const u = toManagedUser(
+        snap('u1', { role: 'Teacher', schoolId: 'sjs', assignment: bad }),
+      );
+      expect(isScoped(u)).toBe(false);
+    }
+  });
+
+  it('an assignment with no class is not a scope', () => {
+    const u = toManagedUser(
+      snap('u1', {
+        role: 'Teacher',
+        assignment: { schoolId: 'sjs', division: 'A', status: 'active' },
+      }),
+    );
+
+    expect(u.assignment).not.toBeNull();
+    expect(isScoped(u)).toBe(false);
+  });
+
+  it('a pending assignment is not a scope', () => {
+    const u = toManagedUser(
+      snap('u1', {
+        role: 'Teacher',
+        assignment: {
+          schoolId: 'sjs',
+          classLevel: '10',
+          division: 'A',
+          status: 'pending',
+        },
+      }),
+    );
+
+    expect(isScoped(u)).toBe(false);
+  });
+
+  // An unknown status must never read as approved.
+  it('an unrecognised status falls back to pending', () => {
+    const u = toManagedUser(
+      snap('u1', {
+        role: 'Teacher',
+        assignment: {
+          schoolId: 'sjs',
+          classLevel: '10',
+          division: 'A',
+          status: 'super-active',
+        },
+      }),
+    );
+
+    expect(u.assignment?.status).toBe('pending');
+    expect(isScoped(u)).toBe(false);
+  });
+
+  it('labels a section the way the UI says it', () => {
+    expect(
+      sectionLabel({
+        schoolId: 'sjs',
+        classLevel: '10',
+        division: 'A',
+        status: 'active',
+      }),
+    ).toBe('10 - A');
+  });
+
+  it('labels an absent assignment without pretending', () => {
+    expect(sectionLabel(null)).toBe('—');
+    expect(
+      sectionLabel({
+        schoolId: 'sjs',
+        classLevel: '',
+        division: '',
+        status: 'active',
+      }),
+    ).toBe('—');
+  });
+});
+
+describe('join requests', () => {
+  it('reads a pending request', () => {
+    const r = toJoinRequest(
+      snap('uid-ramesh', {
+        uid: 'uid-ramesh',
+        schoolId: 'sjs',
+        displayName: 'RAMESH PATIL',
+        email: 'ramesh@stjohn.edu',
+        status: 'pending',
+        requestedAt: '2026-09-28T09:14:00.000Z',
+      }),
+    );
+
+    expect(r.uid).toBe('uid-ramesh');
+    expect(r.displayName).toBe('RAMESH PATIL');
+    expect(r.status).toBe('pending');
+    expect(r.requestedAt).toBe('2026-09-28T09:14:00.000Z');
+  });
+
+  it('an unrecognised status reads as pending, never as approved', () => {
+    const r = toJoinRequest(snap('u1', { schoolId: 'sjs', status: 'approved!' }));
+
+    expect(r.status).toBe('pending');
+  });
+
+  it('survives a request with nothing but an id', () => {
+    const r = toJoinRequest(snap('u1', {}));
+
+    expect(r.uid).toBe('u1');
+    expect(r.displayName).toBe('');
+    expect(r.status).toBe('pending');
+    expect(r.requestedAt).toBeNull();
+  });
+});
+
+describe('join codes', () => {
+  it('reads a code, keyed by its token', () => {
+    const c = toJoinCode(
+      snap('Kx7Rm2Qp', { schoolId: 'sjs', schoolName: 'ST. JOHN SAMARITAN' }),
+    );
+
+    expect(c.token).toBe('Kx7Rm2Qp');
+    expect(c.schoolName).toBe('ST. JOHN SAMARITAN');
+  });
+
+  it('survives a code with a missing name', () => {
+    const c = toJoinCode(snap('Kx7Rm2Qp', { schoolId: 'sjs' }));
+
+    expect(c.schoolName).toBe('');
+  });
+});
+
+describe('generated join tokens', () => {
+  // These are printed and pinned to a noticeboard, then typed in by hand
+  // when the camera will not focus.
+  it('contain no characters people confuse with each other', () => {
+    const confusable = /[0O1lI]/;
+    for (let i = 0; i < 200; i += 1) {
+      expect(generateJoinToken()).not.toMatch(confusable);
+    }
+  });
+
+  it('do not repeat', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 500; i += 1) seen.add(generateJoinToken());
+
+    expect(seen.size).toBe(500);
+  });
+
+  it('are long enough not to be guessed', () => {
+    expect(generateJoinToken()).toHaveLength(10);
   });
 });
