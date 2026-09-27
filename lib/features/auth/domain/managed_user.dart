@@ -26,26 +26,26 @@ class ManagedUser {
   bool get isAdmin => role == UserRole.admin;
 
   Map<String, Object?> toFirestoreMap() => <String, Object?>{
-        'email': email,
-        'role': role.wireValue,
-        'schoolId': schoolId,
-        'displayName': displayName,
-        'active': active,
-        if (lastLoginDate != null)
-          'lastLoginDate': Timestamp.fromDate(lastLoginDate!),
-        if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
-      };
+    'email': email,
+    'role': role.wireValue,
+    'schoolId': schoolId,
+    'displayName': displayName,
+    'active': active,
+    if (lastLoginDate != null)
+      'lastLoginDate': Timestamp.fromDate(lastLoginDate!),
+    if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
+  };
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'uid': uid,
-        'email': email,
-        'role': role.wireValue,
-        'schoolId': schoolId,
-        'displayName': displayName,
-        'active': active,
-        'lastLoginDate': lastLoginDate?.toIso8601String(),
-        'createdAt': createdAt?.toIso8601String(),
-      };
+    'uid': uid,
+    'email': email,
+    'role': role.wireValue,
+    'schoolId': schoolId,
+    'displayName': displayName,
+    'active': active,
+    'lastLoginDate': lastLoginDate?.toIso8601String(),
+    'createdAt': createdAt?.toIso8601String(),
+  };
 
   static ManagedUser fromFirestore(String uid, Map<String, Object?> data) {
     DateTime? parseDate(Object? val) {
@@ -67,15 +67,15 @@ class ManagedUser {
   }
 
   static ManagedUser fromJson(Map<String, Object?> json) => ManagedUser(
-        uid: (json['uid'] as String?) ?? '',
-        email: (json['email'] as String?) ?? '',
-        role: UserRole.fromWire(json['role'] as String?),
-        schoolId: json['schoolId'] as String?,
-        displayName: (json['displayName'] as String?) ?? '',
-        active: json['active'] != false,
-        lastLoginDate: DateTime.tryParse((json['lastLoginDate'] as String?) ?? ''),
-        createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? ''),
-      );
+    uid: (json['uid'] as String?) ?? '',
+    email: (json['email'] as String?) ?? '',
+    role: UserRole.fromWire(json['role'] as String?),
+    schoolId: json['schoolId'] as String?,
+    displayName: (json['displayName'] as String?) ?? '',
+    active: json['active'] != false,
+    lastLoginDate: DateTime.tryParse((json['lastLoginDate'] as String?) ?? ''),
+    createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? ''),
+  );
 
   ManagedUser copyWith({
     String? uid,

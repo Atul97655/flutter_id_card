@@ -21,10 +21,10 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final SessionUser? session = ref.watch(currentSessionProvider);
     final AsyncValue<SchoolConfig> config = ref.watch(schoolConfigProvider);
-    final AsyncValue<Map<ApprovalStatus, int>> counts =
-        ref.watch(submissionCountsProvider);
-    final int unreadNotifications =
-        ref.watch(unreadNotificationCountProvider);
+    final AsyncValue<Map<ApprovalStatus, int>> counts = ref.watch(
+      submissionCountsProvider,
+    );
+    final int unreadNotifications = ref.watch(unreadNotificationCountProvider);
 
     int count(ApprovalStatus s) => counts.value?[s] ?? 0;
     final int total = ApprovalStatus.values.fold(
@@ -113,18 +113,18 @@ class ProfileScreen extends ConsumerWidget {
       builder: (BuildContext ctx) => Padding(
         // Lifts the sheet above the keyboard rather than letting it cover the
         // fields the operator is typing into.
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: const _ChangePasswordSheet(),
       ),
     );
   }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    final AsyncValue<Map<SyncStatus, int>> counts =
-        ref.read(syncCountsProvider);
-    final int unsynced = (counts.value?[SyncStatus.pending] ?? 0) +
+    final AsyncValue<Map<SyncStatus, int>> counts = ref.read(
+      syncCountsProvider,
+    );
+    final int unsynced =
+        (counts.value?[SyncStatus.pending] ?? 0) +
         (counts.value?[SyncStatus.failed] ?? 0);
 
     final bool? confirmed = await showDialog<bool>(
@@ -137,7 +137,7 @@ class ProfileScreen extends ConsumerWidget {
               // genuinely do survive - say so plainly to stop operators
               // hoarding logins out of fear of losing a day's work.
               ? '$unsynced entries have not uploaded yet.\n\nThey stay saved on '
-                  'this device and will upload the next time you sign in.'
+                    'this device and will upload the next time you sign in.'
               : 'You will need your school code and password to sign back in.',
         ),
         actions: <Widget>[
@@ -206,16 +206,18 @@ class _IdentityCard extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     display.toUpperCase(),
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
                   Text(
                     config?.name ?? 'No school assigned',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -238,8 +240,9 @@ class _RoleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color =
-        role == UserRole.admin ? StatusColors.printed : StatusColors.syncing;
+    final Color color = role == UserRole.admin
+        ? StatusColors.printed
+        : StatusColors.syncing;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
@@ -294,8 +297,9 @@ class _CountsCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   'My submissions',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const Spacer(),
                 AnimatedCount(
@@ -335,8 +339,7 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     final (Color color, IconData icon) = ApprovalStatusChip.visualsFor(status);
     final bool empty = value == 0;
-    final Color tint =
-        empty ? Theme.of(context).colorScheme.outline : color;
+    final Color tint = empty ? Theme.of(context).colorScheme.outline : color;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
@@ -359,10 +362,7 @@ class _Pill extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Text(
-            status.label,
-            style: TextStyle(fontSize: 11.5, color: tint),
-          ),
+          Text(status.label, style: TextStyle(fontSize: 11.5, color: tint)),
         ],
       ),
     );
@@ -432,8 +432,7 @@ class _Row extends StatelessWidget {
             if (badge > 0)
               Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: StatusColors.failed,
                   borderRadius: BorderRadius.circular(20),
@@ -494,7 +493,9 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
     });
 
     try {
-      await ref.read(authRepositoryProvider).changePassword(
+      await ref
+          .read(authRepositoryProvider)
+          .changePassword(
             currentPassword: _current.text,
             newPassword: _next.text,
           );
@@ -502,9 +503,7 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Password changed')),
-        );
+        ..showSnackBar(const SnackBar(content: Text('Password changed')));
     } on AuthFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
     } on Object catch (e) {
@@ -533,8 +532,9 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
           children: <Widget>[
             Text(
               'Change password',
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -546,7 +546,9 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
                 prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    _obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                   ),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
@@ -564,9 +566,8 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
                 prefixIcon: Icon(Icons.lock_reset_outlined),
                 helperText: 'At least 6 characters',
               ),
-              validator: (String? v) => (v ?? '').length < 6
-                  ? 'Use at least 6 characters'
-                  : null,
+              validator: (String? v) =>
+                  (v ?? '').length < 6 ? 'Use at least 6 characters' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(

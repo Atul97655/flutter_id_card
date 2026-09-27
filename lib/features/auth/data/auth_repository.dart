@@ -25,11 +25,9 @@ const String kSchoolAuthDomain = 'schools.idcardx.app';
 const String kUsersCollection = 'users';
 
 class AuthRepository {
-  AuthRepository({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
-  })  : _authOverride = auth,
-        _firestoreOverride = firestore;
+  AuthRepository({FirebaseAuth? auth, FirebaseFirestore? firestore})
+    : _authOverride = auth,
+      _firestoreOverride = firestore;
 
   final FirebaseAuth? _authOverride;
   final FirebaseFirestore? _firestoreOverride;
@@ -62,6 +60,114 @@ class AuthRepository {
     final String slug = cleaned.replaceAll(RegExp(r'[^a-z0-9._-]'), '');
     return '$slug@$kSchoolAuthDomain';
   }
+
+  // ------------------------------------------------------------------
+  // Self-registration
+  // ------------------------------------------------------------------
+
+  /// Creates a teacher account that has access to nothing.
+  ///
+  /// This is what makes the QR join flow possible. The panel cannot mint an
+  /// account - creating a Firebase Auth user from the browser SDK signs the
+  /// admin out of their own session, and doing it properly needs the Admin
+  /// SDK on a server this project does not have. So the teacher signs
+  /// themselves up and then scans their school's code.
+  ///
+  /// The profile written here deliberately carries no `schoolId` and no
+  /// `assignment`. Those two fields are what every read rule in this project
+  /// reaches a school through, only an admin may write them, and the rules
+  /// refuse a self-created document that contains either. An account made by
+  /// this method is an identity and nothing more until somebody in the office
+  /// approves the join.
+  ///
+  /// `role` is pinned to Teacher for the same reason. Without it the first
+  /// thing a stranger would write onto their own document is `Admin`.
+  Future<SessionUser> registerTeacher({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    if (!isBackendAvailable) {
+      throw const AuthFailure(
+        'Cannot reach the server. Check that Firebase is configured '
+        '(google-services.json) and that you have a connection.',
+      );
+    }
+
+    final String cleanEmail = email.trim().toLowerCase();
+    final String name = displayName.trim();
+    if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
+      throw const AuthFailure(
+        'Enter the email address you want to sign in with',
+      );
+    }
+    if (name.isEmpty) {
+      throw const AuthFailure(
+        'Enter your name, so the office knows who you are',
+      );
+    }
+    if (password.length < 6) {
+      throw const AuthFailure('Choose a password of at least 6 characters');
+    }
+
+    final UserCredential credential;
+    try {
+      credential = await _auth.createUserWithEmailAndPassword(
+        email: cleanEmail,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure(_describeRegistrationError(e));
+    }
+
+    final User? fbUser = credential.user;
+    if (fbUser == null) {
+      throw const AuthFailure('Could not create the account. Try again.');
+    }
+
+    try {
+      await _db.collection('users').doc(fbUser.uid).set(<String, Object?>{
+        'email': cleanEmail,
+        'role': UserRole.teacher.wireValue,
+        'displayName': name,
+        'active': true,
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } on Object {
+      // An Auth user with no profile document can never sign in - every rule
+      // needs `users/{uid}` to exist - and the address would be taken, so a
+      // retry would fail as "already in use" with no way forward. Undoing the
+      // Auth half leaves the teacher able to simply try again.
+      await fbUser.delete().catchError((Object _) {});
+      throw const AuthFailure(
+        'Could not finish setting up the account. Check your connection and '
+        'try again.',
+      );
+    }
+
+    final SessionUser session = SessionUser(
+      uid: fbUser.uid,
+      email: cleanEmail,
+      role: UserRole.teacher,
+      displayName: name,
+    );
+    await _cacheSession(session);
+    return session;
+  }
+
+  static String _describeRegistrationError(FirebaseAuthException e) =>
+      switch (e.code) {
+        'email-already-in-use' =>
+          'That email already has an account. Sign in with it instead.',
+        'invalid-email' => 'That does not look like an email address.',
+        'weak-password' => 'Choose a longer password - at least 6 characters.',
+        'operation-not-allowed' =>
+          'Sign-ups are switched off for this project. Ask the office to '
+              'create your account.',
+        'network-request-failed' =>
+          'No connection. Check your network and try again.',
+        _ => 'Could not create the account (${e.code}).',
+      };
 
   // ------------------------------------------------------------------
   // Sign in
@@ -167,8 +273,10 @@ class AuthRepository {
 
     Map<String, Object?>? data;
     try {
-      final DocumentSnapshot<Map<String, Object?>> byUid =
-          await _db.collection(kUsersCollection).doc(fbUser.uid).get();
+      final DocumentSnapshot<Map<String, Object?>> byUid = await _db
+          .collection(kUsersCollection)
+          .doc(fbUser.uid)
+          .get();
       if (byUid.exists) {
         data = byUid.data();
       } else if (email.isNotEmpty) {
@@ -210,10 +318,9 @@ class AuthRepository {
   /// Best-effort: a failure here must never block a login.
   Future<void> _touchLastLogin(String uid) async {
     try {
-      await _db.collection(kUsersCollection).doc(uid).set(
-        <String, Object?>{'lastLoginDate': FieldValue.serverTimestamp()},
-        SetOptions(merge: true),
-      );
+      await _db.collection(kUsersCollection).doc(uid).set(<String, Object?>{
+        'lastLoginDate': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } on Object {
       // Intentionally ignored - see doc comment.
     }
@@ -294,7 +401,9 @@ class AuthRepository {
       throw const AuthFailure('You are not signed in.');
     }
     if (newPassword.length < 6) {
-      throw const AuthFailure('The new password must be at least 6 characters.');
+      throw const AuthFailure(
+        'The new password must be at least 6 characters.',
+      );
     }
     if (newPassword == currentPassword) {
       throw const AuthFailure('The new password is the same as the old one.');
@@ -308,31 +417,26 @@ class AuthRepository {
         ),
       );
     } on FirebaseAuthException catch (e) {
-      throw AuthFailure(
-        switch (e.code) {
-          'wrong-password' ||
-          'invalid-credential' =>
-            'That is not your current password.',
-          'too-many-requests' =>
-            'Too many attempts. Wait a few minutes and try again.',
-          'network-request-failed' =>
-            'No connection. Try again when you are online.',
-          _ => 'Could not verify your current password (${e.code}).',
-        },
-      );
+      throw AuthFailure(switch (e.code) {
+        'wrong-password' ||
+        'invalid-credential' => 'That is not your current password.',
+        'too-many-requests' =>
+          'Too many attempts. Wait a few minutes and try again.',
+        'network-request-failed' =>
+          'No connection. Try again when you are online.',
+        _ => 'Could not verify your current password (${e.code}).',
+      });
     }
 
     try {
       await user.updatePassword(newPassword);
     } on FirebaseAuthException catch (e) {
-      throw AuthFailure(
-        switch (e.code) {
-          'weak-password' => 'That password is too easy to guess.',
-          'requires-recent-login' =>
-            'Sign out and sign in again, then change the password.',
-          _ => 'Could not change the password (${e.code}).',
-        },
-      );
+      throw AuthFailure(switch (e.code) {
+        'weak-password' => 'That password is too easy to guess.',
+        'requires-recent-login' =>
+          'Sign out and sign in again, then change the password.',
+        _ => 'Could not change the password (${e.code}).',
+      });
     }
   }
 
@@ -378,8 +482,10 @@ class AuthRepository {
           .get();
 
       return snap.docs
-          .where((QueryDocumentSnapshot<Map<String, Object?>> d) =>
-              d.data()['active'] != false)
+          .where(
+            (QueryDocumentSnapshot<Map<String, Object?>> d) =>
+                d.data()['active'] != false,
+          )
           .map((QueryDocumentSnapshot<Map<String, Object?>> d) => d.id)
           .toList();
     } on FirebaseException {
@@ -400,7 +506,8 @@ class AuthRepository {
 
   Future<void> _rememberSchoolCode(String code) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String> existing = prefs.getStringList(_knownSchoolsKey) ?? <String>[];
+    final List<String> existing =
+        prefs.getStringList(_knownSchoolsKey) ?? <String>[];
     final List<String> next = <String>[
       code,
       ...existing.where((String c) => c.toLowerCase() != code.toLowerCase()),
@@ -451,18 +558,23 @@ class AuthRepository {
           _firestoreUsersSub = _db
               .collection(kUsersCollection)
               .snapshots()
-              .listen((QuerySnapshot<Map<String, Object?>> snap) {
-            if (snap.docs.isEmpty) return;
-            final List<ManagedUser> list = snap.docs.map((QueryDocumentSnapshot<Map<String, Object?>> d) {
-              return ManagedUser.fromFirestore(d.id, d.data());
-            }).toList();
-            if (!(_usersController?.isClosed ?? true)) {
-              _usersController?.add(list);
-            }
-            unawaited_(_cacheUsers(list));
-          }, onError: (Object _) {
-            // Swallow offline / stream errors gracefully
-          });
+              .listen(
+                (QuerySnapshot<Map<String, Object?>> snap) {
+                  if (snap.docs.isEmpty) return;
+                  final List<ManagedUser> list = snap.docs.map((
+                    QueryDocumentSnapshot<Map<String, Object?>> d,
+                  ) {
+                    return ManagedUser.fromFirestore(d.id, d.data());
+                  }).toList();
+                  if (!(_usersController?.isClosed ?? true)) {
+                    _usersController?.add(list);
+                  }
+                  unawaited_(_cacheUsers(list));
+                },
+                onError: (Object _) {
+                  // Swallow offline / stream errors gracefully
+                },
+              );
         }
       },
     );
@@ -490,7 +602,8 @@ class AuthRepository {
     if (password.trim().length < 6) {
       throw const AuthFailure('Password must be at least 6 characters');
     }
-    if (role == UserRole.school && (schoolId == null || schoolId.trim().isEmpty)) {
+    if (role == UserRole.school &&
+        (schoolId == null || schoolId.trim().isEmpty)) {
       throw const AuthFailure('Select a school for this operator');
     }
 
@@ -503,7 +616,9 @@ class AuthRepository {
       email: normalizedEmail,
       role: role,
       schoolId: schoolId,
-      displayName: displayName.trim().isEmpty ? normalizedEmail : displayName.trim(),
+      displayName: displayName.trim().isEmpty
+          ? normalizedEmail
+          : displayName.trim(),
       active: true,
       createdAt: now,
     );
@@ -538,9 +653,7 @@ class AuthRepository {
         await _db
             .collection(kUsersCollection)
             .doc(uid)
-            .update(<String, Object?>{
-              'active': active,
-            })
+            .update(<String, Object?>{'active': active})
             .timeout(const Duration(seconds: 3));
       } on Object {
         // Offline or network timeout - status updated in local cache
@@ -560,7 +673,9 @@ class AuthRepository {
 
   Future<void> _cacheUsers(List<ManagedUser> users) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String raw = jsonEncode(users.map((ManagedUser u) => u.toJson()).toList());
+    final String raw = jsonEncode(
+      users.map((ManagedUser u) => u.toJson()).toList(),
+    );
     await prefs.setString(_cachedUsersKey, raw);
   }
 
@@ -583,7 +698,9 @@ class AuthRepository {
   // ------------------------------------------------------------------
 
   String _describeAuthError(FirebaseAuthException e, UserRole role) {
-    final String subject = role == UserRole.admin ? 'admin email' : 'school code';
+    final String subject = role == UserRole.admin
+        ? 'admin email'
+        : 'school code';
     return switch (e.code) {
       'invalid-email' => 'That $subject is not valid.',
       'user-disabled' => 'This account has been disabled.',
@@ -591,12 +708,10 @@ class AuthRepository {
       // into invalid-credential to avoid confirming which accounts exist.
       'user-not-found' ||
       'wrong-password' ||
-      'invalid-credential' =>
-        'Wrong $subject or password.',
+      'invalid-credential' => 'Wrong $subject or password.',
       'too-many-requests' =>
         'Too many failed attempts. Wait a few minutes and try again.',
-      'network-request-failed' =>
-        'No connection. You can still work offline - saved entries will sync later.',
+      'network-request-failed' => 'No connection. You can still work offline - saved entries will sync later.',
       _ => e.message ?? 'Sign-in failed (${e.code}).',
     };
   }

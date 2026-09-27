@@ -37,6 +37,25 @@ class AuthController extends AsyncNotifier<SessionUser?> {
     );
   }
 
+  /// Creates a teacher account and signs into it.
+  ///
+  /// The account it produces can read nothing. Access begins when the office
+  /// approves the join request the teacher makes next, and not before - see
+  /// `AuthRepository.registerTeacher`.
+  Future<bool> registerTeacher({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    return _attempt(
+      () => _repo.registerTeacher(
+        email: email,
+        password: password,
+        displayName: displayName,
+      ),
+    );
+  }
+
   /// Debug-only local session so the data-entry, photo and print pipeline can
   /// be exercised before Firebase credentials are wired up. Guarded at the call
   /// site by `kDebugMode`; entries created under it are never synced.
@@ -76,7 +95,13 @@ class AuthController extends AsyncNotifier<SessionUser?> {
         },
         // Only the fields this template actually has a slot for - the rest
         // stay off so a full-field entry doesn't trigger a fit warning here.
-        enabledFieldKeys: const <String>{'name', 'photo', 'division', 'mobile', 'address'},
+        enabledFieldKeys: const <String>{
+          'name',
+          'photo',
+          'division',
+          'mobile',
+          'address',
+        },
         updatedAt: DateTime.now(),
       ),
     );
@@ -117,8 +142,10 @@ class AuthController extends AsyncNotifier<SessionUser?> {
   }
 }
 
-final AsyncNotifierProvider<AuthController, SessionUser?> authControllerProvider =
-    AsyncNotifierProvider<AuthController, SessionUser?>(AuthController.new);
+final AsyncNotifierProvider<AuthController, SessionUser?>
+authControllerProvider = AsyncNotifierProvider<AuthController, SessionUser?>(
+  AuthController.new,
+);
 
 /// The signed-in user, or null while loading / signed out. Convenience for the
 /// many widgets that only care about the happy path.
@@ -129,7 +156,9 @@ final Provider<SessionUser?> currentSessionProvider = Provider<SessionUser?>(
 /// The school whose data the current screen operates on. For an operator this
 /// is fixed by their account; admins select one in the dashboard.
 final NotifierProvider<ActiveSchoolController, String?> activeSchoolIdProvider =
-    NotifierProvider<ActiveSchoolController, String?>(ActiveSchoolController.new);
+    NotifierProvider<ActiveSchoolController, String?>(
+      ActiveSchoolController.new,
+    );
 
 class ActiveSchoolController extends Notifier<String?> {
   @override
@@ -151,6 +180,6 @@ class ActiveSchoolController extends Notifier<String?> {
 /// Stream of all managed users for Admin user management.
 final StreamProvider<List<ManagedUser>> allUsersProvider =
     StreamProvider<List<ManagedUser>>((Ref ref) {
-  final AuthRepository repo = ref.watch(authRepositoryProvider);
-  return repo.watchUsers();
-});
+      final AuthRepository repo = ref.watch(authRepositoryProvider);
+      return repo.watchUsers();
+    });

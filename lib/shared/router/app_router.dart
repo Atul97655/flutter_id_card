@@ -25,6 +25,10 @@ import 'package:flutter_id_card/features/messaging/presentation/broadcast_screen
 import 'package:flutter_id_card/features/messaging/presentation/chat_list_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/notifications/presentation/notifications_screen.dart';
+import 'package:flutter_id_card/features/onboarding/presentation/awaiting_assignment_screen.dart';
+import 'package:flutter_id_card/features/onboarding/presentation/join_choice_screen.dart';
+import 'package:flutter_id_card/features/onboarding/presentation/qr_scanner_screen.dart';
+import 'package:flutter_id_card/features/onboarding/presentation/register_screen.dart';
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/widgets/app_shell.dart';
@@ -51,7 +55,31 @@ Page<void> _page(GoRouterState state, Widget child) =>
     );
 
 /// Routes that an unauthenticated visitor is allowed to sit on.
-const Set<String> _publicRoutes = <String>{'/', '/login'};
+///
+/// The join screens are public because that is where a teacher with no
+/// account starts. Registering is the first thing they do, and a redirect to
+/// /login would send somebody who has never had credentials to a form asking
+/// for them.
+const Set<String> _publicRoutes = <String>{
+  '/',
+  '/login',
+  JoinChoiceScreen.routePath,
+  RegisterScreen.routePath,
+};
+
+/// Routes a signed-in teacher may sit on while they still have no school.
+///
+/// Everything else redirects to the waiting screen. A teacher between
+/// scanning a code and being approved has access to nothing, and letting
+/// them reach the home screen would show an empty list that looks like a
+/// broken app rather than a queue somebody has to act on.
+const Set<String> _unassignedRoutes = <String>{
+  JoinChoiceScreen.routePath,
+  RegisterScreen.routePath,
+  QrScannerScreen.routePath,
+  AwaitingAssignmentScreen.routePath,
+  '/profile',
+};
 
 final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
   // Bridges Riverpod's auth state into a Listenable so go_router re-evaluates
@@ -81,9 +109,27 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       final SessionUser? user = auth.value;
 
       if (user == null) {
-        return _publicRoutes.contains(location) ? null : LoginScreen.routePath;
+        return _publicRoutes.contains(location)
+            ? null
+            : JoinChoiceScreen.routePath;
       }
-      if (location == LoginScreen.routePath) {
+
+      // A signed-in operator with no school has not been approved yet. The
+      // matching rule is what actually withholds the data; this keeps them
+      // off screens that would render as empty and look broken.
+      //
+      // Admins are exempt - they have no schoolId by design, because they
+      // work across all of them.
+      if (!user.isAdmin && !user.canEnterData) {
+        return _unassignedRoutes.contains(location)
+            ? null
+            : AwaitingAssignmentScreen.routePath;
+      }
+
+      if (location == LoginScreen.routePath ||
+          location == JoinChoiceScreen.routePath ||
+          location == RegisterScreen.routePath ||
+          location == AwaitingAssignmentScreen.routePath) {
         return user.isAdmin ? '/admin' : HomeScreen.routePath;
       }
       // Admin-only areas. The matching server-side rule is what actually
@@ -104,6 +150,30 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         name: LoginScreen.routeName,
         pageBuilder: (BuildContext c, GoRouterState s) =>
             _page(s, const LoginScreen()),
+      ),
+      GoRoute(
+        path: JoinChoiceScreen.routePath,
+        name: JoinChoiceScreen.routeName,
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const JoinChoiceScreen()),
+      ),
+      GoRoute(
+        path: RegisterScreen.routePath,
+        name: RegisterScreen.routeName,
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const RegisterScreen()),
+      ),
+      GoRoute(
+        path: QrScannerScreen.routePath,
+        name: QrScannerScreen.routeName,
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const QrScannerScreen()),
+      ),
+      GoRoute(
+        path: AwaitingAssignmentScreen.routePath,
+        name: AwaitingAssignmentScreen.routeName,
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const AwaitingAssignmentScreen()),
       ),
       // The operator's three tabs. Each branch keeps its own stack, so
       // switching to Chats and back does not reset a scrolled list.

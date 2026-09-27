@@ -7,7 +7,6 @@
 /// school rather than a bug here.
 library;
 
-import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/services/local/app_database.dart';

@@ -68,23 +68,24 @@ class SessionUser {
   bool get canEnterData => schoolId != null && schoolId!.isNotEmpty;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'uid': uid,
-        'email': email,
-        'role': role.wireValue,
-        'schoolId': schoolId,
-        'displayName': displayName,
-      };
+    'uid': uid,
+    'email': email,
+    'role': role.wireValue,
+    'schoolId': schoolId,
+    'displayName': displayName,
+  };
 
   static SessionUser fromJson(Map<String, Object?> json) => SessionUser(
-        uid: (json['uid'] as String?) ?? '',
-        email: (json['email'] as String?) ?? '',
-        role: UserRole.fromWire(json['role'] as String?),
-        schoolId: json['schoolId'] as String?,
-        displayName: (json['displayName'] as String?) ?? '',
-      );
+    uid: (json['uid'] as String?) ?? '',
+    email: (json['email'] as String?) ?? '',
+    role: UserRole.fromWire(json['role'] as String?),
+    schoolId: json['schoolId'] as String?,
+    displayName: (json['displayName'] as String?) ?? '',
+  );
 
   @override
-  String toString() => 'SessionUser($email, ${role.wireValue}, school=$schoolId)';
+  String toString() =>
+      'SessionUser($email, ${role.wireValue}, school=$schoolId)';
 }
 
 /// Raised for anything the operator needs to read and act on. Firebase's raw
