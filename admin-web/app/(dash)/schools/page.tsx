@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Check, Palette, Plus, Save, X } from 'lucide-react';
+import { Building2, Check, Palette, Plus, QrCode, Save, X } from 'lucide-react';
 import { Topbar } from '@/components/layout/topbar';
 import {
   Banner,
@@ -260,6 +261,20 @@ function SchoolCard({
           {open ? 'Close' : 'Configure'}
         </span>
       </button>
+
+      {/*
+        Outside the toggle button, because a link nested inside a button is
+        invalid HTML and stops being keyboard-reachable.
+      */}
+      <div className="flex justify-end border-t border-ink-400/10 px-5 py-2">
+        <Link
+          href={`/schools/${school.id}/qr`}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-semibold text-mint-600 transition hover:bg-mint-600/10"
+        >
+          <QrCode size={14} />
+          QR join code
+        </Link>
+      </div>
 
       {open ? (
         <motion.div
