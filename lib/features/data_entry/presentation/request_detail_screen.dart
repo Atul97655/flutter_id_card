@@ -140,8 +140,9 @@ class _HeaderCard extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     entry.name.isEmpty ? 'UNNAMED' : entry.name,
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -152,8 +153,9 @@ class _HeaderCard extends StatelessWidget {
                       if (entry.rollNumber.isNotEmpty)
                         'Roll ${entry.rollNumber}',
                     ].join('  ·  '),
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   ApprovalStatusChip(status: entry.approvalStatus),
@@ -189,11 +191,7 @@ class _RequestIdRow extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     return Row(
       children: <Widget>[
-        Icon(
-          Icons.tag,
-          size: 14,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        Icon(Icons.tag, size: 14, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
         SelectableText(
           shortId(entry.id),
@@ -310,55 +308,58 @@ class _TimelineCard extends StatelessWidget {
         icon: failed
             ? Icons.cloud_off
             : (photoPending
-                ? Icons.cloud_sync_outlined
-                : Icons.cloud_done_outlined),
+                  ? Icons.cloud_sync_outlined
+                  : Icons.cloud_done_outlined),
         title: failed
             ? 'Upload failed'
             : (photoPending
-                ? 'Details received, photo still uploading'
-                : 'Uploaded to the office'),
+                  ? 'Details received, photo still uploading'
+                  : 'Uploaded to the office'),
         subtitle: failed
             ? (entry.syncError ?? 'Will retry automatically when back online')
             : (photoPending
-                ? 'The office already has this card. The photo uploads by '
-                    'itself - there is nothing to redo.'
-                : switch (entry.syncStatus) {
-                    SyncStatus.synced => 'Received',
-                    SyncStatus.failed => 'Received',
-                    SyncStatus.syncing => 'Uploading now...',
-                    SyncStatus.pending => 'Waiting for a connection',
-                  }),
+                  ? 'The office already has this card. The photo uploads by '
+                        'itself - there is nothing to redo.'
+                  : switch (entry.syncStatus) {
+                      SyncStatus.synced => 'Received',
+                      SyncStatus.failed => 'Received',
+                      SyncStatus.syncing => 'Uploading now...',
+                      SyncStatus.pending => 'Waiting for a connection',
+                    }),
         // Photo-pending is deliberately `active`, not `blocked`: nothing is
         // wrong and nothing is required of the operator.
         state: uploaded
             ? _StepState.done
             : failed
-                ? _StepState.blocked
-                : (detailsUp || photoPending
-                    ? _StepState.active
-                    : _StepState.active),
+            ? _StepState.blocked
+            : (detailsUp || photoPending
+                  ? _StepState.active
+                  : _StepState.active),
       ),
       _Step(
         icon: rejected ? Icons.cancel_outlined : Icons.verified_outlined,
         title: rejected ? 'Sent back' : 'Reviewed by the office',
         subtitle: switch (status) {
-          ApprovalStatus.pending => (uploaded || detailsUp)
-              ? 'Waiting for review'
-              : 'Starts once it uploads',
-          ApprovalStatus.rejected => entry.reviewedAt == null
-              ? 'See the reason above'
-              : stamp.format(entry.reviewedAt!),
-          _ => entry.reviewedAt == null
-              ? 'Approved'
-              : 'Approved ${stamp.format(entry.reviewedAt!)}',
+          ApprovalStatus.pending =>
+            (uploaded || detailsUp)
+                ? 'Waiting for review'
+                : 'Starts once it uploads',
+          ApprovalStatus.rejected =>
+            entry.reviewedAt == null
+                ? 'See the reason above'
+                : stamp.format(entry.reviewedAt!),
+          _ =>
+            entry.reviewedAt == null
+                ? 'Approved'
+                : 'Approved ${stamp.format(entry.reviewedAt!)}',
         },
         state: rejected
             ? _StepState.blocked
             : (reviewed
-                ? _StepState.done
-                : ((uploaded || detailsUp)
-                    ? _StepState.active
-                    : _StepState.waiting)),
+                  ? _StepState.done
+                  : ((uploaded || detailsUp)
+                        ? _StepState.active
+                        : _StepState.waiting)),
       ),
       _Step(
         icon: Icons.print_outlined,
@@ -366,13 +367,13 @@ class _TimelineCard extends StatelessWidget {
         subtitle: printed
             ? 'The card has been printed'
             : (rejected
-                ? 'Blocked until the card is approved'
-                : 'Waiting for the next print run'),
+                  ? 'Blocked until the card is approved'
+                  : 'Waiting for the next print run'),
         state: printed
             ? _StepState.done
             : (status == ApprovalStatus.approved
-                ? _StepState.active
-                : _StepState.waiting),
+                  ? _StepState.active
+                  : _StepState.waiting),
       ),
     ];
   }
@@ -389,9 +390,7 @@ class _TimelineCard extends StatelessWidget {
           children: <Widget>[
             Text(
               'Progress',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
+              style: Theme.of(context).textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
@@ -434,11 +433,11 @@ class _TimelineRow extends StatelessWidget {
   final int index;
 
   Color _color(BuildContext context) => switch (step.state) {
-        _StepState.done => StatusColors.synced,
-        _StepState.active => StatusColors.syncing,
-        _StepState.blocked => StatusColors.failed,
-        _StepState.waiting => Theme.of(context).colorScheme.outline,
-      };
+    _StepState.done => StatusColors.synced,
+    _StepState.active => StatusColors.syncing,
+    _StepState.blocked => StatusColors.failed,
+    _StepState.waiting => Theme.of(context).colorScheme.outline,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -645,8 +644,9 @@ class _DetailsCard extends StatelessWidget {
           children: <Widget>[
             Text(
               'Details submitted',
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 12),
             for (final (String label, String value) in rows)
@@ -771,19 +771,16 @@ class _MissingEntry extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(
-              Icons.search_off,
-              size: 52,
-              color: theme.colorScheme.outline,
-            ),
+            Icon(Icons.search_off, size: 52, color: theme.colorScheme.outline),
             const SizedBox(height: 14),
             Text('Submission not found', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(
               'It may have been deleted from this device.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

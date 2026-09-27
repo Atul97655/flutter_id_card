@@ -7,6 +7,8 @@ import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/features/data_entry/data/draft_store.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/widgets/dynamic_form_field.dart';
+import 'package:flutter_id_card/features/onboarding/application/join_providers.dart';
+import 'package:flutter_id_card/features/onboarding/domain/join_models.dart';
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart'
     show photoFileExists;
 import 'package:flutter_id_card/shared/models/school_config.dart';
@@ -454,10 +456,51 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
     );
   }
 
+  /// Fills in the class and section a scoped teacher is not asked for.
+  ///
+  /// Done here rather than in `initState` because the assignment arrives on a
+  /// stream and may land after the form is first built. Writing the same
+  /// value twice is a no-op, so this is safe to call on every build; writing
+  /// a DIFFERENT value is not, which is why an existing entry is left alone -
+  /// an old card keeps the section it was filed under, and re-stamping it
+  /// would silently move a student between sections on open.
+  void _applyAssignment(JoinState? join) {
+    if (join == null || !join.isReady) return;
+    if (widget.entryId != null) return;
+
+    final TextEditingController cls = _ctrl(StudentField.studentClass);
+    final TextEditingController div = _ctrl(StudentField.division);
+    if (cls.text != join.classLevel) cls.text = join.classLevel;
+    if (div.text != join.division) div.text = join.division;
+  }
+
+  /// Why a field is shown filled in rather than asked for, or null when it
+  /// is an ordinary editable field.
+  ///
+  /// A teacher never picks which section a student is filed under - it is
+  /// stamped from their assignment. Leaving these editable would be a way to
+  /// file a student outside your own section, which the rules refuse, so an
+  /// editable box could only ever produce a save that fails for a reason the
+  /// teacher cannot see on screen.
+  ///
+  /// Null for an unscoped teacher, who still types both. That is every
+  /// account that existed before sections.
+  static String? _stampReason(StudentField field, JoinState? join) {
+    if (join == null || !join.isReady) return null;
+    return switch (field) {
+      StudentField.studentClass => 'Set by your class assignment',
+      StudentField.division => 'Set by your class assignment',
+      _ => null,
+    };
+  }
+
   Widget _form(SchoolConfig config) {
     final List<StudentField> fields = config.enabledFields
         .where((StudentField f) => f.kind != FieldKind.photo)
         .toList();
+
+    final JoinState? join = ref.watch(joinStateProvider).value;
+    _applyAssignment(join);
 
     return Form(
       key: _formKey,
@@ -483,6 +526,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
               child: DynamicFormField(
                 field: fields[i],
                 controller: _ctrl(fields[i]),
+                readOnlyReason: _stampReason(fields[i], join),
                 selectedDate: _dob,
                 options: fields[i] == StudentField.studentClass
                     ? config.classes

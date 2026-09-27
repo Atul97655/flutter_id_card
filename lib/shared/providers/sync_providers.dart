@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/features/onboarding/application/join_providers.dart';
+import 'package:flutter_id_card/features/onboarding/domain/join_models.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/firebase/sync_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +45,20 @@ final Provider<void> syncLifecycleProvider = Provider<void>((Ref ref) {
     return;
   }
 
-  unawaited(service.start(schoolId: schoolId, isAdmin: session.isAdmin));
+  // The section scope has to reach the worker, not just the widgets. A
+  // scoped teacher whose sync query carries no scope is refused by the rules
+  // for the entire result set - not filtered, refused - so this is the
+  // difference between syncing and a permission error on every pass.
+  final JoinState? join = ref.watch(joinStateProvider).value;
+
+  unawaited(
+    service.start(
+      schoolId: schoolId,
+      isAdmin: session.isAdmin,
+      classLevel: join?.classLevel ?? '',
+      division: join?.division ?? '',
+    ),
+  );
   ref.onDispose(() => unawaited(service.stop()));
 });
 

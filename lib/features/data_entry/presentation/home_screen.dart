@@ -5,6 +5,7 @@ import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/features/notifications/application/notification_providers.dart';
+import 'package:flutter_id_card/features/onboarding/application/join_providers.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
@@ -59,9 +60,32 @@ class HomeScreen extends ConsumerWidget {
 
     int count(ApprovalStatus s) => approvalCounts.value?[s] ?? 0;
 
+    final String section = ref.watch(mySectionLabelProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ID entity'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text('ID entity'),
+            // The scope, stated. A teacher who cannot see a student they
+            // know exists needs to be told they are looking at one section,
+            // not left to conclude the card was lost. Absent for an unscoped
+            // account, where there is nothing to qualify.
+            if (section.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'Class $section',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
+        ),
         actions: <Widget>[
           IconButton(
             tooltip: unreadNotifications == 0

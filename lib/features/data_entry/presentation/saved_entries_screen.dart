@@ -54,8 +54,9 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<List<StudentEntry>> entriesAsync =
-        ref.watch(entriesProvider);
+    final AsyncValue<List<StudentEntry>> entriesAsync = ref.watch(
+      entriesProvider,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('My Submissions')),
@@ -87,18 +88,20 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
                               const SizedBox(height: 10),
                           itemBuilder: (BuildContext context, int i) =>
                               FadeSlideIn(
-                            index: i,
-                            child: _EntryTile(
-                              entry: filtered[i],
-                              onOpen: () =>
-                                  context.push('/submissions/${filtered[i].id}'),
-                              onEdit: () =>
-                                  context.push('/entry/${filtered[i].id}'),
-                              onPreview: () =>
-                                  context.push('/preview/${filtered[i].id}'),
-                              onDelete: () => _confirmDelete(filtered[i]),
-                            ),
-                          ),
+                                index: i,
+                                child: _EntryTile(
+                                  entry: filtered[i],
+                                  onOpen: () => context.push(
+                                    '/submissions/${filtered[i].id}',
+                                  ),
+                                  onEdit: () =>
+                                      context.push('/entry/${filtered[i].id}'),
+                                  onPreview: () => context.push(
+                                    '/preview/${filtered[i].id}',
+                                  ),
+                                  onDelete: () => _confirmDelete(filtered[i]),
+                                ),
+                              ),
                         ),
                 ),
               ),
@@ -111,8 +114,12 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
 
   Widget _filterBar(List<StudentEntry> all) {
     return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(AppTheme.gutter, 12, AppTheme.gutter, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.gutter,
+        12,
+        AppTheme.gutter,
+        12,
+      ),
       child: Column(
         children: <Widget>[
           TextField(
@@ -148,9 +155,7 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
                   _statusChip(
                     s,
                     s.label,
-                    all
-                        .where((StudentEntry e) => e.approvalStatus == s)
-                        .length,
+                    all.where((StudentEntry e) => e.approvalStatus == s).length,
                   ),
               ],
             ),
@@ -171,8 +176,7 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
       child: FilterChip(
         selected: selected,
         label: Text('$label ($count)'),
-        onSelected: (_) =>
-            setState(() => _filter = selected ? null : status),
+        onSelected: (_) => setState(() => _filter = selected ? null : status),
         showCheckmark: false,
         selectedColor: tint?.withValues(alpha: 0.16),
         side: selected && tint != null
@@ -193,7 +197,7 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
         content: Text(
           entry.syncStatus == SyncStatus.synced
               ? '${entry.name} has already uploaded. Deleting here removes the '
-                  'local copy only - the record stays on the server.'
+                    'local copy only - the record stays on the server.'
               : '${entry.name} has not uploaded yet. This cannot be undone.',
         ),
         actions: <Widget>[
@@ -286,8 +290,9 @@ class _EntryTile extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       entry.name.isEmpty ? 'UNNAMED' : entry.name,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -300,8 +305,9 @@ class _EntryTile extends StatelessWidget {
                         if (entry.rollNumber.isNotEmpty)
                           'Roll ${entry.rollNumber}',
                       ].join('  ·  '),
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -346,8 +352,7 @@ class _EntryTile extends StatelessWidget {
                   'delete' => onDelete(),
                   _ => null,
                 },
-                itemBuilder: (BuildContext context) =>
-                    <PopupMenuEntry<String>>[
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                   const PopupMenuItem<String>(
                     value: 'open',
                     child: ListTile(
@@ -379,8 +384,10 @@ class _EntryTile extends StatelessWidget {
                     value: 'delete',
                     child: ListTile(
                       dense: true,
-                      leading:
-                          Icon(Icons.delete_outline, color: StatusColors.failed),
+                      leading: Icon(
+                        Icons.delete_outline,
+                        color: StatusColors.failed,
+                      ),
                       title: Text(
                         'Delete',
                         style: TextStyle(color: StatusColors.failed),
@@ -414,30 +421,30 @@ class _EmptyState extends StatelessWidget {
       filter,
     )) {
       (false, _) => (
-          Icons.inbox_outlined,
-          'No submissions yet',
-          'Tap "New ID Card" on the home screen to add the first one.',
-        ),
+        Icons.inbox_outlined,
+        'No submissions yet',
+        'Tap "New ID Card" on the home screen to add the first one.',
+      ),
       (true, ApprovalStatus.pending) => (
-          Icons.check_circle_outline,
-          'Nothing waiting',
-          'Every card you sent has been reviewed.',
-        ),
+        Icons.check_circle_outline,
+        'Nothing waiting',
+        'Every card you sent has been reviewed.',
+      ),
       (true, ApprovalStatus.rejected) => (
-          Icons.thumb_up_outlined,
-          'Nothing sent back',
-          'The office has not returned any of your cards.',
-        ),
+        Icons.thumb_up_outlined,
+        'Nothing sent back',
+        'The office has not returned any of your cards.',
+      ),
       (true, ApprovalStatus.printed) => (
-          Icons.print_disabled_outlined,
-          'Nothing printed yet',
-          'Approved cards appear here once they go through a print run.',
-        ),
+        Icons.print_disabled_outlined,
+        'Nothing printed yet',
+        'Approved cards appear here once they go through a print run.',
+      ),
       _ => (
-          Icons.filter_alt_off_outlined,
-          'No submissions match',
-          'Clear the search box or pick a different tab.',
-        ),
+        Icons.filter_alt_off_outlined,
+        'No submissions match',
+        'Clear the search box or pick a different tab.',
+      ),
     };
 
     return Center(
@@ -453,8 +460,9 @@ class _EmptyState extends StatelessWidget {
             Text(
               body,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

@@ -19,6 +19,7 @@ class DynamicFormField extends StatelessWidget {
     required this.onDateChanged,
     this.options,
     this.autofocus = false,
+    this.readOnlyReason,
   });
 
   final StudentField field;
@@ -33,9 +34,45 @@ class DynamicFormField extends StatelessWidget {
   final List<String>? options;
   final bool autofocus;
 
+  /// When set, the field is shown filled in and not editable, and this text
+  /// explains why underneath it.
+  ///
+  /// Used for the class and section of a scoped teacher: a teacher never
+  /// picks which section a student is filed under, it is stamped from their
+  /// assignment. Leaving the field editable would be a way to file a student
+  /// outside your own section - which the rules refuse, so the only thing an
+  /// editable box could produce is a save that fails for reasons the teacher
+  /// cannot see.
+  final String? readOnlyReason;
+
+  /// A value the teacher is shown rather than asked for.
+  Widget _stamped(BuildContext context, String reason) {
+    final ThemeData theme = Theme.of(context);
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      enabled: false,
+      decoration: InputDecoration(
+        labelText: field.formLabel,
+        helperText: reason,
+        helperMaxLines: 2,
+        filled: true,
+        fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.5,
+        ),
+        suffixIcon: const Icon(Icons.lock_outline, size: 18),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (options != null && options!.isNotEmpty && field.kind == FieldKind.text) {
+    final String? reason = readOnlyReason;
+    if (reason != null) return _stamped(context, reason);
+
+    if (options != null &&
+        options!.isNotEmpty &&
+        field.kind == FieldKind.text) {
       return _dropdown(context, options!);
     }
     return switch (field.kind) {
@@ -65,24 +102,21 @@ class DynamicFormField extends StatelessWidget {
       ),
       items: allItems
           .map(
-            (String val) => DropdownMenuItem<String>(
-              value: val,
-              child: Text(val),
-            ),
+            (String val) =>
+                DropdownMenuItem<String>(value: val, child: Text(val)),
           )
           .toList(),
       onChanged: (String? val) {
         controller.text = val ?? '';
       },
-      validator: (String? v) =>
-          Validators.forField(field, v, isRequired: true),
+      validator: (String? v) => Validators.forField(field, v, isRequired: true),
     );
   }
 
   List<TextInputFormatter> get _textFormatters => <TextInputFormatter>[
-        if (field.forceUppercase) const UpperCaseTextInputFormatter(),
-        const CollapseWhitespaceFormatter(),
-      ];
+    if (field.forceUppercase) const UpperCaseTextInputFormatter(),
+    const CollapseWhitespaceFormatter(),
+  ];
 
   Widget _text(BuildContext context) {
     return TextFormField(
@@ -99,8 +133,7 @@ class DynamicFormField extends StatelessWidget {
         // needs it, and that has its own branch.
         counterText: '',
       ),
-      validator: (String? v) =>
-          Validators.forField(field, v, isRequired: true),
+      validator: (String? v) => Validators.forField(field, v, isRequired: true),
     );
   }
 
@@ -150,12 +183,7 @@ class DynamicFormField extends StatelessWidget {
         prefixIcon: const Icon(Icons.bloodtype_outlined),
       ),
       items: kBloodGroups
-          .map(
-            (String g) => DropdownMenuItem<String>(
-              value: g,
-              child: Text(g),
-            ),
-          )
+          .map((String g) => DropdownMenuItem<String>(value: g, child: Text(g)))
           .toList(),
       onChanged: (String? v) => controller.text = v ?? '',
       validator: Validators.bloodGroup,
@@ -199,7 +227,10 @@ class DynamicFormField extends StatelessWidget {
     );
   }
 
-  Future<void> _pickDate(BuildContext context, FormFieldState<DateTime> state) async {
+  Future<void> _pickDate(
+    BuildContext context,
+    FormFieldState<DateTime> state,
+  ) async {
     final DateTime now = DateTime.now();
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -217,10 +248,10 @@ class DynamicFormField extends StatelessWidget {
   }
 
   static IconData _iconFor(StudentField field) => switch (field) {
-        StudentField.name => Icons.person_outline,
-        StudentField.fatherName => Icons.family_restroom_outlined,
-        StudentField.studentClass => Icons.class_outlined,
-        StudentField.division => Icons.grid_view_outlined,
-        _ => Icons.edit_outlined,
-      };
+    StudentField.name => Icons.person_outline,
+    StudentField.fatherName => Icons.family_restroom_outlined,
+    StudentField.studentClass => Icons.class_outlined,
+    StudentField.division => Icons.grid_view_outlined,
+    _ => Icons.edit_outlined,
+  };
 }

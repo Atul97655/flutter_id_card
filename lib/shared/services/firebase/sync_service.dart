@@ -168,7 +168,12 @@ class SyncService {
   /// Also listens for connectivity changes: coming back online is the single
   /// best moment to drain the queue, far better than waiting out the poll
   /// interval while the operator watches a "Pending" badge.
-  Future<void> start({String? schoolId, bool isAdmin = false}) async {
+  Future<void> start({
+    String? schoolId,
+    bool isAdmin = false,
+    String classLevel = '',
+    String division = '',
+  }) async {
     if (_started) return;
     _started = true;
 
@@ -179,16 +184,35 @@ class SyncService {
         (ConnectivityResult r) => r != ConnectivityResult.none,
       );
       if (online) {
-        unawaited(syncNow(schoolId: schoolId, isAdmin: isAdmin));
+        unawaited(
+          syncNow(
+            schoolId: schoolId,
+            isAdmin: isAdmin,
+            classLevel: classLevel,
+            division: division,
+          ),
+        );
       }
     });
 
     _timer = Timer.periodic(
       _pollInterval,
-      (_) => unawaited(syncNow(schoolId: schoolId, isAdmin: isAdmin)),
+      (_) => unawaited(
+        syncNow(
+          schoolId: schoolId,
+          isAdmin: isAdmin,
+          classLevel: classLevel,
+          division: division,
+        ),
+      ),
     );
 
-    await syncNow(schoolId: schoolId, isAdmin: isAdmin);
+    await syncNow(
+      schoolId: schoolId,
+      isAdmin: isAdmin,
+      classLevel: classLevel,
+      division: division,
+    );
   }
 
   Future<void> stop() async {
@@ -213,7 +237,18 @@ class SyncService {
   ///
   /// Safe to call concurrently - overlapping calls are collapsed, because two
   /// passes uploading the same row would both mark it syncing and race.
-  Future<void> syncNow({String? schoolId, bool isAdmin = false}) async {
+  /// [classLevel] and [division] narrow an operator's pull to one section.
+  ///
+  /// Both empty means no narrowing, which is what every account that predates
+  /// sections gets and what the rules also do. Passing only one of them is
+  /// treated as neither: half a scope is not a scope, and a query carrying
+  /// half of one would be refused by the rules for the whole result set.
+  Future<void> syncNow({
+    String? schoolId,
+    bool isAdmin = false,
+    String classLevel = '',
+    String division = '',
+  }) async {
     if (_running) return;
 
     if (!_isFirebaseReady()) {
@@ -239,7 +274,11 @@ class SyncService {
         await _pullEverythingForAdmin();
       } else if (schoolId != null) {
         await _pullSchoolConfig(schoolId);
-        await _pullSchoolEntries(schoolId);
+        await _pullSchoolEntries(
+          schoolId,
+          classLevel: classLevel,
+          division: division,
+        );
       }
 
       _emit(_state.copyWith(activity: SyncActivity.uploading));
@@ -401,14 +440,38 @@ class SyncService {
   /// back with the old `approvalStatus`, and the rules correctly refuse an
   /// operator changing a review. Pulling first means the row it pushes agrees
   /// with the server about everything it is not allowed to change.
-  Future<void> _pullSchoolEntries(String schoolId) async {
+  Future<void> _pullSchoolEntries(
+    String schoolId, {
+    String classLevel = '',
+    String division = '',
+  }) async {
     if (schoolId.isEmpty) return;
 
-    final QuerySnapshot<Map<String, Object?>> docs = await _db
+    Query<Map<String, Object?>> query = _db
         .collection('schools')
         .doc(schoolId)
-        .collection('entries')
-        .get();
+        .collection('entries');
+
+    // A scoped teacher MUST put the scope on the query itself.
+    //
+    // Firestore does not filter a result set down to what the rules allow -
+    // it refuses the entire query if any document it would return fails the
+    // rule. So for a teacher assigned to 10-A these `where` clauses are not
+    // an optimisation, they are the difference between a working sync and
+    // `permission-denied` on every pass. The rule and the query have to
+    // agree, and this is the half that lives in the app.
+    //
+    // Half a scope is treated as none, matching `hasSectionScope()` in the
+    // rules: a query carrying only a class would be refused for every
+    // document in a school with more than one section.
+    final bool scoped = classLevel.isNotEmpty && division.isNotEmpty;
+    if (scoped) {
+      query = query
+          .where('studentClass', isEqualTo: classLevel)
+          .where('division', isEqualTo: division);
+    }
+
+    final QuerySnapshot<Map<String, Object?>> docs = await query.get();
 
     final List<StudentEntry> incoming = <StudentEntry>[];
     for (final QueryDocumentSnapshot<Map<String, Object?>> d in docs.docs) {

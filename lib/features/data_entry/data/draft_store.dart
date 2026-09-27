@@ -65,36 +65,36 @@ class EntryDraft {
       (photoPath?.isNotEmpty ?? false);
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'schoolId': schoolId,
-        'entryId': entryId,
-        'name': name,
-        'fatherName': fatherName,
-        'studentClass': studentClass,
-        'division': division,
-        'rollNumber': rollNumber,
-        'bloodGroup': bloodGroup,
-        'dobIso': dobIso,
-        'mobile': mobile,
-        'address': address,
-        'photoPath': photoPath,
-        'savedAt': (savedAt ?? DateTime.now()).toIso8601String(),
-      };
+    'schoolId': schoolId,
+    'entryId': entryId,
+    'name': name,
+    'fatherName': fatherName,
+    'studentClass': studentClass,
+    'division': division,
+    'rollNumber': rollNumber,
+    'bloodGroup': bloodGroup,
+    'dobIso': dobIso,
+    'mobile': mobile,
+    'address': address,
+    'photoPath': photoPath,
+    'savedAt': (savedAt ?? DateTime.now()).toIso8601String(),
+  };
 
   static EntryDraft fromJson(Map<String, Object?> json) => EntryDraft(
-        schoolId: (json['schoolId'] as String?) ?? '',
-        entryId: json['entryId'] as String?,
-        name: (json['name'] as String?) ?? '',
-        fatherName: (json['fatherName'] as String?) ?? '',
-        studentClass: (json['studentClass'] as String?) ?? '',
-        division: (json['division'] as String?) ?? '',
-        rollNumber: (json['rollNumber'] as String?) ?? '',
-        bloodGroup: (json['bloodGroup'] as String?) ?? '',
-        dobIso: json['dobIso'] as String?,
-        mobile: (json['mobile'] as String?) ?? '',
-        address: (json['address'] as String?) ?? '',
-        photoPath: json['photoPath'] as String?,
-        savedAt: DateTime.tryParse((json['savedAt'] as String?) ?? ''),
-      );
+    schoolId: (json['schoolId'] as String?) ?? '',
+    entryId: json['entryId'] as String?,
+    name: (json['name'] as String?) ?? '',
+    fatherName: (json['fatherName'] as String?) ?? '',
+    studentClass: (json['studentClass'] as String?) ?? '',
+    division: (json['division'] as String?) ?? '',
+    rollNumber: (json['rollNumber'] as String?) ?? '',
+    bloodGroup: (json['bloodGroup'] as String?) ?? '',
+    dobIso: json['dobIso'] as String?,
+    mobile: (json['mobile'] as String?) ?? '',
+    address: (json['address'] as String?) ?? '',
+    photoPath: json['photoPath'] as String?,
+    savedAt: DateTime.tryParse((json['savedAt'] as String?) ?? ''),
+  );
 }
 
 /// Persists the in-progress form.

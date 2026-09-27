@@ -52,8 +52,9 @@ class SubmissionSuccessScreen extends ConsumerWidget {
                 index: 1,
                 child: Text(
                   'Sent to the office',
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -63,9 +64,9 @@ class SubmissionSuccessScreen extends ConsumerWidget {
                 child: Text(
                   entry == null
                       ? 'The card is saved on this device and will upload '
-                          'automatically.'
+                            'automatically.'
                       : '${entry.name} is saved and will upload automatically '
-                          'when you are online.',
+                            'when you are online.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -173,8 +174,9 @@ class _ReceiptCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   'Request ID',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 SelectableText(
@@ -205,15 +207,17 @@ class _ReceiptCard extends StatelessWidget {
             const Divider(height: 20),
             Text(
               SubmissionSuccessScreen._stamp.format(entry.createdAt),
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               'Quote this ID if you ring the office about this card.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
