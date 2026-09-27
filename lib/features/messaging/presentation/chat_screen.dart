@@ -7,11 +7,20 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/features/card_render/application/card_render_providers.dart';
+import 'package:flutter_id_card/features/card_render/domain/card_template.dart';
+import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
+import 'package:flutter_id_card/features/messaging/application/card_share_service.dart';
 import 'package:flutter_id_card/features/messaging/application/chat_providers.dart';
 import 'package:flutter_id_card/features/messaging/data/chat_repository.dart';
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
+import 'package:flutter_id_card/features/messaging/presentation/send_id_card_screen.dart';
+import 'package:flutter_id_card/features/messaging/presentation/widgets/attachment_tray.dart';
+import 'package:flutter_id_card/shared/models/school_config.dart';
+import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/theme/join_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -77,6 +86,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        // Green chrome on the messaging screens only. The card pipeline and
+        // the admin screens keep the navy: the difference is a signal about
+        // which half of the product you are standing in, not decoration.
+        backgroundColor: JoinTheme.header,
+        foregroundColor: Colors.white,
         title: _searching
             ? TextField(
                 controller: _search,
@@ -147,7 +161,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               controller: _composer,
               sending: _sending,
               onSend: () => _send(chat, session),
-              onAttach: () => _attach(chat, session),
+              onAttach: () => _openTray(chat, session),
             )
           else
             const _ReadOnlyFooter(),
@@ -226,6 +240,93 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       };
     }
     return 'Could not send the file. Check the connection and try again.';
+  }
+
+  /// Opens the attachment tray and does whatever was chosen.
+  ///
+  /// Everything except the ID Card row lands on the same file picker this
+  /// screen always used - the tray is a choice of what to send, not a set of
+  /// separate transports. The ID Card row is the one that is genuinely
+  /// different: nothing is picked off the filesystem, a card is rendered.
+  Future<void> _openTray(Chat? chat, SessionUser? session) async {
+    if (chat == null || session == null) return;
+
+    final AttachmentChoice? choice = await showAttachmentTray(context);
+    if (choice == null || !mounted) return;
+
+    if (choice == AttachmentChoice.idCard) {
+      await _sendIdCard(chat, session);
+      return;
+    }
+    await _attach(chat, session);
+  }
+
+  /// Renders an approved card and sends it into the conversation.
+  ///
+  /// It goes down the ordinary attachment path once rendered, which is what
+  /// gives it the Storage-then-Firestore fallback for free. A card is an
+  /// image like any other as far as transport is concerned; the only special
+  /// part is where the bytes came from.
+  Future<void> _sendIdCard(Chat chat, SessionUser session) async {
+    final String? entryId = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (BuildContext c) => SendIdCardScreen(
+          recipientLabel: chat.title,
+        ),
+      ),
+    );
+    if (entryId == null || !mounted) return;
+
+    final StudentEntry? entry = ref.read(entryByIdProvider(entryId));
+    final SchoolConfig? config = ref.read(schoolConfigProvider).value;
+    final CardTemplate? template = ref.read(activeTemplateProvider).value;
+
+    if (entry == null || config == null || template == null) {
+      _complain(
+        'The card is still loading. Give it a moment and try again.',
+      );
+      return;
+    }
+
+    setState(() => _sending = true);
+    try {
+      final SharedCard card = await const CardShareService().render(
+        entry: entry,
+        config: config,
+        template: template,
+      );
+
+      final String? problem = await ref
+          .read(chatRepositoryProvider)
+          .sendAttachment(
+            chat: chat,
+            senderId: session.uid,
+            senderName: session.displayName.isEmpty
+                ? session.email
+                : session.displayName,
+            body: _composer.text.trim(),
+            file: card.file,
+            fileName: card.fileName,
+          );
+
+      if (!mounted) return;
+      if (problem != null) {
+        _complain(problem);
+      } else {
+        _composer.clear();
+      }
+    } on Object catch (e) {
+      if (!mounted) return;
+      _complain(_describeAttachmentFailure(e));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _complain(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: StatusColors.failed),
+    );
   }
 
   Future<void> _attach(Chat? chat, SessionUser? session) async {
@@ -337,8 +438,10 @@ class _MessageBubble extends StatelessWidget {
             maxWidth: MediaQuery.of(context).size.width * 0.78,
           ),
           decoration: BoxDecoration(
+            // Outgoing in the green tint, incoming on the neutral surface -
+            // the arrangement people already read without being taught it.
             color: isMine
-                ? theme.colorScheme.primaryContainer
+                ? JoinTheme.accentSoft
                 : theme.colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(14),
@@ -679,8 +782,14 @@ class _Composer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: <Widget>[
             IconButton(
-              icon: const Icon(Icons.attach_file),
-              tooltip: 'Attach a file',
+              // Tilted. Upright, the paperclip reads as a pin or a straw in a
+              // row of small grey glyphs; the diagonal is the silhouette an
+              // eye already searches for in a message composer.
+              icon: Transform.rotate(
+                angle: -0.72,
+                child: const Icon(Icons.attach_file),
+              ),
+              tooltip: 'Attach',
               onPressed: sending ? null : onAttach,
             ),
             Expanded(
@@ -698,6 +807,10 @@ class _Composer extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             IconButton.filled(
+              style: IconButton.styleFrom(
+                backgroundColor: JoinTheme.header,
+                foregroundColor: Colors.white,
+              ),
               onPressed: sending ? null : onSend,
               icon: AnimatedSwitcher(
                 duration: AppMotion.fast,

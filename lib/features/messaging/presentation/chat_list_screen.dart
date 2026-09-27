@@ -10,6 +10,7 @@ import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/theme/join_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -29,7 +30,11 @@ class ChatListScreen extends ConsumerWidget {
     final bool isAdmin = session?.isAdmin ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: AppBar(
+        title: const Text('Messages'),
+        backgroundColor: JoinTheme.header,
+        foregroundColor: Colors.white,
+      ),
       floatingActionButton: isAdmin
           ? FloatingActionButton.extended(
               onPressed: () => _startConversation(context, ref, session!),
