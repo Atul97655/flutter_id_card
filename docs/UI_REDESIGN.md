@@ -22,9 +22,12 @@ reference screens (Home, New ID Card, Chat, Profile). Ten commits,
 | H | `0e762a2` | The admin section — ten screens |
 | I | `fa74850` | The last eight screens + tests for the glass library |
 | J | `36e22c4` | Placeholder screen and the 404 |
+| K | `d78886b` | Palette audit — one colour source, not three |
 
-**29 of 32 screens** are on the new system. The three that are not are on
-black on purpose — see §6.
+**All 32 screens are done.** Twenty-nine wear the glass chrome. The other
+three — photo capture, the QR scanner and the full-screen image viewer —
+are deliberately dark, because all three are live-camera or photography
+surfaces. That is a finished decision, not remaining work; see §6.
 
 73 files in `lib` changed (+6121 / −2869). No dependencies were added or
 removed; `pubspec.yaml` is untouched.
@@ -121,6 +124,41 @@ button for the admin section. Ten screens each building their own
 
 ---
 
+## 4b. The audit, and what it found
+
+Converting the screens is not the same as finishing the job, so after
+phase J I swept the codebase for colours that were still coming from
+somewhere other than the tokens. Two findings, both invisible in a diff
+and both obvious on a device.
+
+**Sixteen screens read colours off the `ColorScheme`, not off
+`AppColors`** — `onSurfaceVariant` for secondary text, `outline` for
+muted icons, `primary` for accents. 115 call sites. Material generated
+those from the navy seed, so they sat a few degrees away from every
+screen rebuilt by hand. The `ColorScheme` is now seeded and then **pinned
+to the tokens**, which fixes all of them at once and means code written
+later that reaches for `colorScheme.onSurfaceVariant` out of habit still
+lands on the right colour.
+
+Checked before mapping rather than assumed: every use of `outline` in
+this codebase is a muted **icon**, not a border — borders go through
+`dividerTheme` and `outlineVariant`. A blind substitution would have got
+that backwards and drawn a solid grey-blue rule around things.
+
+**`StatusColors` was a second status palette** holding its own Material
+hues — 107 call sites across 21 files. A "pending" chip on the dashboard
+and a "pending" figure on Profile were two different oranges, close
+enough to read as a rendering fault rather than a decision. It is now an
+alias layer over `AppColors`.
+
+It keeps its name rather than being renamed at every call site, because
+the sync vocabulary (pending / syncing / synced / failed) genuinely
+differs from the approval vocabulary (pending / approved / rejected /
+printed). Collapsing the names would lose a real distinction even though
+the colours are now shared.
+
+---
+
 ## 5. Where I departed from the references, and why
 
 Each of these is a judgement call, not an oversight.
@@ -214,24 +252,37 @@ runs.
 
 ## 9. Outstanding
 
-**APK size.** The fat release APK is 141.9 MB. Split per ABI it is 55.2 MB
-for arm64-v8a and 45.4 MB for armeabi-v7a — a 61% reduction on the one
-that matters, since every real device is arm64 (x86_64 is emulator-only).
-The weight is native libraries, not assets: assets total 1.1 MB. If cards
-are sideloaded onto tablets over a school connection, this is worth doing:
+**APK size — resolved.** The fat release APK is ~142 MB; split per ABI it
+is ~55 MB for arm64-v8a and ~45 MB for armeabi-v7a, a 61% cut on the one
+that matters (every real device is arm64; x86_64 is emulator-only). The
+weight is native libraries, not assets — assets total 1.1 MB. Build the
+one you ship with:
 
 ```bash
 flutter build apk --release --split-per-abi
 ```
 
-**Not a code change — a build-flag choice, so it is yours to make.**
+Ship `app-arm64-v8a-release.apk` unless a tablet is genuinely ancient, in
+which case `app-armeabi-v7a-release.apk` covers 32-bit ARM.
 
-**The Vercel deploy.** The admin panel deploys from a separate repository
-via subtree split. That push is still yours to run:
+**The Vercel deploy — note the destination ref.** The panel deploys from
+a separate repository via subtree split. The obvious form of this command
+fails:
+
+```
+fatal: <sha> cannot be resolved to branch
+```
+
+Git cannot infer what kind of ref to create when the **source** is a bare
+SHA rather than a branch name, so the destination has to be spelled out
+in full. This is the form that works:
 
 ```bash
-git push website "$(git subtree split --prefix=admin-web)":main --force
+git push website "$(git subtree split --prefix=admin-web)":refs/heads/main --force
 ```
+
+In PowerShell, `$( )` expands the same way, so the line is identical
+there. The push is still yours to run.
 
 **Authenticated panel verification.** I have not signed in to the panel.
 Entering a password is something I will not do, whoever asks. If you sign
