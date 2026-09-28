@@ -6,14 +6,21 @@ import 'package:flutter_id_card/features/notifications/application/notification_
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_gradients.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
-import 'package:flutter_id_card/shared/theme/app_theme.dart';
-import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// Who is signed in, which school they work for, what they have submitted, and
-/// the two account actions they ever need: change password and log out.
+/// the account actions they ever need.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -31,73 +38,97 @@ class ProfileScreen extends ConsumerWidget {
       0,
       (int sum, ApprovalStatus s) => sum + count(s),
     );
+    final int rejected = count(ApprovalStatus.rejected);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppTheme.gutter),
+    return GlassScaffold(
+      backdrop: GlassBackdrop.calm,
+      header: GlassHeader(
+        title: 'Profile',
+        subtitle: config.value?.name ?? 'Your account',
+      ),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter,
+          0,
+          AppSpacing.gutter,
+          AppSpacing.navClearance,
+        ),
         children: <Widget>[
           FadeSlideIn(
             child: _IdentityCard(session: session, config: config.value),
           ),
-          const SizedBox(height: AppTheme.gutter),
+          const SizedBox(height: AppSpacing.gutter),
 
+          // The three states an operator asks the office about by name. The
+          // fourth - returned - is not a statistic, it is a to-do list, so it
+          // gets a row of its own in the panel below rather than a tile here.
           FadeSlideIn(
             index: 1,
-            child: _CountsCard(
-              total: total,
-              pending: count(ApprovalStatus.pending),
-              approved: count(ApprovalStatus.approved),
-              printed: count(ApprovalStatus.printed),
-              rejected: count(ApprovalStatus.rejected),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: _StatusCard(
+                    icon: Icons.schedule,
+                    value: count(ApprovalStatus.pending),
+                    label: 'Pending',
+                    color: AppColors.pending,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _StatusCard(
+                    icon: Icons.verified_outlined,
+                    value: count(ApprovalStatus.approved),
+                    label: 'Approved',
+                    color: AppColors.approved,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _StatusCard(
+                    icon: Icons.print_outlined,
+                    value: count(ApprovalStatus.printed),
+                    label: 'Printed',
+                    color: AppColors.printed,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: AppTheme.gutter),
+          const SizedBox(height: AppSpacing.gutter),
 
           FadeSlideIn(
             index: 2,
-            child: Card(
-              child: Column(
-                children: <Widget>[
-                  _Row(
-                    icon: Icons.notifications_none,
-                    title: 'Notifications',
-                    subtitle: unreadNotifications == 0
-                        ? 'Approvals, returned cards and messages'
-                        : '$unreadNotifications need your attention',
-                    badge: unreadNotifications,
-                    onTap: () => context.push('/notifications'),
-                  ),
-                  const Divider(height: 1, indent: 60),
-                  _Row(
-                    icon: Icons.sync_outlined,
-                    title: 'Sync status',
-                    subtitle: 'Uploads waiting or failed',
-                    onTap: () => context.push('/sync'),
-                  ),
-                  const Divider(height: 1, indent: 60),
-                  _Row(
-                    icon: Icons.lock_outline,
-                    title: 'Change password',
-                    subtitle: 'Update the password for this account',
-                    onTap: () => _changePassword(context, ref),
-                  ),
-                ],
-              ),
+            child: _SubmissionsPanel(
+              total: total,
+              rejected: rejected,
+              onOpenAll: () => context.push('/entries'),
             ),
           ),
-          const SizedBox(height: AppTheme.gutter),
+          const SizedBox(height: AppSpacing.gutter),
 
+          const Padding(
+            padding: EdgeInsets.only(
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
+            ),
+            child: Text('Account', style: AppTypography.title),
+          ),
           FadeSlideIn(
             index: 3,
-            child: Card(
-              child: _Row(
-                icon: Icons.logout,
-                title: 'Log out',
-                subtitle: session?.email ?? '',
-                tint: StatusColors.failed,
-                onTap: () => _confirmLogout(context, ref),
-              ),
+            child: _UtilityGrid(
+              unreadNotifications: unreadNotifications,
+              onNotifications: () => context.push('/notifications'),
+              onSync: () => context.push('/sync'),
+              onPassword: () => _changePassword(context, ref),
+              onLogout: () => _confirmLogout(context, ref),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Center(
+            child: Text(
+              session?.email ?? 'Signed out',
+              style: AppTypography.support,
             ),
           ),
         ],
@@ -110,6 +141,7 @@ class ProfileScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: AppColors.canvas,
       builder: (BuildContext ctx) => Padding(
         // Lifts the sheet above the keyboard rather than letting it cover the
         // fields the operator is typing into.
@@ -171,63 +203,52 @@ class _IdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     final String display = (session?.displayName ?? '').trim().isNotEmpty
         ? session!.displayName
         : (session?.email.split('@').first ?? 'Signed out');
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.gutter),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  display.isEmpty ? '?' : display[0].toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                ),
+    return GlassSurface(
+      radius: AppRadius.panelR,
+      fill: AppColors.glassFillStrong,
+      shadows: AppShadows.card,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        children: <Widget>[
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: AppGradients.avatar,
+              boxShadow: AppShadows.glow(AppColors.violet),
+            ),
+            child: Center(
+              child: Text(
+                display.isEmpty ? '?' : display[0].toUpperCase(),
+                style: AppTypography.displayOnDark.copyWith(fontSize: 34),
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    display.toUpperCase(),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    config?.name ?? 'No school assigned',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  if (session != null) _RoleChip(role: session!.role),
-                ],
-              ),
-            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            display.toUpperCase(),
+            style: AppTypography.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            config?.name ?? 'No school assigned',
+            style: AppTypography.support,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (session != null) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            _RoleChip(role: session!.role),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -240,26 +261,12 @@ class _RoleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = role == UserRole.admin
-        ? StatusColors.printed
-        : StatusColors.syncing;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        role.wireValue.toUpperCase(),
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.6,
-          color: color,
-        ),
-      ),
+    final bool admin = role == UserRole.admin;
+    return GlassStatusBadge(
+      label: role.wireValue.toUpperCase(),
+      icon: admin ? Icons.shield_outlined : Icons.badge_outlined,
+      color: admin ? AppColors.printed : AppColors.info,
+      tint: admin ? AppColors.printedTint : AppColors.infoTint,
     );
   }
 }
@@ -268,101 +275,148 @@ class _RoleChip extends StatelessWidget {
 // Counts
 // ---------------------------------------------------------------------------
 
-class _CountsCard extends StatelessWidget {
-  const _CountsCard({
-    required this.total,
-    required this.pending,
-    required this.approved,
-    required this.printed,
-    required this.rejected,
+/// One status figure, on its own card.
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
   });
 
-  final int total;
-  final int pending;
-  final int approved;
-  final int printed;
-  final int rejected;
+  final IconData icon;
+  final int value;
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.gutter),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Text(
-                  'My submissions',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                AnimatedCount(
-                  value: total,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                _Pill(status: ApprovalStatus.pending, value: pending),
-                _Pill(status: ApprovalStatus.approved, value: approved),
-                _Pill(status: ApprovalStatus.printed, value: printed),
-                _Pill(status: ApprovalStatus.rejected, value: rejected),
-              ],
-            ),
-          ],
-        ),
+    return GlassSurface(
+      radius: AppRadius.cardR,
+      shadows: AppShadows.subtle,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.lg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          GlassIconTile(icon: icon, tint: color, size: 40),
+          const SizedBox(height: AppSpacing.sm),
+          // Counts in, rather than snapping: these change when a sync pass
+          // lands, which is a moment the operator is usually watching for.
+          AnimatedCount(value: value, style: AppTypography.stat),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: AppTypography.statLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({required this.status, required this.value});
+/// The total, and the one number that is a to-do rather than a statistic.
+class _SubmissionsPanel extends StatelessWidget {
+  const _SubmissionsPanel({
+    required this.total,
+    required this.rejected,
+    required this.onOpenAll,
+  });
 
-  final ApprovalStatus status;
-  final int value;
+  final int total;
+  final int rejected;
+  final VoidCallback onOpenAll;
 
   @override
   Widget build(BuildContext context) {
-    final (Color color, IconData icon) = ApprovalStatusChip.visualsFor(status);
-    final bool empty = value == 0;
-    final Color tint = empty ? Theme.of(context).colorScheme.outline : color;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: tint.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return GlassSurface(
+      radius: AppRadius.panelR,
+      fill: AppColors.glassFillStrong,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(icon, size: 14, color: tint),
-          const SizedBox(width: 6),
-          Text(
-            '$value',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: tint,
-            ),
+          Row(
+            children: <Widget>[
+              const Text('My Submissions', style: AppTypography.section),
+              const Spacer(),
+              AnimatedCount(
+                value: total,
+                style: AppTypography.stat.copyWith(
+                  fontSize: 22,
+                  color: AppColors.royal,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Text(status.label, style: TextStyle(fontSize: 11.5, color: tint)),
+          const SizedBox(height: 2),
+          Text(
+            total == 0
+                ? 'Nothing submitted from this account yet'
+                : 'Cards you have sent to the office',
+            style: AppTypography.support,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // Returned cards are the only thing on this screen that needs doing,
+          // so they are stated as an instruction rather than counted quietly
+          // alongside the others.
+          if (rejected > 0)
+            GlassSurface(
+              radius: AppRadius.fieldR,
+              fill: AppColors.rejectedTint.withValues(alpha: 0.9),
+              borderColor: AppColors.rejected.withValues(alpha: 0.24),
+              shadows: const <BoxShadow>[],
+              sheen: false,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              onTap: onOpenAll,
+              child: Row(
+                children: <Widget>[
+                  const GlassIconTile(
+                    icon: Icons.assignment_return_outlined,
+                    tint: AppColors.rejected,
+                    size: 40,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          rejected == 1
+                              ? '1 card came back'
+                              : '$rejected cards came back',
+                          style: AppTypography.section.copyWith(
+                            color: AppColors.rejected,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Fix and resubmit them',
+                          style: AppTypography.support,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: AppColors.rejected,
+                  ),
+                ],
+              ),
+            )
+          else
+            GlassButton(
+              label: 'View all submissions',
+              icon: Icons.list_alt_outlined,
+              trailingIcon: Icons.arrow_forward,
+              onPressed: onOpenAll,
+            ),
         ],
       ),
     );
@@ -370,85 +424,161 @@ class _Pill extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Rows
+// Utilities
 // ---------------------------------------------------------------------------
 
-class _Row extends StatelessWidget {
-  const _Row({
+/// The four account actions, as a 2x2 grid.
+///
+/// A grid rather than a list because there are exactly four of them and they
+/// are unrelated to each other - a list implies an order to work through,
+/// which these do not have.
+class _UtilityGrid extends StatelessWidget {
+  const _UtilityGrid({
+    required this.unreadNotifications,
+    required this.onNotifications,
+    required this.onSync,
+    required this.onPassword,
+    required this.onLogout,
+  });
+
+  final int unreadNotifications;
+  final VoidCallback onNotifications;
+  final VoidCallback onSync;
+  final VoidCallback onPassword;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(
+              child: _UtilityTile(
+                icon: Icons.notifications_none,
+                title: 'Notifications',
+                subtitle: unreadNotifications == 0
+                    ? 'Approvals and messages'
+                    : '$unreadNotifications need you',
+                tint: AppColors.info,
+                badge: unreadNotifications,
+                onTap: onNotifications,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _UtilityTile(
+                icon: Icons.sync_outlined,
+                title: 'Sync status',
+                subtitle: 'Uploads waiting',
+                tint: AppColors.royal,
+                onTap: onSync,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(
+              child: _UtilityTile(
+                icon: Icons.lock_outline,
+                title: 'Change password',
+                subtitle: 'For this account',
+                tint: AppColors.violet,
+                onTap: onPassword,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _UtilityTile(
+                icon: Icons.logout,
+                title: 'Log out',
+                subtitle: 'Entries stay saved',
+                tint: AppColors.rejected,
+                onTap: onLogout,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _UtilityTile extends StatelessWidget {
+  const _UtilityTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.tint,
     required this.onTap,
     this.badge = 0,
-    this.tint,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final Color tint;
   final VoidCallback onTap;
   final int badge;
-  final Color? tint;
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final Color color = tint ?? theme.colorScheme.primary;
-
-    return InkWell(
+    return GlassSurface(
+      radius: AppRadius.cardR,
+      shadows: AppShadows.subtle,
+      padding: const EdgeInsets.all(AppSpacing.md),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: <Widget>[
-            Icon(icon, color: color, size: 22),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: tint,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              GlassIconTile(icon: icon, tint: tint, size: 42),
+              if (badge > 0)
+                Positioned(
+                  top: -4,
+                  right: -6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18),
+                    decoration: BoxDecoration(
+                      color: AppColors.rejected,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                      border: Border.all(color: Colors.white, width: 1.4),
+                    ),
+                    child: Text(
+                      badge > 99 ? '99+' : '$badge',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.buttonSmall.copyWith(fontSize: 10.5),
                     ),
                   ),
-                  if (subtitle.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (badge > 0)
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: StatusColors.failed,
-                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  '$badge',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            Icon(Icons.chevron_right, color: theme.colorScheme.outline),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            title,
+            style: AppTypography.section.copyWith(fontSize: 14.5),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: AppTypography.support.copyWith(fontSize: 11.5),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -515,111 +645,125 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.gutter,
-        0,
-        AppTheme.gutter,
-        AppTheme.gutter,
-      ),
-      child: Form(
-        key: _form,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              'Change password',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _current,
-              obscureText: _obscure,
-              autofillHints: const <String>[AutofillHints.password],
-              decoration: InputDecoration(
-                labelText: 'Current password',
-                prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscure
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
+    return DecoratedBox(
+      decoration: const BoxDecoration(gradient: AppGradients.pageCalm),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter,
+          0,
+          AppSpacing.gutter,
+          AppSpacing.gutter,
+        ),
+        child: Form(
+          key: _form,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const Text('Change password', style: AppTypography.display),
+              const SizedBox(height: AppSpacing.lg),
+              GlassTextField(
+                label: 'Current password',
+                icon: Icons.lock_outline,
+                controller: _current,
+                obscureText: _obscure,
+                placeholder: 'Enter it to confirm it is you',
+                trailing: _EyeToggle(
+                  obscured: _obscure,
+                  onTap: () => setState(() => _obscure = !_obscure),
                 ),
+                validator: (String? v) =>
+                    (v ?? '').isEmpty ? 'Enter your current password' : null,
               ),
-              validator: (String? v) =>
-                  (v ?? '').isEmpty ? 'Enter your current password' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _next,
-              obscureText: _obscure,
-              autofillHints: const <String>[AutofillHints.newPassword],
-              decoration: const InputDecoration(
-                labelText: 'New password',
-                prefixIcon: Icon(Icons.lock_reset_outlined),
+              const SizedBox(height: AppSpacing.md),
+              GlassTextField(
+                label: 'New password',
+                icon: Icons.lock_reset_outlined,
+                controller: _next,
+                obscureText: _obscure,
                 helperText: 'At least 6 characters',
+                validator: (String? v) =>
+                    (v ?? '').length < 6 ? 'Use at least 6 characters' : null,
               ),
-              validator: (String? v) =>
-                  (v ?? '').length < 6 ? 'Use at least 6 characters' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _confirm,
-              obscureText: _obscure,
-              decoration: const InputDecoration(
-                labelText: 'Confirm new password',
-                prefixIcon: Icon(Icons.check_circle_outline),
+              const SizedBox(height: AppSpacing.md),
+              GlassTextField(
+                label: 'Confirm new password',
+                icon: Icons.check_circle_outline,
+                controller: _confirm,
+                obscureText: _obscure,
+                validator: (String? v) =>
+                    v != _next.text ? 'The two passwords do not match' : null,
               ),
-              validator: (String? v) =>
-                  v != _next.text ? 'The two passwords do not match' : null,
-            ),
-            SmoothSwitcher(
-              child: _error == null
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const Icon(
-                            Icons.error_outline,
-                            size: 18,
-                            color: StatusColors.failed,
+              SmoothSwitcher(
+                child: _error == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.md),
+                        child: GlassSurface(
+                          radius: AppRadius.fieldR,
+                          fill: AppColors.rejectedTint.withValues(alpha: 0.9),
+                          borderColor: AppColors.rejected.withValues(
+                            alpha: 0.24,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _error!,
-                              style: const TextStyle(
-                                color: StatusColors.failed,
-                                fontSize: 13,
-                                height: 1.35,
+                          shadows: const <BoxShadow>[],
+                          sheen: false,
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              const Icon(
+                                Icons.error_outline,
+                                size: 18,
+                                color: AppColors.rejected,
                               ),
-                            ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: AppTypography.support.copyWith(
+                                    color: AppColors.rejected,
+                                    fontSize: 13,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-            ),
-            const SizedBox(height: 18),
-            FilledButton(
-              onPressed: _busy ? null : _submit,
-              child: _busy
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Change password'),
-            ),
-          ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              GlassButton(
+                label: 'Change password',
+                icon: Icons.lock_reset_outlined,
+                busy: _busy,
+                onPressed: _busy ? null : _submit,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EyeToggle extends StatelessWidget {
+  const _EyeToggle({required this.obscured, required this.onTap});
+
+  final bool obscured;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Icon(
+          obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          size: 19,
+          color: AppColors.inkMuted,
         ),
       ),
     );
