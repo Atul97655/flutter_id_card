@@ -10,6 +10,7 @@ import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -48,9 +49,11 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     final List<StudentEntry> filtered = _applyFilters(allEntries);
     final ThemeData theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Export & Reports')),
-      body: ListView(
+    return AdminPage(
+      title: 'Export & Reports',
+      subtitle: 'Pull the data out as a file',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: ListView(
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
           // ── Quick Stats ──────────────────────────────────────────

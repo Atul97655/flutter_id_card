@@ -74,10 +74,10 @@ void main() {
     test('survives a Firestore round-trip', () {
       final StudentEntry original = entry(approval: ApprovalStatus.rejected)
           .copyWith(
-        rejectionReason: 'Photo is blurred',
-        reviewedBy: 'admin-uid',
-        reviewedAt: DateTime(2026, 9, 4, 10, 30),
-      );
+            rejectionReason: 'Photo is blurred',
+            reviewedBy: 'admin-uid',
+            reviewedAt: DateTime(2026, 9, 4, 10, 30),
+          );
 
       final StudentEntry restored = StudentEntry.fromFirestoreMap(
         original.id,
@@ -99,9 +99,13 @@ void main() {
     });
 
     test('copyWith can explicitly clear a rejection reason', () {
-      final StudentEntry rejected =
-          entry().copyWith(rejectionReason: 'Bad photo');
-      expect(rejected.copyWith(clearRejectionReason: true).rejectionReason, isNull);
+      final StudentEntry rejected = entry().copyWith(
+        rejectionReason: 'Bad photo',
+      );
+      expect(
+        rejected.copyWith(clearRejectionReason: true).rejectionReason,
+        isNull,
+      );
       expect(rejected.copyWith().rejectionReason, 'Bad photo');
     });
   });
@@ -115,8 +119,9 @@ void main() {
     setUpAll(() async {
       renderer = await IdCardRenderer.load();
       service = ImpositionService(renderer);
-      final String raw =
-          await rootBundle.loadString('assets/templates/default_vertical.json');
+      final String raw = await rootBundle.loadString(
+        'assets/templates/default_vertical.json',
+      );
       template = CardTemplate.fromJson(jsonDecode(raw) as Map<String, Object?>);
       config = const SchoolConfig(id: 's1', name: 'TEST SCHOOL');
     });
@@ -152,22 +157,32 @@ void main() {
       expect(singles, isEmpty);
     });
 
-    test('approved entries do print, and mixed batches drop only the rest',
-        () async {
-      final List<GeneratedPdf> singles = await service.buildSingleCards(
-        entries: <StudentEntry>[
-          entry(id: 'a', name: 'APPROVED ONE', approval: ApprovalStatus.approved),
-          entry(id: 'b', name: 'STILL PENDING'),
-          entry(id: 'c', name: 'SENT BACK', approval: ApprovalStatus.rejected),
-        ],
-        config: config,
-        template: template,
-        cardSize: CardSize.v54x86,
-      );
+    test(
+      'approved entries do print, and mixed batches drop only the rest',
+      () async {
+        final List<GeneratedPdf> singles = await service.buildSingleCards(
+          entries: <StudentEntry>[
+            entry(
+              id: 'a',
+              name: 'APPROVED ONE',
+              approval: ApprovalStatus.approved,
+            ),
+            entry(id: 'b', name: 'STILL PENDING'),
+            entry(
+              id: 'c',
+              name: 'SENT BACK',
+              approval: ApprovalStatus.rejected,
+            ),
+          ],
+          config: config,
+          template: template,
+          cardSize: CardSize.v54x86,
+        );
 
-      expect(singles.length, 1);
-      expect(singles.single.fileName, startsWith('APPROVED_ONE'));
-    });
+        expect(singles.length, 1);
+        expect(singles.single.fileName, startsWith('APPROVED_ONE'));
+      },
+    );
 
     test('the gate holds even if a caller forgets to filter', () async {
       // The point of enforcing it inside the service: the caller here passes
@@ -251,10 +266,9 @@ void main() {
         await repo.save(entry(id: 'e$i'));
       }
 
-      await repo.approveAll(
-        <String>[for (int i = 0; i < 25; i++) 'e$i'],
-        reviewerUid: 'admin-uid',
-      );
+      await repo.approveAll(<String>[
+        for (int i = 0; i < 25; i++) 'e$i',
+      ], reviewerUid: 'admin-uid');
 
       final List<StudentEntry> printable = await repo.printableForSchool('s1');
       expect(printable.length, 25);
@@ -265,23 +279,30 @@ void main() {
       expect(await repo.printableForSchool('s1'), isEmpty);
     });
 
-    test('printableForSchool excludes approved entries with no photo', () async {
-      await repo.save(entry(id: 'with', approval: ApprovalStatus.approved));
-      await repo.save(
-        entry(id: 'without', approval: ApprovalStatus.approved, photo: null),
-      );
+    test(
+      'printableForSchool excludes approved entries with no photo',
+      () async {
+        await repo.save(entry(id: 'with', approval: ApprovalStatus.approved));
+        await repo.save(
+          entry(id: 'without', approval: ApprovalStatus.approved, photo: null),
+        );
 
-      final List<StudentEntry> printable = await repo.printableForSchool('s1');
+        final List<StudentEntry> printable = await repo.printableForSchool(
+          's1',
+        );
 
-      // A card with an empty photo box would waste the whole sheet.
-      expect(printable.map((StudentEntry e) => e.id), <String>['with']);
-    });
+        // A card with an empty photo box would waste the whole sheet.
+        expect(printable.map((StudentEntry e) => e.id), <String>['with']);
+      },
+    );
 
     test('printableForSchool excludes other schools', () async {
       await repo.save(entry(id: 'mine', approval: ApprovalStatus.approved));
       await repo.save(
-        entry(id: 'theirs', approval: ApprovalStatus.approved)
-            .copyWith(schoolId: 's2'),
+        entry(
+          id: 'theirs',
+          approval: ApprovalStatus.approved,
+        ).copyWith(schoolId: 's2'),
       );
 
       final List<StudentEntry> printable = await repo.printableForSchool('s1');

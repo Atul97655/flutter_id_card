@@ -166,7 +166,9 @@ void main() {
           templateId: 'side_panel_horizontal',
           headerColorHex: 0xFF1A47C4,
         ),
-        template: await _template('assets/templates/side_panel_horizontal.json'),
+        template: await _template(
+          'assets/templates/side_panel_horizontal.json',
+        ),
         size: CardSize.h86x54,
       ),
     );
@@ -190,11 +192,18 @@ void main() {
       templateId: 'div_badge_vertical',
       divisionColors: divisionPalette,
       // Only the fields the reference card actually carries.
-      enabledFieldKeys: <String>{'name', 'photo', 'division', 'mobile', 'address'},
+      enabledFieldKeys: <String>{
+        'name',
+        'photo',
+        'division',
+        'mobile',
+        'address',
+      },
     );
 
-    final CardTemplate divTemplate =
-        await _template('assets/templates/div_badge_vertical.json');
+    final CardTemplate divTemplate = await _template(
+      'assets/templates/div_badge_vertical.json',
+    );
 
     for (final String division in divisionPalette.keys) {
       await _write(

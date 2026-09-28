@@ -33,10 +33,7 @@ void main() {
     final DateTime today = DateTime(2026, 8, 25);
 
     test('accepts a plausible past date', () {
-      expect(
-        Validators.dateOfBirth(DateTime(2015, 3, 14), now: today),
-        isNull,
-      );
+      expect(Validators.dateOfBirth(DateTime(2015, 3, 14), now: today), isNull);
     });
 
     test('rejects today', () {
@@ -73,10 +70,7 @@ void main() {
     });
 
     test('accepts yesterday', () {
-      expect(
-        Validators.dateOfBirth(DateTime(2026, 8, 24), now: today),
-        isNull,
-      );
+      expect(Validators.dateOfBirth(DateTime(2026, 8, 24), now: today), isNull);
     });
   });
 
@@ -137,7 +131,10 @@ void main() {
 
     test('still rejects something absurdly long', () {
       expect(
-        Validators.shortCode('A' * (Validators.nameMaxLength + 1), label: 'Div'),
+        Validators.shortCode(
+          'A' * (Validators.nameMaxLength + 1),
+          label: 'Div',
+        ),
         contains('40 characters'),
       );
     });
@@ -149,14 +146,8 @@ void main() {
         Validators.forField(StudentField.mobile, 'abc'),
         contains('digits only'),
       );
-      expect(
-        Validators.forField(StudentField.bloodGroup, 'O+'),
-        isNull,
-      );
-      expect(
-        Validators.forField(StudentField.name, 'RAMESH'),
-        isNull,
-      );
+      expect(Validators.forField(StudentField.bloodGroup, 'O+'), isNull);
+      expect(Validators.forField(StudentField.name, 'RAMESH'), isNull);
       expect(
         Validators.forField(
           StudentField.dob,
@@ -168,10 +159,12 @@ void main() {
       );
     });
 
-    test('accepts a single-letter Div - the regression that broke the demo',
-        () {
-      expect(Validators.forField(StudentField.division, 'B'), isNull);
-    });
+    test(
+      'accepts a single-letter Div - the regression that broke the demo',
+      () {
+        expect(Validators.forField(StudentField.division, 'B'), isNull);
+      },
+    );
 
     test('accepts a single-digit Class', () {
       expect(Validators.forField(StudentField.studentClass, '1'), isNull);

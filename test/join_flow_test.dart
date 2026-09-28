@@ -56,14 +56,18 @@ void main() {
       expect(
         JoinRepository.tokenFrom('WIFI:S:StaffRoom;T:WPA;P:hunter2;;'),
         '',
-        reason: 'a scanned Wi-Fi card must not be sent to Firestore as a '
+        reason:
+            'a scanned Wi-Fi card must not be sent to Firestore as a '
             'document id, which throws rather than failing politely',
       );
       expect(JoinRepository.tokenFrom('a' * 200), '');
     });
 
     test('a non-code scan reports the right failure', () async {
-      expect(await repo.resolve('BEGIN:VCARD more stuff'), ScanFailure.notOurCode);
+      expect(
+        await repo.resolve('BEGIN:VCARD more stuff'),
+        ScanFailure.notOurCode,
+      );
     });
   });
 
@@ -80,19 +84,23 @@ void main() {
     });
 
     // The scenario the wording exists for: a poster that worked last week.
-    test('a rotated code says it was replaced, not that it is invalid', () async {
-      final Object result = await repo.resolve('OldCode99');
+    test(
+      'a rotated code says it was replaced, not that it is invalid',
+      () async {
+        final Object result = await repo.resolve('OldCode99');
 
-      expect(result, ScanFailure.unknownCode);
-      expect((result as ScanFailure).message, contains('no longer in use'));
-      expect(result.message, contains('new one'));
-      expect(
-        result.message.toLowerCase(),
-        isNot(contains('invalid')),
-        reason: 'a teacher told their code is invalid goes to the office to '
-            'report a broken app, not to collect the current sheet',
-      );
-    });
+        expect(result, ScanFailure.unknownCode);
+        expect((result as ScanFailure).message, contains('no longer in use'));
+        expect(result.message, contains('new one'));
+        expect(
+          result.message.toLowerCase(),
+          isNot(contains('invalid')),
+          reason:
+              'a teacher told their code is invalid goes to the office to '
+              'report a broken app, not to collect the current sheet',
+        );
+      },
+    );
 
     test('a malformed code document is treated as unknown', () async {
       await db.collection('joinCodes').doc('Broken').set(<String, Object?>{
@@ -117,20 +125,22 @@ void main() {
       );
 
       expect(ok, isTrue);
-      final Map<String, Object?>? doc = (await db
-              .collection('schools')
-              .doc('SJS-2026-0041')
-              .collection('joinRequests')
-              .doc('uid-ramesh')
-              .get())
-          .data();
+      final Map<String, Object?>? doc =
+          (await db
+                  .collection('schools')
+                  .doc('SJS-2026-0041')
+                  .collection('joinRequests')
+                  .doc('uid-ramesh')
+                  .get())
+              .data();
 
       expect(doc, isNotNull);
       expect(doc!['uid'], 'uid-ramesh');
       expect(
         doc['status'],
         'pending',
-        reason: 'the client states the rule the server also enforces; both '
+        reason:
+            'the client states the rule the server also enforces; both '
             'saying it is the point',
       );
     });
@@ -233,7 +243,8 @@ void main() {
       expect(
         (await repo.currentState('uid-ramesh')).isReady,
         isFalse,
-        reason: 'letting someone through on half an assignment puts them in '
+        reason:
+            'letting someone through on half an assignment puts them in '
             'a school with no section, which the rules read as the whole '
             'school',
       );
@@ -255,7 +266,8 @@ void main() {
       expect(
         state.isReady,
         isFalse,
-        reason: 'isReady means "scoped to a section"; an unscoped teacher '
+        reason:
+            'isReady means "scoped to a section"; an unscoped teacher '
             'still works, they just have no chip to show',
       );
     });

@@ -94,7 +94,8 @@ void main() {
       expect(
         after.lastSyncAttemptAt,
         isNull,
-        reason: 'the operator just reacted - do not make them wait out a '
+        reason:
+            'the operator just reacted - do not make them wait out a '
             'backoff from the failure they are retrying',
       );
     });
@@ -167,9 +168,10 @@ UPDATE student_entries
       if (e.syncAttempts == 0) return false;
       final DateTime? last = e.lastSyncAttemptAt;
       if (last == null) return false;
-      final int seconds = <int>[300, 1 << e.syncAttempts].reduce(
-        (int a, int b) => a < b ? a : b,
-      );
+      final int seconds = <int>[
+        300,
+        1 << e.syncAttempts,
+      ].reduce((int a, int b) => a < b ? a : b);
       return now.isBefore(last.add(Duration(seconds: seconds)));
     }
 
@@ -185,7 +187,10 @@ UPDATE student_entries
     test('a row that just failed waits', () {
       expect(
         shouldDelay(
-          _entry(attempts: 3, lastAttempt: now.subtract(const Duration(seconds: 2))),
+          _entry(
+            attempts: 3,
+            lastAttempt: now.subtract(const Duration(seconds: 2)),
+          ),
           now: now,
         ),
         isTrue,
@@ -196,7 +201,10 @@ UPDATE student_entries
     test('a row whose window has elapsed goes', () {
       expect(
         shouldDelay(
-          _entry(attempts: 3, lastAttempt: now.subtract(const Duration(seconds: 30))),
+          _entry(
+            attempts: 3,
+            lastAttempt: now.subtract(const Duration(seconds: 30)),
+          ),
           now: now,
         ),
         isFalse,
@@ -206,7 +214,10 @@ UPDATE student_entries
     test('the wait is capped at five minutes', () {
       expect(
         shouldDelay(
-          _entry(attempts: 20, lastAttempt: now.subtract(const Duration(minutes: 6))),
+          _entry(
+            attempts: 20,
+            lastAttempt: now.subtract(const Duration(minutes: 6)),
+          ),
           now: now,
         ),
         isFalse,

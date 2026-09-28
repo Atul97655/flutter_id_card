@@ -39,12 +39,10 @@ void main() {
     // Tearoff rather than `() => connectivity.checkConnectivity()`: mocktail
     // invokes whatever it is handed, so the two are identical, and the
     // closure form trips `unnecessary_lambdas` on a local variable.
-    when(connectivity.checkConnectivity).thenAnswer(
-      (_) async => <ConnectivityResult>[ConnectivityResult.wifi],
-    );
-    when(() => connectivity.onConnectivityChanged).thenAnswer(
-      (_) => const Stream<List<ConnectivityResult>>.empty(),
-    );
+    when(connectivity.checkConnectivity)
+        .thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.wifi]);
+    when(() => connectivity.onConnectivityChanged)
+        .thenAnswer((_) => const Stream<List<ConnectivityResult>>.empty());
 
     sync = SyncService(
       students: students,

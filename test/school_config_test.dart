@@ -22,8 +22,10 @@ void main() {
 
     test('always-on fields cannot be switched off', () {
       const SchoolConfig config = SchoolConfig(id: 's1', name: 'X');
-      final SchoolConfig updated =
-          config.withFieldEnabled(StudentField.name, false);
+      final SchoolConfig updated = config.withFieldEnabled(
+        StudentField.name,
+        false,
+      );
 
       expect(updated.isEnabled(StudentField.name), isTrue);
       expect(updated.isEnabled(StudentField.photo), isTrue);
@@ -33,10 +35,16 @@ void main() {
       const SchoolConfig config = SchoolConfig(id: 's1', name: 'X');
       expect(config.isEnabled(StudentField.bloodGroup), isFalse);
 
-      final SchoolConfig on = config.withFieldEnabled(StudentField.bloodGroup, true);
+      final SchoolConfig on = config.withFieldEnabled(
+        StudentField.bloodGroup,
+        true,
+      );
       expect(on.isEnabled(StudentField.bloodGroup), isTrue);
 
-      final SchoolConfig off = on.withFieldEnabled(StudentField.bloodGroup, false);
+      final SchoolConfig off = on.withFieldEnabled(
+        StudentField.bloodGroup,
+        false,
+      );
       expect(off.isEnabled(StudentField.bloodGroup), isFalse);
     });
 
@@ -82,10 +90,11 @@ void main() {
     });
 
     test('tolerates stray whitespace', () {
-      expect(
-        SchoolRepository.decodeFieldKeys('name, mobile ,dob'),
-        <String>{'name', 'mobile', 'dob'},
-      );
+      expect(SchoolRepository.decodeFieldKeys('name, mobile ,dob'), <String>{
+        'name',
+        'mobile',
+        'dob',
+      });
     });
   });
 

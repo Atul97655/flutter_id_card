@@ -201,7 +201,10 @@ void main() {
       expect(report.totalApproved, 5);
       expect(report.totalPending, 2);
       expect(report.totalRejected, 1);
-      expect(report.totalPrintable, 4); // s1, s2, s6, s7 have photos & are approved
+      expect(
+        report.totalPrintable,
+        4,
+      ); // s1, s2, s6, s7 have photos & are approved
       expect(report.totalBatches, 2);
       expect(report.totalCardsPrinted, 35);
       expect(report.overallApprovalPercentage, closeTo(5 / 8 * 100, 0.01));
@@ -210,8 +213,9 @@ void main() {
     test('generateReport breaks down metrics per school', () async {
       final SystemReport report = await reportsService.generateReport();
 
-      final SchoolReportItem sch1 =
-          report.schoolReports.firstWhere((SchoolReportItem r) => r.schoolId == 'sch-1');
+      final SchoolReportItem sch1 = report.schoolReports.firstWhere(
+        (SchoolReportItem r) => r.schoolId == 'sch-1',
+      );
       expect(sch1.schoolName, 'Greenfield High');
       expect(sch1.totalCount, 5);
       expect(sch1.approvedCount, 3);
@@ -220,8 +224,9 @@ void main() {
       expect(sch1.printableCount, 2);
       expect(sch1.approvalPercentage, closeTo(3 / 5 * 100, 0.01));
 
-      final SchoolReportItem sch2 =
-          report.schoolReports.firstWhere((SchoolReportItem r) => r.schoolId == 'sch-2');
+      final SchoolReportItem sch2 = report.schoolReports.firstWhere(
+        (SchoolReportItem r) => r.schoolId == 'sch-2',
+      );
       expect(sch2.schoolName, 'Riverside Academy');
       expect(sch2.totalCount, 3);
       expect(sch2.approvedCount, 2);
@@ -244,17 +249,13 @@ void main() {
   });
 
   group('Phase 5: Offline Banner Widget', () {
-    testWidgets('shows warning when device is offline', (WidgetTester tester) async {
+    testWidgets('shows warning when device is offline', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            isOfflineProvider.overrideWithValue(true),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: OfflineBanner(),
-            ),
-          ),
+          overrides: [isOfflineProvider.overrideWithValue(true)],
+          child: const MaterialApp(home: Scaffold(body: OfflineBanner())),
         ),
       );
 
@@ -262,17 +263,13 @@ void main() {
       expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
     });
 
-    testWidgets('remains hidden when device is online', (WidgetTester tester) async {
+    testWidgets('remains hidden when device is online', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            isOfflineProvider.overrideWithValue(false),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: OfflineBanner(),
-            ),
-          ),
+          overrides: [isOfflineProvider.overrideWithValue(false)],
+          child: const MaterialApp(home: Scaffold(body: OfflineBanner())),
         ),
       );
 
@@ -282,7 +279,9 @@ void main() {
   });
 
   group('Phase 5: Reports Dashboard Screen', () {
-    testWidgets('renders headline metrics and school breakdowns', (WidgetTester tester) async {
+    testWidgets('renders headline metrics and school breakdowns', (
+      WidgetTester tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -322,9 +321,7 @@ void main() {
           overrides: [
             systemReportProvider.overrideWith((_) async => mockReport),
           ],
-          child: const MaterialApp(
-            home: ReportsScreen(),
-          ),
+          child: const MaterialApp(home: ReportsScreen()),
         ),
       );
 

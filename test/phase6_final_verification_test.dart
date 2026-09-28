@@ -46,23 +46,26 @@ void main() {
       expect(PhotoSpec.heightPx, 450); // 1.5 * 300 = 450 px
     });
 
-    test('A4 Landscape sheet computes exactly 10 cards (5 columns x 2 rows)', () {
-      const SheetSpec sheet = SheetSpec.a4Landscape;
-      expect(sheet.widthMm, 297.0);
-      expect(sheet.heightMm, 210.0);
+    test(
+      'A4 Landscape sheet computes exactly 10 cards (5 columns x 2 rows)',
+      () {
+        const SheetSpec sheet = SheetSpec.a4Landscape;
+        expect(sheet.widthMm, 297.0);
+        expect(sheet.heightMm, 210.0);
 
-      final ImpositionGrid grid = ImpositionGrid.compute(
-        sheet: sheet,
-        cardSize: CardSize.v54x86,
-      );
+        final ImpositionGrid grid = ImpositionGrid.compute(
+          sheet: sheet,
+          cardSize: CardSize.v54x86,
+        );
 
-      expect(grid.columns, 5);
-      expect(grid.rows, 2);
-      expect(grid.capacity, 10);
-      expect(grid.isUsable, isTrue);
-      expect(grid.marginLeftMm, greaterThan(0));
-      expect(grid.marginTopMm, greaterThan(0));
-    });
+        expect(grid.columns, 5);
+        expect(grid.rows, 2);
+        expect(grid.capacity, 10);
+        expect(grid.isUsable, isTrue);
+        expect(grid.marginLeftMm, greaterThan(0));
+        expect(grid.marginTopMm, greaterThan(0));
+      },
+    );
 
     test('12 x 18 in sheet computes exactly 25 cards (5 columns x 5 rows)', () {
       const SheetSpec sheet = SheetSpec.sheet12x18;
@@ -85,7 +88,8 @@ void main() {
 
   group('Phase 6: Data Integrity & Uppercase Conversion', () {
     test('UpperCaseTextInputFormatter automatically converts lowercase to uppercase', () {
-      const UpperCaseTextInputFormatter formatter = UpperCaseTextInputFormatter();
+      const UpperCaseTextInputFormatter formatter =
+          UpperCaseTextInputFormatter();
       const TextEditingValue oldValue = TextEditingValue.empty;
 
       final TextEditingValue result1 = formatter.formatEditUpdate(
@@ -127,8 +131,7 @@ void main() {
       await db.close();
     });
 
-    test('complete lifecycle: school creation, student review, print, export, audit & reports',
-        () async {
+    test('complete lifecycle: school creation, student review, print, export, audit & reports', () async {
       // 1. Create School
       const SchoolConfig school = SchoolConfig(
         id: 'sch-final',
@@ -186,7 +189,10 @@ void main() {
       expect((await studentRepo.listBySchool('sch-final')).length, 2);
 
       // 3. Admin Reviews & Approves Entries
-      await studentRepo.approveAll(<String>['std-1', 'std-2'], reviewerUid: 'admin-1');
+      await studentRepo.approveAll(<String>[
+        'std-1',
+        'std-2',
+      ], reviewerUid: 'admin-1');
       await auditRepo.log(
         action: 'bulk_approve',
         entityType: 'student',
@@ -218,7 +224,9 @@ void main() {
       );
 
       // 5. Export CSV
-      final List<StudentEntry> toExport = await studentRepo.listBySchool('sch-final');
+      final List<StudentEntry> toExport = await studentRepo.listBySchool(
+        'sch-final',
+      );
       final String csv = CsvExportService.buildCsvContent(toExport);
       expect(csv.startsWith('\uFEFF'), isTrue); // UTF-8 BOM
       expect(csv, contains('AARAV SHARMA'));
@@ -235,8 +243,10 @@ void main() {
       // 6. Verify Audit Logs
       final List<AuditEntry> logs = await auditRepo.watchRecent().first;
       expect(logs.length, 3);
-      expect(logs.map((AuditEntry l) => l.action),
-          containsAll(<String>['bulk_approve', 'print_batch', 'export_csv']));
+      expect(
+        logs.map((AuditEntry l) => l.action),
+        containsAll(<String>['bulk_approve', 'print_batch', 'export_csv']),
+      );
 
       // 7. Verify Reports Service Aggregation
       final SystemReport report = await reportsService.generateReport();

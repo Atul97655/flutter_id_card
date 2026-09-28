@@ -46,12 +46,91 @@ final class AppTheme {
         centerTitle: false,
         titleTextStyle: AppTypography.title,
       ),
+      // Translucent, hairlined and lifted, so that any screen still built
+      // from plain Material Cards reads as glass on the page gradient without
+      // being rewritten. This is what carries the redesign through the
+      // thousands of lines of admin screens that were never touched by hand.
       cardTheme: CardThemeData(
-        elevation: 0,
-        color: AppColors.card,
+        elevation: 3,
+        color: AppColors.glassFillStrong,
+        shadowColor: AppColors.navy.withValues(alpha: 0.10),
+        surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.cardR),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.cardR,
+          side: const BorderSide(color: AppColors.glassBorder),
+        ),
         clipBehavior: Clip.antiAlias,
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: AppColors.royal,
+        titleTextStyle: AppTypography.section,
+        subtitleTextStyle: AppTypography.support,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.fieldR),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
+      ),
+      chipTheme: const ChipThemeData(
+        backgroundColor: AppColors.mist,
+        side: BorderSide(color: AppColors.glassBorder),
+        labelStyle: AppTypography.badge,
+        shape: StadiumBorder(),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.card,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shadowColor: AppColors.navy.withValues(alpha: 0.18),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.panelR),
+        titleTextStyle: AppTypography.title,
+        contentTextStyle: AppTypography.body,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.canvas,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.sheet),
+          ),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.card,
+        surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.fieldR),
+        textStyle: AppTypography.body,
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: AppColors.royal,
+        unselectedLabelColor: AppColors.inkMuted,
+        labelStyle: AppTypography.badge,
+        unselectedLabelStyle: AppTypography.badge,
+        indicatorColor: AppColors.royal,
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.royal,
+        foregroundColor: AppColors.onDark,
+        elevation: 4,
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.royal,
+        linearTrackColor: AppColors.mist,
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          textStyle: const WidgetStatePropertyAll<TextStyle>(
+            AppTypography.badge,
+          ),
+          shape: WidgetStatePropertyAll<OutlinedBorder>(
+            RoundedRectangleBorder(borderRadius: AppRadius.fieldR),
+          ),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

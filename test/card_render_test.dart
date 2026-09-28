@@ -33,7 +33,10 @@ StudentEntry sampleEntry({
   );
 }
 
-SchoolConfig sampleConfig({Set<String>? fields, String templateId = 'default_vertical'}) {
+SchoolConfig sampleConfig({
+  Set<String>? fields,
+  String templateId = 'default_vertical',
+}) {
   return SchoolConfig(
     id: 's1',
     name: 'ST JOHN SAMARITAN SCHOOL',
@@ -65,7 +68,9 @@ void main() {
 
   group('page geometry - the physical size guarantee', () {
     test('a 54x86 mm card produces a 54x86 mm page', () {
-      final PdfPageFormat format = IdCardRenderer.pageFormatFor(CardSize.v54x86);
+      final PdfPageFormat format = IdCardRenderer.pageFormatFor(
+        CardSize.v54x86,
+      );
 
       expect(PrintUnits.ptToMm(format.width), closeTo(54, 1e-9));
       expect(PrintUnits.ptToMm(format.height), closeTo(86, 1e-9));
@@ -88,7 +93,9 @@ void main() {
     });
 
     test('page margins are zero - any margin would shrink the card', () {
-      final PdfPageFormat format = IdCardRenderer.pageFormatFor(CardSize.v54x86);
+      final PdfPageFormat format = IdCardRenderer.pageFormatFor(
+        CardSize.v54x86,
+      );
       expect(format.marginLeft, 0);
       expect(format.marginTop, 0);
       expect(format.marginRight, 0);
@@ -98,8 +105,10 @@ void main() {
     });
 
     test('3 mm bleed grows the page by 6 mm on each axis, not 3', () {
-      final PdfPageFormat format =
-          IdCardRenderer.pageFormatFor(CardSize.v54x86, bleedMm: 3);
+      final PdfPageFormat format = IdCardRenderer.pageFormatFor(
+        CardSize.v54x86,
+        bleedMm: 3,
+      );
       expect(PrintUnits.ptToMm(format.width), closeTo(60, 1e-9));
       expect(PrintUnits.ptToMm(format.height), closeTo(92, 1e-9));
     });
@@ -108,8 +117,9 @@ void main() {
   group('generated PDF', () {
     test('declares a MediaBox of exactly the card size in points', () async {
       final IdCardRenderer renderer = await IdCardRenderer.load();
-      final CardTemplate template =
-          await loadTemplate('assets/templates/default_vertical.json');
+      final CardTemplate template = await loadTemplate(
+        'assets/templates/default_vertical.json',
+      );
 
       final Uint8List bytes = await renderer.buildSingleCardPdf(
         entry: sampleEntry(),
@@ -124,9 +134,9 @@ void main() {
       expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
 
       final String content = latin1.decode(bytes, allowInvalid: true);
-      final RegExpMatch? box =
-          RegExp(r'/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]')
-              .firstMatch(content);
+      final RegExpMatch? box = RegExp(
+        r'/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]',
+      ).firstMatch(content);
 
       expect(box, isNotNull, reason: 'no /MediaBox found in the generated PDF');
 
@@ -140,8 +150,9 @@ void main() {
 
     test('renders a horizontal card at 86x54 mm', () async {
       final IdCardRenderer renderer = await IdCardRenderer.load();
-      final CardTemplate template =
-          await loadTemplate('assets/templates/default_horizontal.json');
+      final CardTemplate template = await loadTemplate(
+        'assets/templates/default_horizontal.json',
+      );
 
       final Uint8List bytes = await renderer.buildSingleCardPdf(
         entry: sampleEntry(),
@@ -152,11 +163,14 @@ void main() {
       );
 
       final String content = latin1.decode(bytes, allowInvalid: true);
-      final RegExpMatch? box =
-          RegExp(r'/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]')
-              .firstMatch(content);
+      final RegExpMatch? box = RegExp(
+        r'/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]',
+      ).firstMatch(content);
 
-      expect(PrintUnits.ptToMm(double.parse(box!.group(3)!)), closeTo(86, 0.01));
+      expect(
+        PrintUnits.ptToMm(double.parse(box!.group(3)!)),
+        closeTo(86, 0.01),
+      );
       expect(PrintUnits.ptToMm(double.parse(box.group(4)!)), closeTo(54, 0.01));
     });
 
@@ -164,8 +178,9 @@ void main() {
       // Operators do occasionally save before the photo lands; the renderer
       // must not throw on the print path.
       final IdCardRenderer renderer = await IdCardRenderer.load();
-      final CardTemplate template =
-          await loadTemplate('assets/templates/default_vertical.json');
+      final CardTemplate template = await loadTemplate(
+        'assets/templates/default_vertical.json',
+      );
 
       final Uint8List bytes = await renderer.buildSingleCardPdf(
         entry: sampleEntry(),
@@ -178,32 +193,52 @@ void main() {
   });
 
   group('templates parse', () {
-    test('the bundled vertical template loads and is authored for 54x86', () async {
-      final CardTemplate template =
-          await loadTemplate('assets/templates/default_vertical.json');
-      expect(template.id, 'default_vertical');
-      expect(template.authoredSize, CardSize.v54x86);
-      expect(template.orientation, CardOrientation.vertical);
-      expect(template.elements, isNotEmpty);
-    });
+    test(
+      'the bundled vertical template loads and is authored for 54x86',
+      () async {
+        final CardTemplate template = await loadTemplate(
+          'assets/templates/default_vertical.json',
+        );
+        expect(template.id, 'default_vertical');
+        expect(template.authoredSize, CardSize.v54x86);
+        expect(template.orientation, CardOrientation.vertical);
+        expect(template.elements, isNotEmpty);
+      },
+    );
 
-    test('the bundled horizontal template loads and is authored for 86x54', () async {
-      final CardTemplate template =
-          await loadTemplate('assets/templates/default_horizontal.json');
-      expect(template.authoredSize, CardSize.h86x54);
-      expect(template.orientation, CardOrientation.horizontal);
-    });
+    test(
+      'the bundled horizontal template loads and is authored for 86x54',
+      () async {
+        final CardTemplate template = await loadTemplate(
+          'assets/templates/default_horizontal.json',
+        );
+        expect(template.authoredSize, CardSize.h86x54);
+        expect(template.orientation, CardOrientation.horizontal);
+      },
+    );
 
-    test('every template reserves a photo box of exactly 1.2 x 1.5 inch', () async {
-      for (final String asset in kAllTemplateAssets) {
-        final CardTemplate template = await loadTemplate(asset);
-        final PhotoElement photo =
-            template.elements.whereType<PhotoElement>().single;
+    test(
+      'every template reserves a photo box of exactly 1.2 x 1.5 inch',
+      () async {
+        for (final String asset in kAllTemplateAssets) {
+          final CardTemplate template = await loadTemplate(asset);
+          final PhotoElement photo = template.elements
+              .whereType<PhotoElement>()
+              .single;
 
-        expect(photo.widthMm, closeTo(PhotoSpec.widthMm, 1e-6), reason: asset);
-        expect(photo.heightMm, closeTo(PhotoSpec.heightMm, 1e-6), reason: asset);
-      }
-    });
+          expect(
+            photo.widthMm,
+            closeTo(PhotoSpec.widthMm, 1e-6),
+            reason: asset,
+          );
+          expect(
+            photo.heightMm,
+            closeTo(PhotoSpec.heightMm, 1e-6),
+            reason: asset,
+          );
+        }
+      },
+    );
 
     test('every element stays inside the card it is authored for', () async {
       for (final String asset in kAllTemplateAssets) {
@@ -227,29 +262,32 @@ void main() {
       }
     });
 
-    test('all five bundled templates load and are internally consistent',
-        () async {
-      for (final String asset in kAllTemplateAssets) {
-        final CardTemplate template = await loadTemplate(asset);
-        expect(template.elements, isNotEmpty, reason: asset);
-        // Exactly one photo slot and one field block per template - two of
-        // either would silently draw the same content twice.
-        expect(
-          template.elements.whereType<PhotoElement>().length,
-          1,
-          reason: asset,
-        );
-        expect(
-          template.elements.whereType<FieldBlockElement>().length,
-          1,
-          reason: asset,
-        );
-      }
-    });
+    test(
+      'all five bundled templates load and are internally consistent',
+      () async {
+        for (final String asset in kAllTemplateAssets) {
+          final CardTemplate template = await loadTemplate(asset);
+          expect(template.elements, isNotEmpty, reason: asset);
+          // Exactly one photo slot and one field block per template - two of
+          // either would silently draw the same content twice.
+          expect(
+            template.elements.whereType<PhotoElement>().length,
+            1,
+            reason: asset,
+          );
+          expect(
+            template.elements.whereType<FieldBlockElement>().length,
+            1,
+            reason: asset,
+          );
+        }
+      },
+    );
 
     test('the division badge is gated on the division field', () async {
-      final CardTemplate template =
-          await loadTemplate('assets/templates/div_badge_vertical.json');
+      final CardTemplate template = await loadTemplate(
+        'assets/templates/div_badge_vertical.json',
+      );
       final TextElement badge = template.elements
           .whereType<TextElement>()
           .firstWhere((TextElement e) => e.value.contains('{division}'));
@@ -259,15 +297,13 @@ void main() {
       expect(badge.appliesTo(sampleEntry()), isTrue);
       // ...and dropped entirely for one who does not, rather than printing
       // a bare "DIV-".
-      expect(
-        badge.appliesTo(sampleEntry().copyWith(division: '')),
-        isFalse,
-      );
+      expect(badge.appliesTo(sampleEntry().copyWith(division: '')), isFalse);
     });
 
     test('student tokens are substituted into static text', () async {
-      final CardTemplate template =
-          await loadTemplate('assets/templates/div_badge_vertical.json');
+      final CardTemplate template = await loadTemplate(
+        'assets/templates/div_badge_vertical.json',
+      );
       final TextElement badge = template.elements
           .whereType<TextElement>()
           .firstWhere((TextElement e) => e.value.contains('{division}'));
@@ -280,8 +316,9 @@ void main() {
     });
 
     test('school tokens still resolve with no entry', () async {
-      final CardTemplate template =
-          await loadTemplate('assets/templates/default_vertical.json');
+      final CardTemplate template = await loadTemplate(
+        'assets/templates/default_vertical.json',
+      );
       final TextElement title = template.elements
           .whereType<TextElement>()
           .firstWhere((TextElement e) => e.value.contains('{schoolName}'));
@@ -397,8 +434,7 @@ void main() {
     });
 
     test('withDivisionColor sets and clears one division', () {
-      final SchoolConfig added =
-          config.withDivisionColor('d', 0xFF00FF00);
+      final SchoolConfig added = config.withDivisionColor('d', 0xFF00FF00);
       expect(added.headerColorFor('D'), 0xFF00FF00);
 
       final SchoolConfig removed = added.withDivisionColor('D', null);
@@ -444,8 +480,9 @@ void main() {
       final CardRenderPlan p = await plan(
         fields: <String>{'name', 'photo', 'dob', 'mobile'},
       );
-      final Set<StudentField> drawn =
-          p.rows.map((PlannedRow r) => r.field).toSet();
+      final Set<StudentField> drawn = p.rows
+          .map((PlannedRow r) => r.field)
+          .toSet();
 
       expect(drawn, <StudentField>{StudentField.dob, StudentField.mobile});
       expect(drawn, isNot(contains(StudentField.bloodGroup)));
@@ -477,17 +514,23 @@ void main() {
       expect(p.fitScale, 1.0);
       expect(p.hasWarnings, isFalse);
 
-      final PlannedRow dob =
-          p.rows.firstWhere((PlannedRow r) => r.field == StudentField.dob);
-      expect(dob.style.sizePt, CardTypography.byField[StudentField.dob]!.sizePt);
+      final PlannedRow dob = p.rows.firstWhere(
+        (PlannedRow r) => r.field == StudentField.dob,
+      );
+      expect(
+        dob.style.sizePt,
+        CardTypography.byField[StudentField.dob]!.sizePt,
+      );
     });
 
     test('rows never overflow the field block', () async {
       final CardRenderPlan p = await plan();
-      final CardTemplate template =
-          await loadTemplate('assets/templates/default_vertical.json');
-      final FieldBlockElement block =
-          template.elements.whereType<FieldBlockElement>().single;
+      final CardTemplate template = await loadTemplate(
+        'assets/templates/default_vertical.json',
+      );
+      final FieldBlockElement block = template.elements
+          .whereType<FieldBlockElement>()
+          .single;
 
       double used = 0;
       for (final PlannedRow r in p.rows) {
@@ -502,35 +545,44 @@ void main() {
       );
     });
 
-    test('warns rather than silently shrinking when everything is enabled',
-        () async {
-      final CardRenderPlan p = await plan();
-      // With all eight fields on a 54x86 card the block is genuinely tight.
-      // Whatever the outcome, scale and warning must agree with each other.
-      if (p.fitScale < 0.92) {
-        expect(p.hasWarnings, isTrue);
-        expect(p.warnings.single, contains('admin panel'));
-      } else {
-        expect(p.hasWarnings, isFalse);
-      }
-      expect(p.fitScale, greaterThan(0));
-      expect(p.fitScale, lessThanOrEqualTo(1.0));
-    });
+    test(
+      'warns rather than silently shrinking when everything is enabled',
+      () async {
+        final CardRenderPlan p = await plan();
+        // With all eight fields on a 54x86 card the block is genuinely tight.
+        // Whatever the outcome, scale and warning must agree with each other.
+        if (p.fitScale < 0.92) {
+          expect(p.hasWarnings, isTrue);
+          expect(p.warnings.single, contains('admin panel'));
+        } else {
+          expect(p.hasWarnings, isFalse);
+        }
+        expect(p.fitScale, greaterThan(0));
+        expect(p.fitScale, lessThanOrEqualTo(1.0));
+      },
+    );
 
-    test('the horizontal template has room for every field at full size',
-        () async {
-      final CardRenderPlan p = await plan(
-        asset: 'assets/templates/default_horizontal.json',
-        size: CardSize.h86x54,
-      );
-      expect(p.fitScale, 1.0, reason: 'the wide layout has a 31 mm field block');
-      expect(p.hasWarnings, isFalse);
-    });
+    test(
+      'the horizontal template has room for every field at full size',
+      () async {
+        final CardRenderPlan p = await plan(
+          asset: 'assets/templates/default_horizontal.json',
+          size: CardSize.h86x54,
+        );
+        expect(
+          p.fitScale,
+          1.0,
+          reason: 'the wide layout has a 31 mm field block',
+        );
+        expect(p.hasWarnings, isFalse);
+      },
+    );
 
     test('address is planned as a two-line row', () async {
       final CardRenderPlan p = await plan();
-      final PlannedRow address =
-          p.rows.firstWhere((PlannedRow r) => r.field == StudentField.address);
+      final PlannedRow address = p.rows.firstWhere(
+        (PlannedRow r) => r.field == StudentField.address,
+      );
       expect(address.style.maxLines, 2);
       // A two-line row must be taller than a one-line row of the same size.
       expect(

@@ -65,101 +65,117 @@ void main() {
   );
 
   group('Admin Dashboard Screen Widget Tests', () {
-    testWidgets('renders AdminDashboardScreen with audit and user management links',
-        (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets(
+      'renders AdminDashboardScreen with audit and user management links',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            allSchoolsProvider.overrideWith((ref) => Stream.value([testSchool])),
-            allEntriesProvider.overrideWith((ref) => Stream.value([testEntry])),
-            adminStatsProvider.overrideWithValue(
-              const AsyncValue.data(
-                AdminStats(schools: 1, total: 1, awaitingReview: 1),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              allSchoolsProvider.overrideWith(
+                (ref) => Stream.value([testSchool]),
               ),
-            ),
-            currentSessionProvider.overrideWithValue(
-              const SessionUser(
-                uid: 'admin-tester',
-                role: UserRole.admin,
-                email: 'admin@test.com',
+              allEntriesProvider.overrideWith(
+                (ref) => Stream.value([testEntry]),
               ),
-            ),
-          ],
-          child: const MaterialApp(home: AdminDashboardScreen()),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
+              adminStatsProvider.overrideWithValue(
+                const AsyncValue.data(
+                  AdminStats(schools: 1, total: 1, awaitingReview: 1),
+                ),
+              ),
+              currentSessionProvider.overrideWithValue(
+                const SessionUser(
+                  uid: 'admin-tester',
+                  role: UserRole.admin,
+                  email: 'admin@test.com',
+                ),
+              ),
+            ],
+            child: const MaterialApp(home: AdminDashboardScreen()),
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Admin Panel'), findsOneWidget);
-      // Twice now: once beside the entry in Latest requests, once in the
-      // school list below it.
-      expect(find.text('Test Academy'), findsWidgets);
+        expect(find.text('Admin Panel'), findsOneWidget);
+        // Twice now: once beside the entry in Latest requests, once in the
+        // school list below it.
+        expect(find.text('Test Academy'), findsWidgets);
 
-      // The three verbose navigation cards were replaced by a compact quick
-      // actions grid, so the dashboard leads with the backlog instead of a
-      // wall of link cards.
-      expect(find.text('Quick actions'), findsOneWidget);
-      expect(find.text('Audit log'), findsOneWidget);
-      expect(find.text('Accounts'), findsOneWidget);
-      expect(find.text('Requests'), findsOneWidget);
-      expect(find.text('Bulk message'), findsOneWidget);
+        // The three verbose navigation cards were replaced by a compact quick
+        // actions grid, so the dashboard leads with the backlog instead of a
+        // wall of link cards.
+        expect(find.text('Quick actions'), findsOneWidget);
+        expect(find.text('Audit log'), findsOneWidget);
+        expect(find.text('Accounts'), findsOneWidget);
+        expect(find.text('Requests'), findsOneWidget);
+        expect(find.text('Bulk message'), findsOneWidget);
 
-      // One entry is awaiting review, so the callout is the first thing shown.
-      expect(find.text('awaiting review'), findsOneWidget);
-      expect(find.text('Latest requests'), findsOneWidget);
-    });
+        // One entry is awaiting review, so the callout is the first thing shown.
+        expect(find.text('awaiting review'), findsOneWidget);
+        expect(find.text('Latest requests'), findsOneWidget);
+      },
+    );
   });
 
   group('School Detail Screen Widget Tests', () {
-    testWidgets('renders SchoolDetailScreen with Export and Print History actions',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            schoolByIdProvider('sch-test')
-                .overrideWith((ref) => Stream.value(testSchool)),
-            entriesForSchoolProvider('sch-test')
-                .overrideWith((ref) => Stream.value([testEntry])),
-            printBatchesForSchoolProvider('sch-test')
-                .overrideWith((ref) => Stream.value([testBatch])),
-            currentSessionProvider.overrideWithValue(
-              const SessionUser(
-                uid: 'admin-tester',
-                role: UserRole.admin,
-                email: 'admin@test.com',
+    testWidgets(
+      'renders SchoolDetailScreen with Export and Print History actions',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              schoolByIdProvider('sch-test')
+                  .overrideWith((ref) => Stream.value(testSchool)),
+              entriesForSchoolProvider('sch-test')
+                  .overrideWith((ref) => Stream.value([testEntry])),
+              printBatchesForSchoolProvider('sch-test')
+                  .overrideWith((ref) => Stream.value([testBatch])),
+              currentSessionProvider.overrideWithValue(
+                const SessionUser(
+                  uid: 'admin-tester',
+                  role: UserRole.admin,
+                  email: 'admin@test.com',
+                ),
               ),
+            ],
+            child: const MaterialApp(
+              home: SchoolDetailScreen(schoolId: 'sch-test'),
             ),
-          ],
-          child: const MaterialApp(
-            home: SchoolDetailScreen(schoolId: 'sch-test'),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Test Academy'), findsOneWidget);
-      expect(find.byTooltip('Export CSV & Reports'), findsOneWidget);
-      expect(find.byTooltip('Print history'), findsOneWidget);
-      expect(find.text('Jane Doe'), findsOneWidget);
+        expect(find.text('Test Academy'), findsOneWidget);
+        expect(find.text('Jane Doe'), findsOneWidget);
 
-      // Open Print History bottom sheet
-      await tester.tap(find.byTooltip('Print history'));
-      await tester.pumpAndSettle();
+        // Export and print history live behind the overflow menu now. Four icon
+        // buttons plus a back button left a long school name with nowhere to go
+        // at phone width, so only Settings stayed in the header.
+        expect(find.byTooltip('School settings'), findsOneWidget);
+        await tester.tap(find.byTooltip('More'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Print Run History'), findsOneWidget);
-      expect(find.text('20 cards · A4 Landscape'), findsOneWidget);
-    });
+        expect(find.text('Export CSV & Reports'), findsOneWidget);
+
+        // Open Print History bottom sheet
+        await tester.tap(find.text('Print history'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Print Run History'), findsOneWidget);
+        expect(find.text('20 cards · A4 Landscape'), findsOneWidget);
+      },
+    );
   });
 
   group('Export Screen Widget Tests', () {
-    testWidgets('renders ExportScreen with filter options and batches',
-        (WidgetTester tester) async {
+    testWidgets('renders ExportScreen with filter options and batches', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -177,9 +193,7 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(
-            home: ExportScreen(schoolId: 'sch-test'),
-          ),
+          child: const MaterialApp(home: ExportScreen(schoolId: 'sch-test')),
         ),
       );
       await tester.pump();
@@ -199,13 +213,15 @@ void main() {
   });
 
   group('Audit Log Screen Widget Tests', () {
-    testWidgets('renders AuditLogScreen and displays action entries',
-        (WidgetTester tester) async {
+    testWidgets('renders AuditLogScreen and displays action entries', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            recentAuditLogsProvider
-                .overrideWith((ref) => Stream.value([testAudit])),
+            recentAuditLogsProvider.overrideWith(
+              (ref) => Stream.value([testAudit]),
+            ),
             auditLogsByActionsProvider(const <String>['export_csv'])
                 .overrideWith((ref) => Stream.value([testAudit])),
           ],
@@ -229,29 +245,26 @@ void main() {
   });
 
   group('Admin Users Screen Widget Tests', () {
-    testWidgets('renders AdminUsersScreen with operator accounts',
-        (WidgetTester tester) async {
+    testWidgets('renders AdminUsersScreen with operator accounts', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             allUsersProvider.overrideWith(
-              (ref) => Stream.value(
-                const <ManagedUser>[
-                  ManagedUser(
-                    uid: 'u1',
-                    email: 'sch01@test.com',
-                    displayName: 'SCH01',
-                    role: UserRole.school,
-                    schoolId: 'sch-1',
-                    active: true,
-                  ),
-                ],
-              ),
+              (ref) => Stream.value(const <ManagedUser>[
+                ManagedUser(
+                  uid: 'u1',
+                  email: 'sch01@test.com',
+                  displayName: 'SCH01',
+                  role: UserRole.school,
+                  schoolId: 'sch-1',
+                  active: true,
+                ),
+              ]),
             ),
           ],
-          child: const MaterialApp(
-            home: AdminUsersScreen(),
-          ),
+          child: const MaterialApp(home: AdminUsersScreen()),
         ),
       );
       await tester.pump();

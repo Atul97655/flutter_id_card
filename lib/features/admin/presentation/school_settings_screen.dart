@@ -10,8 +10,14 @@ import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,19 +50,19 @@ class SchoolSettingsScreen extends ConsumerWidget {
     );
 
     return schoolAsync.when(
-      loading: () => Scaffold(
-        appBar: AppBar(title: const Text('School Settings')),
-        body: const Center(child: CircularProgressIndicator()),
+      loading: () => const AdminPage(
+        title: 'School Settings',
+        child: Center(child: CircularProgressIndicator()),
       ),
-      error: (Object e, StackTrace s) => Scaffold(
-        appBar: AppBar(title: const Text('School Settings')),
-        body: Center(child: Text('Error: $e')),
+      error: (Object e, StackTrace s) => AdminPage(
+        title: 'School Settings',
+        child: Center(child: Text('Error: $e')),
       ),
       data: (SchoolConfig? school) {
         if (school == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('School Settings')),
-            body: const Center(child: Text('School not found')),
+          return const AdminPage(
+            title: 'School Settings',
+            child: Center(child: Text('School not found')),
           );
         }
         return _SchoolSettingsForm(existing: school);
@@ -178,11 +184,14 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
     // heading the same maximum delay.
     _sectionsBuilt = 0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isNew ? 'Add School' : 'School Settings'),
-      ),
-      body: Form(
+    return AdminPage(
+      title: widget.isNew ? 'Add School' : 'School Settings',
+      subtitle: widget.isNew
+          ? 'Everything this school needs to start'
+          : 'Identity, artwork and card geometry',
+      onBack: () => Navigator.of(context).maybePop(),
+      bottomBar: _saveBar(),
+      child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(AppTheme.gutter),
@@ -406,26 +415,34 @@ class _SchoolSettingsFormState extends ConsumerState<_SchoolSettingsForm> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
+    );
+  }
+
+  /// The save action, in a frosted bar the form scrolls underneath.
+  Widget _saveBar() {
+    return GlassSurface(
+      depth: GlassDepth.frosted,
+      radius: const BorderRadius.vertical(
+        top: Radius.circular(AppRadius.sheet),
+      ),
+      fill: AppColors.glassFillStrong,
+      shadows: AppShadows.floating,
+      sheen: false,
+      child: SafeArea(
+        top: false,
         minimum: const EdgeInsets.fromLTRB(
-          AppTheme.gutter,
-          0,
-          AppTheme.gutter,
-          12,
+          AppSpacing.gutter,
+          AppSpacing.md,
+          AppSpacing.gutter,
+          AppSpacing.md,
         ),
-        child: FilledButton.icon(
+        child: GlassButton(
+          label: _saving
+              ? 'Saving...'
+              : (widget.isNew ? 'Create school' : 'Save changes'),
+          icon: Icons.check_rounded,
+          busy: _saving,
           onPressed: _saving ? null : _save,
-          icon: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Icon(Icons.save_outlined),
-          label: Text(_saving ? 'Saving...' : 'Save settings'),
         ),
       ),
     );

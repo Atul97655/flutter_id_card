@@ -8,9 +8,14 @@ import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/local/print_batch_repository.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -121,40 +126,36 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
         .take(_pageSize)
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(school?.name ?? 'School'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Print history',
-            icon: const Icon(Icons.history_outlined),
-            onPressed: () => _showPrintHistory(context),
-          ),
-          IconButton(
-            tooltip: 'Export CSV & Reports',
-            icon: const Icon(Icons.download_outlined),
-            onPressed: () =>
-                context.push('/admin/schools/${widget.schoolId}/export'),
-          ),
+    return AdminPage(
+      title: school?.name ?? 'School',
+      subtitle: 'Cards submitted by this school',
+      onBack: () => Navigator.of(context).maybePop(),
+      actions: <Widget>[
+        // Four icon buttons left a long school name nowhere to go. Settings
+        // stays in the header because it is the one an admin reaches for
+        // mid-task; the rest move into an overflow menu, which is also where
+        // they can carry their names.
+        GlassIconButton(
+          icon: Icons.settings_outlined,
+          tooltip: 'School settings',
+          onTap: () =>
+              context.push('/admin/schools/${widget.schoolId}/settings'),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        _MoreMenu(
+          onHistory: () => _showPrintHistory(context),
+          onExport: () =>
+              context.push('/admin/schools/${widget.schoolId}/export'),
           // Hidden when this installation does not print. The panel gained a
           // switch for that and the app did not, which left the two
           // disagreeing about whether the feature exists at all.
-          if (ref.watch(printingEnabledProvider).value ?? false)
-            IconButton(
-              tooltip: 'Print cards',
-              icon: const Icon(Icons.local_printshop_outlined),
-              onPressed: () =>
-                  context.push('/admin/schools/${widget.schoolId}/print'),
-            ),
-          IconButton(
-            tooltip: 'School settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () =>
-                context.push('/admin/schools/${widget.schoolId}/settings'),
-          ),
-        ],
-      ),
-      body: Column(
+          onPrint: (ref.watch(printingEnabledProvider).value ?? false)
+              ? () => context.push('/admin/schools/${widget.schoolId}/print')
+              : null,
+        ),
+      ],
+      bottomBar: _selected.isEmpty ? null : _bulkBar(filtered),
+      child: Column(
         children: <Widget>[
           _filterBar(all),
           const Divider(height: 1),
@@ -213,7 +214,6 @@ class _SchoolDetailScreenState extends ConsumerState<SchoolDetailScreen> {
             _paginationBar(safePage, totalPages, filtered.length),
         ],
       ),
-      bottomNavigationBar: _selected.isEmpty ? null : _bulkBar(filtered),
     );
   }
 
@@ -956,6 +956,85 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The school-detail actions that do not need to be one tap away.
+///
+/// A glass disc with a menu behind it, so three more actions cost the header
+/// one slot instead of three - and each of them gets to carry its name, which
+/// an icon in a bar never did.
+class _MoreMenu extends StatelessWidget {
+  const _MoreMenu({
+    required this.onHistory,
+    required this.onExport,
+    required this.onPrint,
+  });
+
+  final VoidCallback onHistory;
+  final VoidCallback onExport;
+
+  /// Null when this installation does not print.
+  final VoidCallback? onPrint;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassSurface(
+      width: 44,
+      height: 44,
+      radius: BorderRadius.circular(22),
+      fill: AppColors.glassFillStrong,
+      sheen: false,
+      child: PopupMenuButton<VoidCallback>(
+        tooltip: 'More',
+        icon: const Icon(Icons.more_vert, size: 20, color: AppColors.ink),
+        onSelected: (VoidCallback action) => action(),
+        itemBuilder: (BuildContext context) => <PopupMenuEntry<VoidCallback>>[
+          PopupMenuItem<VoidCallback>(
+            value: onHistory,
+            child: const _MenuRow(
+              icon: Icons.history_outlined,
+              label: 'Print history',
+            ),
+          ),
+          PopupMenuItem<VoidCallback>(
+            value: onExport,
+            child: const _MenuRow(
+              icon: Icons.download_outlined,
+              label: 'Export CSV & Reports',
+            ),
+          ),
+          if (onPrint != null)
+            PopupMenuItem<VoidCallback>(
+              value: onPrint,
+              child: const _MenuRow(
+                icon: Icons.local_printshop_outlined,
+                label: 'Print cards',
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(icon, size: 19, color: AppColors.royal),
+        const SizedBox(width: AppSpacing.md),
+        // Flexible, because a PopupMenuItem constrains its width and the
+        // longest of these labels overflows a Row that sizes to its content.
+        Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+      ],
     );
   }
 }

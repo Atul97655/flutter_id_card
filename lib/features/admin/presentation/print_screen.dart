@@ -16,6 +16,7 @@ import 'package:flutter_id_card/shared/print/print_units.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
@@ -66,9 +67,11 @@ class _PrintScreenState extends ConsumerState<PrintScreen> {
       cardSize: size,
     );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Print & Export')),
-      body: ListView(
+    return AdminPage(
+      title: 'Print & Export',
+      subtitle: 'Lay approved cards out on a sheet',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: ListView(
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
           FadeSlideIn(

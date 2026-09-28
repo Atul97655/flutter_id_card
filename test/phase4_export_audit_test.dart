@@ -42,7 +42,9 @@ void main() {
         updatedAt: DateTime(2026, 1, 1, 10, 0),
       );
 
-      final String csv = CsvExportService.buildCsvContent(<StudentEntry>[entry]);
+      final String csv = CsvExportService.buildCsvContent(<StudentEntry>[
+        entry,
+      ]);
       expect(csv, contains('John Doe'));
       expect(csv, contains('Robert Doe'));
       expect(csv, contains('10,A,O+'));
@@ -67,7 +69,10 @@ void main() {
         'School_Name_Test',
       );
       expect(CsvExportService.sanitiseFilename('   '), 'Export');
-      expect(CsvExportService.sanitiseFilename('St. Mary\'s High'), 'St._Mary\'s_High');
+      expect(
+        CsvExportService.sanitiseFilename('St. Mary\'s High'),
+        'St._Mary\'s_High',
+      );
     });
   });
 
@@ -88,39 +93,44 @@ void main() {
       expect(db.schemaVersion, kExpectedSchemaVersion);
     });
 
-    test('logs actions and retrieves via watchRecent and listForEntity', () async {
-      await auditRepo.log(
-        action: 'approve',
-        entityType: 'student',
-        entityId: 'student-123',
-        actorUid: 'admin-1',
-        details: <String, Object?>{'schoolId': 'sch-1', 'name': 'Alice'},
-      );
+    test(
+      'logs actions and retrieves via watchRecent and listForEntity',
+      () async {
+        await auditRepo.log(
+          action: 'approve',
+          entityType: 'student',
+          entityId: 'student-123',
+          actorUid: 'admin-1',
+          details: <String, Object?>{'schoolId': 'sch-1', 'name': 'Alice'},
+        );
 
-      await auditRepo.log(
-        action: 'export_csv',
-        entityType: 'school',
-        entityId: 'sch-1',
-        actorUid: 'admin-1',
-        details: <String, Object?>{'rowCount': 45},
-      );
+        await auditRepo.log(
+          action: 'export_csv',
+          entityType: 'school',
+          entityId: 'sch-1',
+          actorUid: 'admin-1',
+          details: <String, Object?>{'rowCount': 45},
+        );
 
-      final List<AuditEntry> recent = await auditRepo.watchRecent().first;
-      expect(recent.length, 2);
-      expect(recent.first.action, 'export_csv');
-      expect(recent.first.actionLabel, 'CSV Exported');
-      expect(recent.first.details['rowCount'], 45);
+        final List<AuditEntry> recent = await auditRepo.watchRecent().first;
+        expect(recent.length, 2);
+        expect(recent.first.action, 'export_csv');
+        expect(recent.first.actionLabel, 'CSV Exported');
+        expect(recent.first.details['rowCount'], 45);
 
-      expect(recent[1].action, 'approve');
-      expect(recent[1].actionLabel, 'Approved');
-      expect(recent[1].details['name'], 'Alice');
+        expect(recent[1].action, 'approve');
+        expect(recent[1].actionLabel, 'Approved');
+        expect(recent[1].details['name'], 'Alice');
 
-      final List<AuditEntry> studentHistory =
-          await auditRepo.listForEntity('student', 'student-123');
-      expect(studentHistory.length, 1);
-      expect(studentHistory.first.entityId, 'student-123');
-      expect(studentHistory.first.actorUid, 'admin-1');
-    });
+        final List<AuditEntry> studentHistory = await auditRepo.listForEntity(
+          'student',
+          'student-123',
+        );
+        expect(studentHistory.length, 1);
+        expect(studentHistory.first.entityId, 'student-123');
+        expect(studentHistory.first.actorUid, 'admin-1');
+      },
+    );
 
     test('watchByActions filters audit entries correctly', () async {
       await auditRepo.log(
@@ -148,8 +158,9 @@ void main() {
         actorUid: 'admin',
       );
 
-      final List<AuditEntry> approvals = await auditRepo
-          .watchByActions(<String>['approve', 'bulk_approve']).first;
+      final List<AuditEntry> approvals = await auditRepo.watchByActions(
+        <String>['approve', 'bulk_approve'],
+      ).first;
       expect(approvals.length, 2);
       expect(
         approvals.map((AuditEntry a) => a.action),
@@ -206,8 +217,9 @@ void main() {
       expect(id1, isNotEmpty);
       expect(id2, isNotEmpty);
 
-      final List<PrintBatch> sch1Batches =
-          await batchRepo.watchBySchool('sch-1').first;
+      final List<PrintBatch> sch1Batches = await batchRepo
+          .watchBySchool('sch-1')
+          .first;
       expect(sch1Batches.length, 2);
       expect(sch1Batches.first.sheetTypeLabel, 'A4 Landscape');
       expect(sch1Batches[1].sheetTypeLabel, '12 × 18 in');
@@ -305,8 +317,10 @@ void main() {
       expect(approvedEntry?.reviewedBy, 'admin-reviewer');
       expect(approvedEntry?.reviewedAt, isNotNull);
 
-      final List<AuditEntry> auditList =
-          await auditRepo.listForEntity('student', 'rev-1');
+      final List<AuditEntry> auditList = await auditRepo.listForEntity(
+        'student',
+        'rev-1',
+      );
       expect(auditList.length, 1);
       expect(auditList.first.action, 'approve');
     });
@@ -352,8 +366,10 @@ void main() {
       expect(rejectedEntry?.rejectionReason, 'Photo is too dark');
       expect(rejectedEntry?.reviewedBy, 'admin-reviewer');
 
-      final List<AuditEntry> auditList =
-          await auditRepo.listForEntity('student', 'rev-2');
+      final List<AuditEntry> auditList = await auditRepo.listForEntity(
+        'student',
+        'rev-2',
+      );
       expect(auditList.length, 1);
       expect(auditList.first.action, 'reject');
       expect(auditList.first.details['reason'], 'Photo is too dark');

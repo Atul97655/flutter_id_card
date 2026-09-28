@@ -6,6 +6,8 @@ import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -57,28 +59,21 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
 
     final ThemeData theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('User Management'),
-        actions: <Widget>[
-          FilledButton.tonalIcon(
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.surface,
-              foregroundColor: theme.colorScheme.primary,
-            ),
-            onPressed: () => _openCreateUserDialog(context, schools),
-            icon: const Icon(Icons.person_add_alt_1, size: 18),
-            label: const Text('Add User'),
-          ),
-          const SizedBox(width: AppTheme.gutter),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openCreateUserDialog(context, schools),
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('New Account'),
-      ),
-      body: Column(
+    return AdminPage(
+      title: 'User Management',
+      subtitle: 'Who can sign in, and for which school',
+      onBack: () => Navigator.of(context).maybePop(),
+      // The old screen offered "Add User" in the bar AND "New Account" as a
+      // floating button, both opening the same dialog. One action, one
+      // control.
+      actions: <Widget>[
+        GlassIconButton(
+          icon: Icons.person_add_alt_1,
+          tooltip: 'Add a user',
+          onTap: () => _openCreateUserDialog(context, schools),
+        ),
+      ],
+      child: Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(

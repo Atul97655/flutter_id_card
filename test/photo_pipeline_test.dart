@@ -28,43 +28,50 @@ void main() {
   });
 
   group('Low-light luminance detection', () {
-    test('detects underexposed dark photo and issues low light warning', () async {
-      // Create a 800x1000 very dark image (RGB: 20, 20, 20 => luma ~20)
-      final img.Image darkImage = img.Image(width: 800, height: 1000);
-      img.fill(darkImage, color: img.ColorRgb8(20, 20, 20));
-      final Uint8List darkBytes = Uint8List.fromList(img.encodeJpg(darkImage));
+    test(
+      'detects underexposed dark photo and issues low light warning',
+      () async {
+        // Create a 800x1000 very dark image (RGB: 20, 20, 20 => luma ~20)
+        final img.Image darkImage = img.Image(width: 800, height: 1000);
+        img.fill(darkImage, color: img.ColorRgb8(20, 20, 20));
+        final Uint8List darkBytes = Uint8List.fromList(
+          img.encodeJpg(darkImage),
+        );
 
-      final File testFile = File('${tempDir.path}/dark_test.jpg');
-      await testFile.writeAsBytes(darkBytes);
+        final File testFile = File('${tempDir.path}/dark_test.jpg');
+        await testFile.writeAsBytes(darkBytes);
 
-      final ProcessedPhoto result = await processor.process(
-        sourcePath: testFile.path,
-        adjustments: const PhotoAdjustments(
-          brightness: 0,
-          contrast: 0,
-          saturation: 0,
-          removeBackground: false,
-          autoFrame: false,
-          nudgeX: 0,
-          nudgeY: 0,
-        ),
-        backgroundArgb: 0xFFFFFFFF,
-      );
+        final ProcessedPhoto result = await processor.process(
+          sourcePath: testFile.path,
+          adjustments: const PhotoAdjustments(
+            brightness: 0,
+            contrast: 0,
+            saturation: 0,
+            removeBackground: false,
+            autoFrame: false,
+            nudgeX: 0,
+            nudgeY: 0,
+          ),
+          backgroundArgb: 0xFFFFFFFF,
+        );
 
-      expect(result.isLowLight, isTrue);
-      expect(result.averageLuminance, lessThan(60.0));
-      expect(
-        result.warnings.any((w) => w.contains('Low light detected')),
-        isTrue,
-        reason: 'Low light warning must be present in warnings list',
-      );
-    });
+        expect(result.isLowLight, isTrue);
+        expect(result.averageLuminance, lessThan(60.0));
+        expect(
+          result.warnings.any((w) => w.contains('Low light detected')),
+          isTrue,
+          reason: 'Low light warning must be present in warnings list',
+        );
+      },
+    );
 
     test('well-lit photo does not trigger low light warning', () async {
       // Create a 800x1000 bright image (RGB: 200, 200, 200 => luma ~200)
       final img.Image brightImage = img.Image(width: 800, height: 1000);
       img.fill(brightImage, color: img.ColorRgb8(200, 200, 200));
-      final Uint8List brightBytes = Uint8List.fromList(img.encodeJpg(brightImage));
+      final Uint8List brightBytes = Uint8List.fromList(
+        img.encodeJpg(brightImage),
+      );
 
       final File testFile = File('${tempDir.path}/bright_test.jpg');
       await testFile.writeAsBytes(brightBytes);
@@ -97,7 +104,16 @@ void main() {
       final File rawSource = File('${tempDir.path}/original_capture.jpg');
       await rawSource.writeAsBytes(Uint8List.fromList([1, 2, 3, 4, 5]));
 
-      final Uint8List dummyPng = Uint8List.fromList([137, 80, 78, 71, 13, 10, 26, 10]);
+      final Uint8List dummyPng = Uint8List.fromList([
+        137,
+        80,
+        78,
+        71,
+        13,
+        10,
+        26,
+        10,
+      ]);
 
       // Save processed photo with raw source
       final String processedPath = await storage.save(

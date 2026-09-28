@@ -35,8 +35,9 @@ void main() {
         ],
       });
 
-      final CardTemplate template =
-          CardTemplate.fromJson(jsonDecode(jsonStr) as Map<String, Object?>);
+      final CardTemplate template = CardTemplate.fromJson(
+        jsonDecode(jsonStr) as Map<String, Object?>,
+      );
       expect(template.elements.length, 1);
       final CardElement el = template.elements.first;
       expect(el, isA<SignatureElement>());
@@ -47,27 +48,33 @@ void main() {
       expect(sig.heightMm, 5.5);
     });
 
-    test('SchoolConfig stores and persists principalSignature paths in Drift', () async {
-      final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
-      addTearDown(db.close);
-      final SchoolRepository repo = SchoolRepository(db);
+    test(
+      'SchoolConfig stores and persists principalSignature paths in Drift',
+      () async {
+        final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
+        final SchoolRepository repo = SchoolRepository(db);
 
-      const SchoolConfig config = SchoolConfig(
-        id: 'test_school',
-        name: 'TEST SCHOOL',
-        localLogoPath: '/path/to/logo.png',
-        localPrincipalSignaturePath: '/path/to/signature.png',
-        principalSignatureUrl: 'https://storage.googleapis.com/test_sig.png',
-      );
+        const SchoolConfig config = SchoolConfig(
+          id: 'test_school',
+          name: 'TEST SCHOOL',
+          localLogoPath: '/path/to/logo.png',
+          localPrincipalSignaturePath: '/path/to/signature.png',
+          principalSignatureUrl: 'https://storage.googleapis.com/test_sig.png',
+        );
 
-      await repo.save(config);
-      final SchoolConfig? loaded = await repo.find('test_school');
+        await repo.save(config);
+        final SchoolConfig? loaded = await repo.find('test_school');
 
-      expect(loaded, isNotNull);
-      expect(loaded!.localPrincipalSignaturePath, '/path/to/signature.png');
-      expect(loaded.principalSignatureUrl, 'https://storage.googleapis.com/test_sig.png');
-      expect(loaded.localLogoPath, '/path/to/logo.png');
-    });
+        expect(loaded, isNotNull);
+        expect(loaded!.localPrincipalSignaturePath, '/path/to/signature.png');
+        expect(
+          loaded.principalSignatureUrl,
+          'https://storage.googleapis.com/test_sig.png',
+        );
+        expect(loaded.localLogoPath, '/path/to/logo.png');
+      },
+    );
   });
 
   group('Phase 3: Submissions Bulk Reject & Duplicate Detection', () {
@@ -102,76 +109,105 @@ void main() {
       );
     }
 
-    test('rejectAll marks multiple entries as rejected with a reason', () async {
-      await repo.saveAll(<StudentEntry>[
-        createStudent(id: 's1', name: 'AARAV PATEL', studentClass: '10', division: 'A'),
-        createStudent(id: 's2', name: 'DIYA SHARMA', studentClass: '10', division: 'A'),
-        createStudent(id: 's3', name: 'ROHAN VERMA', studentClass: '10', division: 'A'),
-      ]);
+    test(
+      'rejectAll marks multiple entries as rejected with a reason',
+      () async {
+        await repo.saveAll(<StudentEntry>[
+          createStudent(
+            id: 's1',
+            name: 'AARAV PATEL',
+            studentClass: '10',
+            division: 'A',
+          ),
+          createStudent(
+            id: 's2',
+            name: 'DIYA SHARMA',
+            studentClass: '10',
+            division: 'A',
+          ),
+          createStudent(
+            id: 's3',
+            name: 'ROHAN VERMA',
+            studentClass: '10',
+            division: 'A',
+          ),
+        ]);
 
-      await repo.rejectAll(
-        <String>['s1', 's2'],
-        reviewerUid: 'admin-1',
-        reason: 'Photo background is not plain white',
-      );
+        await repo.rejectAll(
+          <String>['s1', 's2'],
+          reviewerUid: 'admin-1',
+          reason: 'Photo background is not plain white',
+        );
 
-      final StudentEntry? s1 = await repo.findById('s1');
-      final StudentEntry? s2 = await repo.findById('s2');
-      final StudentEntry? s3 = await repo.findById('s3');
+        final StudentEntry? s1 = await repo.findById('s1');
+        final StudentEntry? s2 = await repo.findById('s2');
+        final StudentEntry? s3 = await repo.findById('s3');
 
-      expect(s1!.approvalStatus, ApprovalStatus.rejected);
-      expect(s1.rejectionReason, 'Photo background is not plain white');
-      expect(s1.reviewedBy, 'admin-1');
+        expect(s1!.approvalStatus, ApprovalStatus.rejected);
+        expect(s1.rejectionReason, 'Photo background is not plain white');
+        expect(s1.reviewedBy, 'admin-1');
 
-      expect(s2!.approvalStatus, ApprovalStatus.rejected);
-      expect(s2.rejectionReason, 'Photo background is not plain white');
+        expect(s2!.approvalStatus, ApprovalStatus.rejected);
+        expect(s2.rejectionReason, 'Photo background is not plain white');
 
-      expect(s3!.approvalStatus, ApprovalStatus.pending);
-      expect(s3.rejectionReason, isNull);
-    });
+        expect(s3!.approvalStatus, ApprovalStatus.pending);
+        expect(s3.rejectionReason, isNull);
+      },
+    );
 
-    test('findPotentialDuplicates catches matching name and class in same school', () async {
-      final DateTime dob = DateTime(2010, 5, 15);
-      await repo.save(
-        createStudent(id: 'orig', name: 'ANANYA SEN', studentClass: '9', division: 'B', dob: dob),
-      );
+    test(
+      'findPotentialDuplicates catches matching name and class in same school',
+      () async {
+        final DateTime dob = DateTime(2010, 5, 15);
+        await repo.save(
+          createStudent(
+            id: 'orig',
+            name: 'ANANYA SEN',
+            studentClass: '9',
+            division: 'B',
+            dob: dob,
+          ),
+        );
 
-      // Exact match
-      final List<StudentEntry> dupes1 = await repo.findPotentialDuplicates(
-        schoolId: 'sch1',
-        name: 'ANANYA SEN',
-        studentClass: '9',
-        dob: dob,
-      );
-      expect(dupes1.length, 1);
-      expect(dupes1.first.id, 'orig');
+        // Exact match
+        final List<StudentEntry> dupes1 = await repo.findPotentialDuplicates(
+          schoolId: 'sch1',
+          name: 'ANANYA SEN',
+          studentClass: '9',
+          dob: dob,
+        );
+        expect(dupes1.length, 1);
+        expect(dupes1.first.id, 'orig');
 
-      // Exclude self during update
-      final List<StudentEntry> dupesSelf = await repo.findPotentialDuplicates(
-        schoolId: 'sch1',
-        name: 'ANANYA SEN',
-        studentClass: '9',
-        dob: dob,
-        excludeId: 'orig',
-      );
-      expect(dupesSelf, isEmpty);
+        // Exclude self during update
+        final List<StudentEntry> dupesSelf = await repo.findPotentialDuplicates(
+          schoolId: 'sch1',
+          name: 'ANANYA SEN',
+          studentClass: '9',
+          dob: dob,
+          excludeId: 'orig',
+        );
+        expect(dupesSelf, isEmpty);
 
-      // Different class -> no duplicate
-      final List<StudentEntry> dupesDiffClass = await repo.findPotentialDuplicates(
-        schoolId: 'sch1',
-        name: 'ANANYA SEN',
-        studentClass: '10',
-      );
-      expect(dupesDiffClass, isEmpty);
+        // Different class -> no duplicate
+        final List<StudentEntry> dupesDiffClass = await repo
+            .findPotentialDuplicates(
+              schoolId: 'sch1',
+              name: 'ANANYA SEN',
+              studentClass: '10',
+            );
+        expect(dupesDiffClass, isEmpty);
 
-      // Different school -> no duplicate
-      final List<StudentEntry> dupesDiffSchool = await repo.findPotentialDuplicates(
-        schoolId: 'sch2',
-        name: 'ANANYA SEN',
-        studentClass: '9',
-      );
-      expect(dupesDiffSchool, isEmpty);
-    });
+        // Different school -> no duplicate
+        final List<StudentEntry> dupesDiffSchool = await repo
+            .findPotentialDuplicates(
+              schoolId: 'sch2',
+              name: 'ANANYA SEN',
+              studentClass: '9',
+            );
+        expect(dupesDiffSchool, isEmpty);
+      },
+    );
   });
 
   group('Phase 3: User Management & Access Control', () {
@@ -211,24 +247,32 @@ void main() {
       );
 
       final List<ManagedUser> users = await authRepo.watchUsers().first;
-      expect(users.any((ManagedUser u) => u.displayName == 'Operator One'), isTrue);
+      expect(
+        users.any((ManagedUser u) => u.displayName == 'Operator One'),
+        isTrue,
+      );
 
-      final ManagedUser created =
-          users.firstWhere((ManagedUser u) => u.displayName == 'Operator One');
+      final ManagedUser created = users.firstWhere(
+        (ManagedUser u) => u.displayName == 'Operator One',
+      );
       expect(created.active, isTrue);
 
       // Disable access
       await authRepo.toggleUserActive(created.uid, false);
       final List<ManagedUser> updatedUsers = await authRepo.watchUsers().first;
-      final ManagedUser disabled =
-          updatedUsers.firstWhere((ManagedUser u) => u.uid == created.uid);
+      final ManagedUser disabled = updatedUsers.firstWhere(
+        (ManagedUser u) => u.uid == created.uid,
+      );
       expect(disabled.active, isFalse);
 
       // Re-enable access
       await authRepo.toggleUserActive(created.uid, true);
-      final List<ManagedUser> reenabledUsers = await authRepo.watchUsers().first;
-      final ManagedUser reenabled =
-          reenabledUsers.firstWhere((ManagedUser u) => u.uid == created.uid);
+      final List<ManagedUser> reenabledUsers = await authRepo
+          .watchUsers()
+          .first;
+      final ManagedUser reenabled = reenabledUsers.firstWhere(
+        (ManagedUser u) => u.uid == created.uid,
+      );
       expect(reenabled.active, isTrue);
     });
   });

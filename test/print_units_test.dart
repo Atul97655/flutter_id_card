@@ -20,7 +20,17 @@ void main() {
     });
 
     test('mm -> pt -> mm round-trips exactly', () {
-      for (final double mm in <double>[52, 54, 56, 84, 86, 88, 210, 297, 304.8]) {
+      for (final double mm in <double>[
+        52,
+        54,
+        56,
+        84,
+        86,
+        88,
+        210,
+        297,
+        304.8,
+      ]) {
         expect(PrintUnits.ptToMm(PrintUnits.mmToPt(mm)), closeTo(mm, 1e-9));
       }
     });

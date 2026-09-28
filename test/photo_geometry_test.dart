@@ -23,8 +23,10 @@ void expectValidCrop(PixelRect crop, int srcW, int srcH, {String? reason}) {
 void main() {
   group('centreCrop', () {
     test('takes the tallest 4:5 box from a landscape source', () {
-      final PixelRect crop =
-          PhotoGeometry.centreCrop(sourceWidth: 1920, sourceHeight: 1080);
+      final PixelRect crop = PhotoGeometry.centreCrop(
+        sourceWidth: 1920,
+        sourceHeight: 1080,
+      );
 
       expectValidCrop(crop, 1920, 1080);
       expect(crop.height, 1080);
@@ -33,8 +35,10 @@ void main() {
     });
 
     test('is width-limited on a narrow portrait source', () {
-      final PixelRect crop =
-          PhotoGeometry.centreCrop(sourceWidth: 600, sourceHeight: 2000);
+      final PixelRect crop = PhotoGeometry.centreCrop(
+        sourceWidth: 600,
+        sourceHeight: 2000,
+      );
 
       expectValidCrop(crop, 600, 2000);
       expect(crop.width, 600);
@@ -42,16 +46,20 @@ void main() {
     });
 
     test('handles a source already at 4:5', () {
-      final PixelRect crop =
-          PhotoGeometry.centreCrop(sourceWidth: 360, sourceHeight: 450);
+      final PixelRect crop = PhotoGeometry.centreCrop(
+        sourceWidth: 360,
+        sourceHeight: 450,
+      );
       expectValidCrop(crop, 360, 450);
       expect(crop.width, 360);
       expect(crop.height, 450);
     });
 
     test('survives a 1x1 source without dividing by zero', () {
-      final PixelRect crop =
-          PhotoGeometry.centreCrop(sourceWidth: 1, sourceHeight: 1);
+      final PixelRect crop = PhotoGeometry.centreCrop(
+        sourceWidth: 1,
+        sourceHeight: 1,
+      );
       expect(crop.width, greaterThan(0));
       expect(crop.height, greaterThan(0));
     });
@@ -62,7 +70,12 @@ void main() {
     const int srcH = 1600;
 
     test('centres the face horizontally', () {
-      const PixelRect face = PixelRect(left: 500, top: 400, width: 200, height: 260);
+      const PixelRect face = PixelRect(
+        left: 500,
+        top: 400,
+        width: 200,
+        height: 260,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -74,7 +87,12 @@ void main() {
     });
 
     test('places the face in the upper-middle, not dead centre', () {
-      const PixelRect face = PixelRect(left: 500, top: 500, width: 200, height: 260);
+      const PixelRect face = PixelRect(
+        left: 500,
+        top: 500,
+        width: 200,
+        height: 260,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -91,7 +109,12 @@ void main() {
     });
 
     test('scales so the head fills the intended share of the frame', () {
-      const PixelRect face = PixelRect(left: 500, top: 400, width: 200, height: 260);
+      const PixelRect face = PixelRect(
+        left: 500,
+        top: 400,
+        width: 200,
+        height: 260,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -126,7 +149,12 @@ void main() {
     const int srcH = 1600;
 
     test('a face against the left edge slides the crop in, staying 4:5', () {
-      const PixelRect face = PixelRect(left: 0, top: 400, width: 180, height: 240);
+      const PixelRect face = PixelRect(
+        left: 0,
+        top: 400,
+        width: 180,
+        height: 240,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -137,8 +165,12 @@ void main() {
     });
 
     test('a face against the right edge stays inside the source', () {
-      const PixelRect face =
-          PixelRect(left: srcW - 180, top: 400, width: 180, height: 240);
+      const PixelRect face = PixelRect(
+        left: srcW - 180,
+        top: 400,
+        width: 180,
+        height: 240,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -149,7 +181,12 @@ void main() {
     });
 
     test('a face at the very top does not produce a negative origin', () {
-      const PixelRect face = PixelRect(left: 500, top: 0, width: 200, height: 260);
+      const PixelRect face = PixelRect(
+        left: 500,
+        top: 0,
+        width: 200,
+        height: 260,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -160,8 +197,12 @@ void main() {
     });
 
     test('a face at the very bottom keeps the crop in bounds', () {
-      const PixelRect face =
-          PixelRect(left: 500, top: srcH - 260, width: 200, height: 260);
+      const PixelRect face = PixelRect(
+        left: 500,
+        top: srcH - 260,
+        width: 200,
+        height: 260,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -172,7 +213,12 @@ void main() {
     });
 
     test('a face filling the frame is clamped to the source, not enlarged', () {
-      const PixelRect face = PixelRect(left: 0, top: 0, width: srcW, height: srcH);
+      const PixelRect face = PixelRect(
+        left: 0,
+        top: 0,
+        width: srcW,
+        height: srcH,
+      );
       final PixelRect crop = PhotoGeometry.faceCrop(
         sourceWidth: srcW,
         sourceHeight: srcH,
@@ -221,22 +267,34 @@ void main() {
 
   group('print resolution checks', () {
     test('a 360x450 crop exactly meets the 300 DPI requirement', () {
-      const PixelRect crop =
-          PixelRect(left: 0, top: 0, width: 360, height: 450);
+      const PixelRect crop = PixelRect(
+        left: 0,
+        top: 0,
+        width: 360,
+        height: 450,
+      );
       expect(PhotoGeometry.meetsPrintResolution(crop), isTrue);
       expect(PhotoGeometry.effectiveDpi(crop), closeTo(300, 1e-6));
     });
 
     test('a smaller crop is flagged as below print resolution', () {
-      const PixelRect crop =
-          PixelRect(left: 0, top: 0, width: 240, height: 300);
+      const PixelRect crop = PixelRect(
+        left: 0,
+        top: 0,
+        width: 240,
+        height: 300,
+      );
       expect(PhotoGeometry.meetsPrintResolution(crop), isFalse);
       expect(PhotoGeometry.effectiveDpi(crop), closeTo(200, 1e-6));
     });
 
     test('a modern phone camera crop comfortably exceeds it', () {
-      const PixelRect crop =
-          PixelRect(left: 0, top: 0, width: 1200, height: 1500);
+      const PixelRect crop = PixelRect(
+        left: 0,
+        top: 0,
+        width: 1200,
+        height: 1500,
+      );
       expect(PhotoGeometry.meetsPrintResolution(crop), isTrue);
       expect(PhotoGeometry.effectiveDpi(crop), greaterThan(300));
     });

@@ -5,6 +5,7 @@ import 'package:flutter_id_card/features/admin/application/admin_providers.dart'
 import 'package:flutter_id_card/shared/services/local/audit_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -42,9 +43,11 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
 
     final ThemeData theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Audit Log')),
-      body: Column(
+    return AdminPage(
+      title: 'Audit Log',
+      subtitle: 'Every export and print run, and who ran it',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: Column(
         children: <Widget>[
           // ── Filter Chips ──────────────────────────────────────────
           SingleChildScrollView(

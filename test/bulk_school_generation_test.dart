@@ -22,25 +22,76 @@ void main() {
     // Written under build/, like sample_card_generation_test.dart, rather than
     // into a real user folder - a test run must not leave files scattered
     // outside the repo, and must produce the same result on any machine.
-    outDir = Directory('build/generated_school_cards')..createSync(recursive: true);
+    outDir = Directory('build/generated_school_cards')
+      ..createSync(recursive: true);
 
     // Generate synthetic images
     final img.Image canvas = img.Image(width: 360, height: 450);
     img.fill(canvas, color: img.ColorRgb8(255, 255, 255));
-    img.fillCircle(canvas, x: 180, y: 460, radius: 187, color: img.ColorRgb8(150, 165, 185));
-    img.fillRect(canvas, x1: 140, y1: 234, x2: 220, y2: 360, color: img.ColorRgb8(196, 168, 148));
-    img.fillCircle(canvas, x: 180, y: 180, radius: 100, color: img.ColorRgb8(212, 182, 160));
-    img.fillCircle(canvas, x: 180, y: 135, radius: 97, color: img.ColorRgb8(58, 44, 38));
-    img.fillRect(canvas, x1: 83, y1: 117, x2: 277, y2: 162, color: img.ColorRgb8(58, 44, 38));
-    img.fillCircle(canvas, x: 180, y: 180, radius: 84, color: img.ColorRgb8(212, 182, 160));
+    img.fillCircle(
+      canvas,
+      x: 180,
+      y: 460,
+      radius: 187,
+      color: img.ColorRgb8(150, 165, 185),
+    );
+    img.fillRect(
+      canvas,
+      x1: 140,
+      y1: 234,
+      x2: 220,
+      y2: 360,
+      color: img.ColorRgb8(196, 168, 148),
+    );
+    img.fillCircle(
+      canvas,
+      x: 180,
+      y: 180,
+      radius: 100,
+      color: img.ColorRgb8(212, 182, 160),
+    );
+    img.fillCircle(
+      canvas,
+      x: 180,
+      y: 135,
+      radius: 97,
+      color: img.ColorRgb8(58, 44, 38),
+    );
+    img.fillRect(
+      canvas,
+      x1: 83,
+      y1: 117,
+      x2: 277,
+      y2: 162,
+      color: img.ColorRgb8(58, 44, 38),
+    );
+    img.fillCircle(
+      canvas,
+      x: 180,
+      y: 180,
+      radius: 84,
+      color: img.ColorRgb8(212, 182, 160),
+    );
 
     photoFile = File('${outDir.path}/temp_photo.png')
       ..writeAsBytesSync(img.encodePng(canvas));
 
     final img.Image logoCanvas = img.Image(width: 240, height: 240);
     img.fill(logoCanvas, color: img.ColorRgb8(255, 255, 255));
-    img.fillCircle(logoCanvas, x: 120, y: 120, radius: 100, color: img.ColorRgb8(26, 61, 124));
-    img.fillCircle(logoCanvas, x: 120, y: 120, radius: 80, color: img.ColorRgb8(255, 255, 255));
+    img.fillCircle(
+      logoCanvas,
+      x: 120,
+      y: 120,
+      radius: 100,
+      color: img.ColorRgb8(26, 61, 124),
+    );
+    img.fillCircle(
+      logoCanvas,
+      x: 120,
+      y: 120,
+      radius: 80,
+      color: img.ColorRgb8(255, 255, 255),
+    );
     logoFile = File('${outDir.path}/temp_logo.png')
       ..writeAsBytesSync(img.encodePng(logoCanvas));
   });
@@ -76,152 +127,152 @@ void main() {
         'name': '7TH DAY SCHOOL',
         'address': 'BAVANI NAGAR, HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'AIN COLLEGE',
         'address': 'HEBBALLI ROAD, HUBLI',
         'template': 'default_horizontal',
-        'orientation': 'horizontal'
+        'orientation': 'horizontal',
       },
       {
         'name': 'ALL SAINTS SCHOOL',
         'address': 'BHAIRIDEVARKOPPA, HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'CIM COLLEGE',
         'address': 'DHARWAD',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'GOVT PU COLLEGE',
         'address': 'BHAMMIGATTI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'GOVT. PU COLLEGE',
         'address': 'SANGMESHWAR',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'ICS INSTITUTE',
         'address': 'DHARWAD',
         'template': 'default_horizontal',
-        'orientation': 'horizontal'
+        'orientation': 'horizontal',
       },
       {
         'name': 'JACK AND JILL SCHOOL',
         'address': 'RAVI NAGAR, HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'JAIN COLLEGE',
         'address': 'HEBBALLI ROAD, HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'JACOB SCHOOL',
         'address': 'GADAG ROAD, HUBLI',
         'template': 'framed_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'JSS SCHOOL',
         'address': 'GADAG',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'KH PATIL COLLEGE',
         'address': 'HUBLI',
         'template': 'default_horizontal',
-        'orientation': 'horizontal'
+        'orientation': 'horizontal',
       },
       {
         'name': 'MEDHA COLLEGE',
         'address': 'HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'MOTHER TERESA SCHOOL',
         'address': 'ANAND NAGAR, HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'NALANDA COLLEGE',
         'address': 'GADAG ROAD, HUBLI',
         'template': 'default_horizontal',
-        'orientation': 'horizontal'
+        'orientation': 'horizontal',
       },
       {
         'name': 'PARIVARTANA COLLEGE',
         'address': 'GOPANKOPPA, HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'PRATHIBA VIKAS SCHOOL',
         'address': 'GURUNATH NAGAR, HUBLI',
         'template': 'framed_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'SHARADHA SCHOOL',
         'address': 'DHARWAD',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'SR SCHOOL',
         'address': 'KESHAVAPUR, HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'ST. HAMZA SCHOOL',
         'address': 'HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'ST. JOHN SAMARITAN SCHOOL',
         'address': 'ANAND NAGAR, HUBLI',
         'template': 'side_panel_horizontal',
-        'orientation': 'horizontal'
+        'orientation': 'horizontal',
       },
       {
         'name': 'ST. JOHN SAMARITAN SCHOOL',
         'address': 'NEKAR NAGAR, HUBLI',
         'template': 'side_panel_horizontal',
-        'orientation': 'horizontal'
+        'orientation': 'horizontal',
       },
       {
         'name': 'SUJNAN SCHOOL',
         'address': 'HUBLI',
         'template': 'default_horizontal',
-        'orientation': 'horizontal'
+        'orientation': 'horizontal',
       },
       {
         'name': 'TAPASYA SCHOOL',
         'address': 'HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
+        'orientation': 'vertical',
       },
       {
         'name': 'VIDYADARSHINI SCHOOL',
         'address': 'HUBLI',
         'template': 'default_vertical',
-        'orientation': 'vertical'
-      }
+        'orientation': 'vertical',
+      },
     ];
 
     // Two entries share the school name "ST. JOHN SAMARITAN SCHOOL" (different
@@ -238,14 +289,19 @@ void main() {
       final String templateId = school['template']!;
       final String orientation = school['orientation']!;
 
-      final CardSize size = orientation == 'horizontal' ? CardSize.h86x54 : CardSize.v54x86;
-      final CardTemplate template = await _template('assets/templates/$templateId.json');
+      final CardSize size = orientation == 'horizontal'
+          ? CardSize.h86x54
+          : CardSize.v54x86;
+      final CardTemplate template = await _template(
+        'assets/templates/$templateId.json',
+      );
 
       final SchoolConfig config = SchoolConfig(
         id: name.toLowerCase().replaceAll(' ', '_'),
         name: name,
         addressLine: address,
-        contactLine: 'Mob: 9876543210   |   Email: info@${name.toLowerCase().replaceAll(' ', '')}.edu.in',
+        contactLine:
+            'Mob: 9876543210   |   Email: info@${name.toLowerCase().replaceAll(' ', '')}.edu.in',
         localLogoPath: logoFile.path,
         enabledFieldKeys: SchoolConfig.allFieldKeys,
       );
@@ -288,10 +344,18 @@ void main() {
       localLogoPath: logoFile.path,
       templateId: 'div_badge_vertical',
       divisionColors: divisionPalette,
-      enabledFieldKeys: <String>{'name', 'photo', 'division', 'mobile', 'address'},
+      enabledFieldKeys: <String>{
+        'name',
+        'photo',
+        'division',
+        'mobile',
+        'address',
+      },
     );
 
-    final CardTemplate divTemplate = await _template('assets/templates/div_badge_vertical.json');
+    final CardTemplate divTemplate = await _template(
+      'assets/templates/div_badge_vertical.json',
+    );
 
     for (final String division in divisionPalette.keys) {
       final String filename = 'SACRED_HEART_CONVENT_DIV_$division.pdf';

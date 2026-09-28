@@ -97,28 +97,30 @@ void main() {
       expect(grid.hasWarnings, isFalse);
     });
 
-    test('portrait A4 genuinely cannot fit 10 - which is why we use landscape',
-        () {
-      // This is the arithmetic behind the design decision, pinned so nobody
-      // "fixes" the orientation later.
-      const SheetSpec a4Portrait = SheetSpec(
-        id: 'a4p',
-        name: 'A4 Portrait',
-        widthMm: 210,
-        heightMm: 297,
-        nominalCapacity: 10,
-      );
-      final ImpositionGrid grid = ImpositionGrid.compute(
-        sheet: a4Portrait,
-        cardSize: CardSize.v54x86,
-      );
+    test(
+      'portrait A4 genuinely cannot fit 10 - which is why we use landscape',
+      () {
+        // This is the arithmetic behind the design decision, pinned so nobody
+        // "fixes" the orientation later.
+        const SheetSpec a4Portrait = SheetSpec(
+          id: 'a4p',
+          name: 'A4 Portrait',
+          widthMm: 210,
+          heightMm: 297,
+          nominalCapacity: 10,
+        );
+        final ImpositionGrid grid = ImpositionGrid.compute(
+          sheet: a4Portrait,
+          cardSize: CardSize.v54x86,
+        );
 
-      expect(grid.columns, 3);
-      expect(grid.rows, 3);
-      expect(grid.capacity, 9);
-      expect(grid.capacity, lessThan(10));
-      expect(grid.hasWarnings, isTrue);
-    });
+        expect(grid.columns, 3);
+        expect(grid.rows, 3);
+        expect(grid.capacity, 9);
+        expect(grid.capacity, lessThan(10));
+        expect(grid.hasWarnings, isTrue);
+      },
+    );
 
     test('block is centred on the landscape sheet', () {
       final ImpositionGrid grid = ImpositionGrid.compute(

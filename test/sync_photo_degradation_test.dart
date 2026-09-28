@@ -61,12 +61,10 @@ void main() {
     photoFile = File('${tempDir.path}/photo.png')
       ..writeAsBytesSync(<int>[0x89, 0x50, 0x4e, 0x47]);
 
-    when(() => connectivity.checkConnectivity()).thenAnswer(
-      (_) async => <ConnectivityResult>[ConnectivityResult.wifi],
-    );
-    when(() => connectivity.onConnectivityChanged).thenAnswer(
-      (_) => const Stream<List<ConnectivityResult>>.empty(),
-    );
+    when(() => connectivity.checkConnectivity())
+        .thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.wifi]);
+    when(() => connectivity.onConnectivityChanged)
+        .thenAnswer((_) => const Stream<List<ConnectivityResult>>.empty());
   });
 
   tearDown(() {
@@ -74,13 +72,13 @@ void main() {
   });
 
   SyncService build() => SyncService(
-        students: students,
-        schools: schools,
-        firestore: firestore,
-        storage: storage,
-        connectivity: connectivity,
-        isFirebaseReady: () => true,
-      );
+    students: students,
+    schools: schools,
+    firestore: firestore,
+    storage: storage,
+    connectivity: connectivity,
+    isFirebaseReady: () => true,
+  );
 
   /// Makes every Storage call throw [code], the way an unprovisioned bucket
   /// does.
@@ -88,9 +86,8 @@ void main() {
     final _FakeRef ref = _FakeRef();
     when(() => storage.ref()).thenReturn(ref);
     when(() => ref.child(any())).thenReturn(ref);
-    when(() => ref.putFile(any(), any())).thenThrow(
-      FirebaseException(plugin: 'firebase_storage', code: code),
-    );
+    when(() => ref.putFile(any(), any()))
+        .thenThrow(FirebaseException(plugin: 'firebase_storage', code: code));
   }
 
   StudentEntry entry({String id = 'e1', bool withPhoto = true}) {
@@ -131,7 +128,8 @@ void main() {
       expect(
         doc,
         isNotNull,
-        reason: 'the whole point: a missing photo must not hide the student '
+        reason:
+            'the whole point: a missing photo must not hide the student '
             'from the review queue',
       );
       expect(doc!['name'], 'RAMESH KUMAR');
@@ -170,7 +168,8 @@ void main() {
       expect(
         error,
         contains('Do not retake'),
-        reason: 'retaking a perfectly good photo would waste the operator time '
+        reason:
+            'retaking a perfectly good photo would waste the operator time '
             'and would not fix a missing bucket',
       );
     });
@@ -224,27 +223,29 @@ void main() {
       );
     });
 
-    test('a retry re-attempts the photo and does not duplicate the doc',
-        () async {
-      storageFailsWith('object-not-found');
-      final SyncService sync = build();
-      addTearDown(sync.dispose);
+    test(
+      'a retry re-attempts the photo and does not duplicate the doc',
+      () async {
+        storageFailsWith('object-not-found');
+        final SyncService sync = build();
+        addTearDown(sync.dispose);
 
-      await students.save(entry());
-      await sync.syncNow(schoolId: 'school-a');
+        await students.save(entry());
+        await sync.syncNow(schoolId: 'school-a');
 
-      // Clear the backoff the way the Retry button does.
-      await students.resetFailures('school-a');
-      await sync.syncNow(schoolId: 'school-a');
+        // Clear the backoff the way the Retry button does.
+        await students.resetFailures('school-a');
+        await sync.syncNow(schoolId: 'school-a');
 
-      final QuerySnapshot<Map<String, Object?>> all = await firestore
-          .collection('schools')
-          .doc('school-a')
-          .collection('entries')
-          .get();
-      expect(all.docs.length, 1);
-      expect((await students.findById('e1'))!.syncStatus, SyncStatus.failed);
-    });
+        final QuerySnapshot<Map<String, Object?>> all = await firestore
+            .collection('schools')
+            .doc('school-a')
+            .collection('entries')
+            .get();
+        expect(all.docs.length, 1);
+        expect((await students.findById('e1'))!.syncStatus, SyncStatus.failed);
+      },
+    );
   });
 
   group('Nothing else regressed', () {
@@ -299,7 +300,8 @@ void main() {
       expect(
         await remote('e1'),
         isNull,
-        reason: 'a card with no photo the operator believes exists should not '
+        reason:
+            'a card with no photo the operator believes exists should not '
             'silently enter the queue - this branch is unchanged',
       );
     });

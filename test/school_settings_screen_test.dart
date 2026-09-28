@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders SchoolSettingsScreen properly for existing school', (WidgetTester tester) async {
+  testWidgets('renders SchoolSettingsScreen properly for existing school', (
+    WidgetTester tester,
+  ) async {
     const SchoolConfig config = SchoolConfig(
       id: 'demo-school',
       name: 'SACRED HEART CONVENT',
@@ -19,9 +21,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          schoolByIdProvider('demo-school').overrideWith(
-            (ref) => Stream.value(config),
-          ),
+          schoolByIdProvider('demo-school')
+              .overrideWith((ref) => Stream.value(config)),
         ],
         child: const MaterialApp(
           home: SchoolSettingsScreen(schoolId: 'demo-school'),

@@ -41,8 +41,12 @@ void main() {
 
     test('keeps the caret where the user put it on a mid-string edit', () {
       // Typing 'x' into "ABDE" at index 2 -> "ABXDE", caret after the X.
-      final TextEditingValue result =
-          apply(formatter, 'ABDE', 'abxde', selection: 3);
+      final TextEditingValue result = apply(
+        formatter,
+        'ABDE',
+        'abxde',
+        selection: 3,
+      );
       expect(result.text, 'ABXDE');
       expect(result.selection.baseOffset, 3);
     });
@@ -57,7 +61,12 @@ void main() {
     });
 
     test('never leaves the caret outside the text', () {
-      final TextEditingValue result = apply(formatter, '', 'ramesh', selection: 99);
+      final TextEditingValue result = apply(
+        formatter,
+        '',
+        'ramesh',
+        selection: 99,
+      );
       expect(
         result.selection.baseOffset,
         lessThanOrEqualTo(result.text.length),
@@ -74,7 +83,10 @@ void main() {
     const DigitsOnlyFormatter formatter = DigitsOnlyFormatter(maxLength: 10);
 
     test('strips non-digits from a pasted number', () {
-      expect(apply(formatter, '', '+91 98765-43210').text, '919876543210'.substring(0, 10));
+      expect(
+        apply(formatter, '', '+91 98765-43210').text,
+        '919876543210'.substring(0, 10),
+      );
     });
 
     test('caps at maxLength', () {
@@ -86,9 +98,16 @@ void main() {
     });
 
     test('caret never lands outside the trimmed text', () {
-      final TextEditingValue result =
-          apply(formatter, '', '98-76-54-32-10-99', selection: 17);
-      expect(result.selection.baseOffset, lessThanOrEqualTo(result.text.length));
+      final TextEditingValue result = apply(
+        formatter,
+        '',
+        '98-76-54-32-10-99',
+        selection: 17,
+      );
+      expect(
+        result.selection.baseOffset,
+        lessThanOrEqualTo(result.text.length),
+      );
     });
   });
 
@@ -96,10 +115,7 @@ void main() {
     const CollapseWhitespaceFormatter formatter = CollapseWhitespaceFormatter();
 
     test('collapses double spaces that would push the address to 3 lines', () {
-      expect(
-        apply(formatter, '', 'MG  ROAD,   HUBLI').text,
-        'MG ROAD, HUBLI',
-      );
+      expect(apply(formatter, '', 'MG  ROAD,   HUBLI').text, 'MG ROAD, HUBLI');
     });
 
     test('leaves single spaces alone', () {

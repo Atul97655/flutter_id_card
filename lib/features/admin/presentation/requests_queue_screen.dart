@@ -10,6 +10,8 @@ import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -71,18 +73,24 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
       for (final SchoolConfig s in schools) s.id: s.name,
     };
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('ID Card Requests'),
-        actions: <Widget>[
-          if (_selected.isNotEmpty)
-            TextButton(
-              onPressed: () => setState(_selected.clear),
-              child: const Text('Clear', style: TextStyle(color: Colors.white)),
-            ),
-        ],
-      ),
-      body: entriesAsync.when(
+    return AdminPage(
+      title: 'ID Card Requests',
+      subtitle: _selected.isEmpty
+          ? 'Approve, or send back with a reason'
+          : '${_selected.length} selected',
+      onBack: () => Navigator.of(context).maybePop(),
+      actions: <Widget>[
+        // Only while something is selected: a permanently visible Clear on a
+        // queue with nothing selected reads as "clear the queue".
+        if (_selected.isNotEmpty)
+          GlassIconButton(
+            icon: Icons.close,
+            tooltip: 'Clear selection',
+            onTap: () => setState(_selected.clear),
+          ),
+      ],
+      bottomBar: _selected.isEmpty ? null : _bulkBar(),
+      child: entriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (Object e, StackTrace s) =>
             Center(child: Text('Could not load requests: $e')),
@@ -138,7 +146,6 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
           );
         },
       ),
-      bottomNavigationBar: _selected.isEmpty ? null : _bulkBar(),
     );
   }
 

@@ -196,7 +196,8 @@ void main() {
       expect(
         icons.length,
         ApprovalStatus.values.length,
-        reason: 'pending/approved are orange/green, which colour blindness '
+        reason:
+            'pending/approved are orange/green, which colour blindness '
             'collapses - the icon has to carry the meaning too',
       );
     });

@@ -3,6 +3,8 @@ import 'package:flutter_id_card/features/admin/application/admin_providers.dart'
 import 'package:flutter_id_card/features/admin/data/reports_service.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,18 +19,18 @@ class ReportsScreen extends ConsumerWidget {
     );
     final ThemeData theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reports & Analytics'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.refresh(systemReportProvider),
-          ),
-        ],
-      ),
-      body: SmoothSwitcher(
+    return AdminPage(
+      title: 'Reports & Analytics',
+      subtitle: 'How the whole system is doing',
+      onBack: () => Navigator.of(context).maybePop(),
+      actions: <Widget>[
+        GlassIconButton(
+          icon: Icons.refresh,
+          tooltip: 'Refresh',
+          onTap: () => ref.refresh(systemReportProvider),
+        ),
+      ],
+      child: SmoothSwitcher(
         alignment: Alignment.center,
         child: reportAsync.when(
           loading: () => const Center(

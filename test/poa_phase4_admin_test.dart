@@ -141,7 +141,8 @@ void main() {
       expect(
         find.text('Choose at least one recipient'),
         findsOneWidget,
-        reason: 'an admin should not receive their own announcement, and a '
+        reason:
+            'an admin should not receive their own announcement, and a '
             'disabled account cannot sign in to read one',
       );
     });
@@ -171,16 +172,15 @@ void main() {
     Chat broadcast({
       required List<String> members,
       required List<String> unreadFor,
-    }) =>
-        Chat(
-          id: 'b1',
-          title: 'Holiday notice',
-          members: members,
-          kind: ChatKind.broadcast,
-          unreadFor: unreadFor,
-          lastMessage: 'School closed Monday',
-          lastMessageAt: DateTime(2026, 9, 10),
-        );
+    }) => Chat(
+      id: 'b1',
+      title: 'Holiday notice',
+      members: members,
+      kind: ChatKind.broadcast,
+      unreadFor: unreadFor,
+      lastMessage: 'School closed Monday',
+      lastMessageAt: DateTime(2026, 9, 10),
+    );
 
     test('the sender is not counted as one of their own recipients', () {
       final Chat c = broadcast(
@@ -346,25 +346,24 @@ Future<void> _pumpBroadcast(
 }
 
 List<ManagedUser> _users() => <ManagedUser>[
-      _user('a'),
-      _user('b'),
-      _user('admin', role: UserRole.admin),
-      _user('off', active: false),
-    ];
+  _user('a'),
+  _user('b'),
+  _user('admin', role: UserRole.admin),
+  _user('off', active: false),
+];
 
 ManagedUser _user(
   String id, {
   UserRole role = UserRole.school,
   bool active = true,
-}) =>
-    ManagedUser(
-      uid: id,
-      email: '$id@test.com',
-      displayName: id.toUpperCase(),
-      role: role,
-      schoolId: role == UserRole.admin ? null : 's1',
-      active: active,
-    );
+}) => ManagedUser(
+  uid: id,
+  email: '$id@test.com',
+  displayName: id.toUpperCase(),
+  role: role,
+  schoolId: role == UserRole.admin ? null : 's1',
+  active: active,
+);
 
 StudentEntry _entry({
   required String id,

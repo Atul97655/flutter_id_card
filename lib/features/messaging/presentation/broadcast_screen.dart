@@ -9,6 +9,7 @@ import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -114,9 +115,11 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
     );
     final List<ManagedUser> recipients = _recipientsFrom(users);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Bulk Message')),
-      body: usersAsync.isLoading && usersAsync.value == null
+    return AdminPage(
+      title: 'Bulk Message',
+      subtitle: 'One announcement, every school',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: usersAsync.isLoading && usersAsync.value == null
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _form,

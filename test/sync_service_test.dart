@@ -37,12 +37,10 @@ void main() {
     firestore = FakeFirebaseFirestore();
     connectivity = _FakeConnectivity();
 
-    when(() => connectivity.checkConnectivity()).thenAnswer(
-      (_) async => <ConnectivityResult>[ConnectivityResult.wifi],
-    );
-    when(() => connectivity.onConnectivityChanged).thenAnswer(
-      (_) => const Stream<List<ConnectivityResult>>.empty(),
-    );
+    when(() => connectivity.checkConnectivity())
+        .thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.wifi]);
+    when(() => connectivity.onConnectivityChanged)
+        .thenAnswer((_) => const Stream<List<ConnectivityResult>>.empty());
 
     sync = SyncService(
       students: students,
@@ -123,7 +121,8 @@ void main() {
       expect(
         all.docs.length,
         1,
-        reason: 'a second document would be a duplicate student, discovered '
+        reason:
+            'a second document would be a duplicate student, discovered '
             'only at the printer',
       );
       expect(all.docs.single.data()['name'], 'RAMESH KUMAR PATIL');
@@ -200,9 +199,9 @@ void main() {
     });
 
     test('nothing uploads while offline, and the row is left alone', () async {
-      when(() => connectivity.checkConnectivity()).thenAnswer(
-        (_) async => <ConnectivityResult>[ConnectivityResult.none],
-      );
+      when(
+        () => connectivity.checkConnectivity(),
+      ).thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.none]);
 
       await students.save(entry());
       await sync.syncNow(schoolId: 'school-a');
@@ -266,10 +265,7 @@ void main() {
       // and the card would render without a logo.
       await sync.syncNow(schoolId: 'school-a');
 
-      expect(
-        (await schools.find('school-a'))!.localLogoPath,
-        '/data/logo.png',
-      );
+      expect((await schools.find('school-a'))!.localLogoPath, '/data/logo.png');
     });
 
     test('a missing school document is not an error', () async {
@@ -294,10 +290,10 @@ void main() {
           .collection('entries')
           .doc('remote-1')
           .set(<String, Object?>{
-        'schoolId': 'school-b',
-        'name': 'REMOTE STUDENT',
-        'approvalStatus': 'pending',
-      });
+            'schoolId': 'school-b',
+            'name': 'REMOTE STUDENT',
+            'approvalStatus': 'pending',
+          });
 
       await sync.syncNow(isAdmin: true);
 
@@ -308,37 +304,39 @@ void main() {
       expect(pulled!.name, 'REMOTE STUDENT');
     });
 
-    test('does NOT clobber a local approval that has not uploaded yet',
-        () async {
-      // The regression this guard exists for: an admin approves a card, the
-      // pull runs before the push, and the older server copy overwrites the
-      // decision - silently discarding it.
-      await firestore.collection('schools').doc('school-a').set(
-        <String, Object?>{'name': 'SCHOOL A'},
-      );
-      await firestore
-          .collection('schools')
-          .doc('school-a')
-          .collection('entries')
-          .doc('e1')
-          .set(<String, Object?>{
-        'schoolId': 'school-a',
-        'name': 'RAMESH KUMAR',
-        'approvalStatus': 'pending',
-      });
+    test(
+      'does NOT clobber a local approval that has not uploaded yet',
+      () async {
+        // The regression this guard exists for: an admin approves a card, the
+        // pull runs before the push, and the older server copy overwrites the
+        // decision - silently discarding it.
+        await firestore.collection('schools').doc('school-a').set(
+          <String, Object?>{'name': 'SCHOOL A'},
+        );
+        await firestore
+            .collection('schools')
+            .doc('school-a')
+            .collection('entries')
+            .doc('e1')
+            .set(<String, Object?>{
+              'schoolId': 'school-a',
+              'name': 'RAMESH KUMAR',
+              'approvalStatus': 'pending',
+            });
 
-      await students.save(entry(status: SyncStatus.synced));
-      await students.approve('e1', reviewerUid: 'admin-1');
-      expect((await students.findById('e1'))!.syncStatus, SyncStatus.pending);
+        await students.save(entry(status: SyncStatus.synced));
+        await students.approve('e1', reviewerUid: 'admin-1');
+        expect((await students.findById('e1'))!.syncStatus, SyncStatus.pending);
 
-      await sync.syncNow(isAdmin: true);
+        await sync.syncNow(isAdmin: true);
 
-      expect(
-        (await students.findById('e1'))!.approvalStatus,
-        ApprovalStatus.approved,
-        reason: 'the approval was still queued for upload and must survive',
-      );
-    });
+        expect(
+          (await students.findById('e1'))!.approvalStatus,
+          ApprovalStatus.approved,
+          reason: 'the approval was still queued for upload and must survive',
+        );
+      },
+    );
 
     test('a synced local row IS refreshed from the server', () async {
       await firestore.collection('schools').doc('school-a').set(
@@ -352,11 +350,11 @@ void main() {
           .collection('entries')
           .doc('e1')
           .set(<String, Object?>{
-        'schoolId': 'school-a',
-        'name': 'RAMESH KUMAR',
-        'approvalStatus': 'approved',
-        'reviewedBy': 'other-admin',
-      });
+            'schoolId': 'school-a',
+            'name': 'RAMESH KUMAR',
+            'approvalStatus': 'approved',
+            'reviewedBy': 'other-admin',
+          });
 
       await sync.syncNow(isAdmin: true);
 
@@ -380,9 +378,9 @@ void main() {
     });
 
     test('offline is reported as offline, not as an error', () async {
-      when(() => connectivity.checkConnectivity()).thenAnswer(
-        (_) async => <ConnectivityResult>[ConnectivityResult.none],
-      );
+      when(
+        () => connectivity.checkConnectivity(),
+      ).thenAnswer((_) async => <ConnectivityResult>[ConnectivityResult.none]);
 
       await sync.syncNow(schoolId: 'school-a');
 

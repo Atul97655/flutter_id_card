@@ -5,8 +5,11 @@ import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -30,33 +33,26 @@ class AdminDashboardScreen extends ConsumerWidget {
       allEntriesProvider,
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Panel'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Reports & Analytics',
-            icon: const Icon(Icons.analytics_outlined),
-            onPressed: () => context.push('/admin/reports'),
-          ),
-          IconButton(
-            tooltip: 'Audit Log',
-            icon: const Icon(Icons.history_edu_outlined),
-            onPressed: () => context.push('/admin/audit'),
-          ),
-          IconButton(
-            tooltip: 'User Management',
-            icon: const Icon(Icons.manage_accounts_outlined),
-            onPressed: () => context.push('/admin/users'),
-          ),
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => _signOut(context, ref),
-          ),
-        ],
-      ),
-      body: ListView(
+    return AdminPage(
+      title: 'Admin Panel',
+      subtitle: 'Everything the office decides',
+      actions: <Widget>[
+        // Only two here. The old bar carried four, which on a phone left the
+        // title with nowhere to go; Reports and the Audit log are reachable
+        // from the quick actions below, where they are labelled.
+        GlassIconButton(
+          icon: Icons.manage_accounts_outlined,
+          tooltip: 'User Management',
+          onTap: () => context.push('/admin/users'),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        GlassIconButton(
+          icon: Icons.logout,
+          tooltip: 'Sign out',
+          onTap: () => _signOut(context, ref),
+        ),
+      ],
+      child: ListView(
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
           // The backlog is why an admin opens this screen, so it leads -

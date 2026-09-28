@@ -39,16 +39,16 @@ void main() {
 
   group('Chat serialisation', () {
     Chat sample() => Chat(
-          id: 'c1',
-          title: 'ST JOHN SAMARITAN',
-          members: const <String>['admin', 'teacher-a'],
-          kind: ChatKind.direct,
-          schoolId: 'school-a',
-          lastMessage: 'Cards are ready',
-          lastMessageAt: DateTime.utc(2026, 9, 10, 8, 30),
-          lastSenderId: 'admin',
-          unreadFor: const <String>['teacher-a'],
-        );
+      id: 'c1',
+      title: 'ST JOHN SAMARITAN',
+      members: const <String>['admin', 'teacher-a'],
+      kind: ChatKind.direct,
+      schoolId: 'school-a',
+      lastMessage: 'Cards are ready',
+      lastMessageAt: DateTime.utc(2026, 9, 10, 8, 30),
+      lastSenderId: 'admin',
+      unreadFor: const <String>['teacher-a'],
+    );
 
     test('survives a Firestore round trip', () {
       final Chat original = sample();
@@ -117,19 +117,18 @@ void main() {
     ChatMessage sample({
       MessageKind kind = MessageKind.text,
       String? attachmentUrl,
-    }) =>
-        ChatMessage(
-          id: 'm1',
-          chatId: 'c1',
-          senderId: 'admin',
-          senderName: 'Office',
-          sentAt: DateTime.utc(2026, 9, 10, 9),
-          body: 'Cards are ready',
-          kind: kind,
-          attachmentUrl: attachmentUrl,
-          attachmentName: attachmentUrl == null ? null : 'sheet.pdf',
-          readBy: const <String>['admin'],
-        );
+    }) => ChatMessage(
+      id: 'm1',
+      chatId: 'c1',
+      senderId: 'admin',
+      senderName: 'Office',
+      sentAt: DateTime.utc(2026, 9, 10, 9),
+      body: 'Cards are ready',
+      kind: kind,
+      attachmentUrl: attachmentUrl,
+      attachmentName: attachmentUrl == null ? null : 'sheet.pdf',
+      readBy: const <String>['admin'],
+    );
 
     test('survives a Firestore round trip', () {
       final ChatMessage original = sample(
@@ -153,8 +152,11 @@ void main() {
     });
 
     test('an empty document degrades safely', () {
-      final ChatMessage m =
-          ChatMessage.fromFirestoreMap('m1', 'c1', <String, Object?>{});
+      final ChatMessage m = ChatMessage.fromFirestoreMap(
+        'm1',
+        'c1',
+        <String, Object?>{},
+      );
 
       expect(m.senderId, '');
       expect(m.senderName, 'Unknown');
@@ -183,11 +185,13 @@ void main() {
       expect(read.sentAt, m.sentAt);
     });
 
-    test('a pending message is marked so the sender can see it is in flight',
-        () {
-      expect(sample().pending, isFalse);
-      expect(sample().copyWith(pending: true).pending, isTrue);
-    });
+    test(
+      'a pending message is marked so the sender can see it is in flight',
+      () {
+        expect(sample().pending, isFalse);
+        expect(sample().copyWith(pending: true).pending, isTrue);
+      },
+    );
   });
 
   group('Attachment content types', () {
