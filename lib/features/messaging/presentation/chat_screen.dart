@@ -18,9 +18,15 @@ import 'package:flutter_id_card/features/messaging/presentation/send_id_card_scr
 import 'package:flutter_id_card/features/messaging/presentation/widgets/attachment_tray.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_gradients.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
-import 'package:flutter_id_card/shared/theme/join_theme.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -84,37 +90,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         chat.kind != ChatKind.broadcast ||
         (session?.isAdmin ?? false);
 
-    return Scaffold(
-      appBar: AppBar(
-        // Green chrome on the messaging screens only. The card pipeline and
-        // the admin screens keep the navy: the difference is a signal about
-        // which half of the product you are standing in, not decoration.
-        backgroundColor: JoinTheme.header,
-        foregroundColor: Colors.white,
-        title: _searching
-            ? TextField(
-                controller: _search,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  hintText: 'Search messages',
-                  border: InputBorder.none,
-                ),
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-              )
-            : Text(chat?.title ?? 'Conversation'),
-        actions: <Widget>[
-          IconButton(
-            icon: Icon(_searching ? Icons.close : Icons.search),
-            tooltip: _searching ? 'Close search' : 'Search messages',
-            onPressed: () => setState(() {
-              _searching = !_searching;
-              if (!_searching) _search.clear();
-            }),
-          ),
-        ],
+    return GlassScaffold(
+      backdrop: GlassBackdrop.chat,
+      resizeToAvoidBottomInset: true,
+      header: _ChatHeader(
+        title: chat?.title ?? 'Conversation',
+        subtitle: _presenceLine(chat),
+        searching: _searching,
+        searchController: _search,
+        onSearchChanged: () => setState(() {}),
+        onToggleSearch: () => setState(() {
+          _searching = !_searching;
+          if (!_searching) _search.clear();
+        }),
+        onBack: () => Navigator.of(context).maybePop(),
       ),
-      body: Column(
+      bottomBar: canPost
+          ? _Composer(
+              controller: _composer,
+              sending: _sending,
+              onSend: () => _send(chat, session),
+              onAttach: () => _openTray(chat, session),
+            )
+          : const _ReadOnlyFooter(),
+      child: Column(
         children: <Widget>[
           if (chat?.kind == ChatKind.broadcast) const _BroadcastBanner(),
           Expanded(
@@ -128,8 +127,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 error: (Object e, StackTrace s) => Center(
                   key: const ValueKey<String>('error'),
                   child: Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Text('Could not load messages: $e'),
+                    padding: const EdgeInsets.all(AppSpacing.xxl),
+                    child: Text(
+                      'Could not load messages: $e',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.body,
+                    ),
                   ),
                 ),
                 data: (_) => visible.isEmpty
@@ -140,7 +143,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         // achieved by reversing both the list and the query
                         // order rather than scrolling after every frame.
                         reverse: true,
-                        padding: const EdgeInsets.all(AppTheme.gutter),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.gutter,
+                          AppSpacing.sm,
+                          AppSpacing.gutter,
+                          AppSpacing.md,
+                        ),
                         itemCount: visible.length,
                         itemBuilder: (BuildContext context, int i) =>
                             _MessageBubble(
@@ -156,18 +164,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           ),
-          if (canPost)
-            _Composer(
-              controller: _composer,
-              sending: _sending,
-              onSend: () => _send(chat, session),
-              onAttach: () => _openTray(chat, session),
-            )
-          else
-            const _ReadOnlyFooter(),
         ],
       ),
     );
+  }
+
+  /// The line under the conversation title.
+  ///
+  /// Not a presence indicator - this app has no presence system, and a green
+  /// "Online" dot that is always on is a lie the user will eventually catch.
+  /// It says what the conversation IS instead, which is the thing someone
+  /// glancing at the header actually wants confirmed.
+  String _presenceLine(Chat? chat) {
+    if (chat == null) return 'Loading';
+    return switch (chat.kind) {
+      ChatKind.broadcast => 'Announcement - admin office only',
+      ChatKind.direct => '${chat.members.length} participants',
+    };
   }
 
   Future<void> _markRead(
@@ -405,6 +418,178 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
+/// The conversation header: a frosted pill carrying the avatar, the title,
+/// what the conversation is, and search.
+///
+/// A pill rather than an AppBar because the page gradient has to run behind
+/// it - that is the whole reason the glass reads as glass. It also means
+/// search can take over the middle of the pill without the bar resizing.
+class _ChatHeader extends StatelessWidget {
+  const _ChatHeader({
+    required this.title,
+    required this.subtitle,
+    required this.searching,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.onToggleSearch,
+    required this.onBack,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool searching;
+  final TextEditingController searchController;
+  final VoidCallback onSearchChanged;
+  final VoidCallback onToggleSearch;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      child: GlassSurface(
+        // Frosted for real: the message list scrolls up behind this.
+        depth: GlassDepth.frosted,
+        radius: BorderRadius.circular(AppRadius.sheet),
+        fill: AppColors.glassFillStrong,
+        shadows: AppShadows.card,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          children: <Widget>[
+            _RoundAction(icon: Icons.arrow_back, onTap: onBack),
+            const SizedBox(width: AppSpacing.sm),
+            if (searching)
+              Expanded(
+                child: TextField(
+                  controller: searchController,
+                  autofocus: true,
+                  onChanged: (_) => onSearchChanged(),
+                  style: AppTypography.input,
+                  cursorColor: AppColors.chatDeep,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    hintText: 'Search messages',
+                    hintStyle: AppTypography.placeholder,
+                  ),
+                ),
+              )
+            else ...<Widget>[
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      AppColors.chatAccent,
+                      AppColors.chatDeep,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    _initial(title),
+                    style: AppTypography.buttonSmall.copyWith(fontSize: 15),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: AppTypography.section.copyWith(fontSize: 15.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      subtitle,
+                      style: AppTypography.support,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(width: AppSpacing.sm),
+            _RoundAction(
+              icon: searching ? Icons.close : Icons.search,
+              tooltip: searching ? 'Close search' : 'Search messages',
+              onTap: onToggleSearch,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _initial(String title) {
+    final String t = title.trim();
+    return t.isEmpty ? '?' : t.substring(0, 1).toUpperCase();
+  }
+}
+
+/// A circular tinted action inside the chat chrome.
+///
+/// Not GlassIconButton: that one is white-on-navy for the card pipeline, and
+/// these have to sit inside an already-frosted pill without stacking a second
+/// translucent layer on the first.
+class _RoundAction extends StatelessWidget {
+  const _RoundAction({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+    this.rotate = 0,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  /// Radians. Only the paperclip uses this.
+  final double rotate;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget button = Material(
+      color: AppColors.chatDeep.withValues(alpha: 0.09),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Center(
+            child: Transform.rotate(
+              angle: rotate,
+              child: Icon(icon, size: 19, color: AppColors.chatDeep),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (tooltip != null) button = Tooltip(message: tooltip!, child: button);
+    return button;
+  }
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     super.key,
@@ -419,9 +604,13 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     // Everyone except the sender has seen it.
     final bool readByAll = message.readBy.length >= memberCount;
+
+    // An image fills its bubble edge to edge, so the bubble loses its padding
+    // and the caption, timestamp and tick move inside on their own inset.
+    final bool bleeds =
+        message.hasAttachment && message.kind == MessageKind.image;
 
     return FadeSlideIn(
       // Slides in from the side it belongs to, which is the direction a
@@ -431,77 +620,104 @@ class _MessageBubble extends StatelessWidget {
       duration: AppMotion.fast,
       child: Align(
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.78,
           ),
-          decoration: BoxDecoration(
-            // Outgoing in the green tint, incoming on the neutral surface -
-            // the arrangement people already read without being taught it.
-            color: isMine
-                ? JoinTheme.accentSoft
-                : theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(14),
-              topRight: const Radius.circular(14),
-              bottomLeft: Radius.circular(isMine ? 14 : 4),
-              bottomRight: Radius.circular(isMine ? 4 : 14),
+          child: GlassSurface(
+            // Flat, not frosted. There are as many of these as there are
+            // messages in the thread, and a BackdropFilter per bubble is the
+            // single most reliable way to make a chat scroll badly.
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+            // Outgoing in the green tint, incoming on near-white - the
+            // arrangement people already read without being taught it.
+            fill: isMine ? AppColors.chatMine : AppColors.chatTheirs,
+            borderColor: isMine
+                ? AppColors.chatAccent.withValues(alpha: 0.22)
+                : AppColors.glassBorder,
+            shadows: AppShadows.subtle,
+            sheen: false,
+            // The tail corner is the flat one, on the side the message came
+            // from.
+            radius: BorderRadius.only(
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(isMine ? 18 : 5),
+              bottomRight: Radius.circular(isMine ? 5 : 18),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: isMine
-                ? CrossAxisAlignment.end
-                : CrossAxisAlignment.start,
-            children: <Widget>[
-              if (!isMine)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(
-                    message.senderName,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.primary,
+            padding: bleeds
+                ? const EdgeInsets.all(AppSpacing.xs)
+                : const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: 9,
+                  ),
+            child: Column(
+              crossAxisAlignment: isMine
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: <Widget>[
+                if (!isMine)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: bleeds ? AppSpacing.sm : 0,
+                      top: bleeds ? AppSpacing.xs : 0,
+                      bottom: 3,
+                    ),
+                    child: Text(
+                      message.senderName,
+                      style: AppTypography.badge.copyWith(
+                        color: AppColors.chatDeep,
+                        fontSize: 11.5,
+                      ),
                     ),
                   ),
-                ),
-              if (message.hasAttachment) ...<Widget>[
-                _MessageAttachment(message: message),
-                if (message.body.isNotEmpty) const SizedBox(height: 6),
-              ],
-              if (message.body.isNotEmpty)
-                Text(
-                  message.body,
-                  style: const TextStyle(fontSize: 14, height: 1.35),
-                ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    DateFormat('HH:mm').format(message.sentAt),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (isMine) ...<Widget>[
-                    const SizedBox(width: 4),
-                    Icon(
-                      message.pending
-                          ? Icons.schedule
-                          : (readByAll ? Icons.done_all : Icons.done),
-                      size: 13,
-                      color: readByAll
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
+                if (message.hasAttachment) ...<Widget>[
+                  _MessageAttachment(message: message),
+                  if (message.body.isNotEmpty) const SizedBox(height: 6),
                 ],
-              ),
-            ],
+                if (message.body.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: bleeds ? AppSpacing.sm : 0,
+                    ),
+                    child: Text(
+                      message.body,
+                      style: AppTypography.body.copyWith(
+                        fontSize: 14.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                Padding(
+                  padding: EdgeInsets.only(
+                    right: bleeds ? AppSpacing.sm : 0,
+                    bottom: bleeds ? AppSpacing.xs : 0,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        DateFormat('HH:mm').format(message.sentAt),
+                        style: AppTypography.timestamp,
+                      ),
+                      if (isMine) ...<Widget>[
+                        const SizedBox(width: 4),
+                        Icon(
+                          message.pending
+                              ? Icons.schedule
+                              : (readByAll ? Icons.done_all : Icons.done),
+                          size: 14,
+                          color: readByAll
+                              ? AppColors.chatAccent
+                              : AppColors.inkMuted,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -530,51 +746,133 @@ class _MessageAttachment extends ConsumerWidget {
     if (message.kind == MessageKind.image) {
       final String? preview = message.imagePreviewSource;
       if (preview == null) {
-        return const _AttachmentChip(
+        return const _AttachmentCard(
           label: 'Image unavailable',
           icon: Icons.broken_image_outlined,
         );
       }
 
-      return PressableSurface(
-        onTap: () => _openFullScreen(context, ref),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: message.attachmentInline
-              ? Image.memory(
-                  base64Decode(preview),
-                  width: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
-                      const _AttachmentChip(
-                        label: 'Image unavailable',
-                        icon: Icons.broken_image_outlined,
-                      ),
-                )
-              : Image.network(
-                  preview,
-                  width: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
-                      const _AttachmentChip(
-                        label: 'Image unavailable',
-                        icon: Icons.broken_image_outlined,
-                      ),
-                ),
+      final Widget image = message.attachmentInline
+          ? Image.memory(
+              base64Decode(preview),
+              width: 216,
+              fit: BoxFit.cover,
+              errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
+                  const _AttachmentCard(
+                    label: 'Image unavailable',
+                    icon: Icons.broken_image_outlined,
+                  ),
+            )
+          : Image.network(
+              preview,
+              width: 216,
+              fit: BoxFit.cover,
+              errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
+                  const _AttachmentCard(
+                    label: 'Image unavailable',
+                    icon: Icons.broken_image_outlined,
+                  ),
+            );
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.tile),
+        child: Stack(
+          children: <Widget>[
+            PressableSurface(
+              onTap: () => _openFullScreen(context, ref),
+              child: image,
+            ),
+            // Save sits on the picture rather than under it. A card that has
+            // been sent into a conversation is something the office is
+            // expected to keep, and making them open it first to find out how
+            // is a step for no reason.
+            Positioned(
+              right: 6,
+              bottom: 6,
+              child: _ImageAction(
+                icon: Icons.download_outlined,
+                tooltip: 'Save to device',
+                onTap: () => _saveImage(context, ref),
+              ),
+            ),
+          ],
         ),
       );
     }
 
     return PressableSurface(
       onTap: () => _openDocument(context, ref),
-      child: _AttachmentChip(
+      child: _AttachmentCard(
         label: message.attachmentName ?? 'Document',
-        icon: Icons.insert_drive_file_outlined,
+        icon: _documentIcon(message.attachmentName),
         subtitle: message.attachmentBytes == null
-            ? null
-            : _formatBytes(message.attachmentBytes!),
+            ? 'Tap to open'
+            : '${_formatBytes(message.attachmentBytes!)} - tap to open',
       ),
     );
+  }
+
+  static IconData _documentIcon(String? name) {
+    final String ext = (name ?? '').toLowerCase();
+    if (ext.endsWith('.pdf')) return Icons.picture_as_pdf_outlined;
+    if (ext.endsWith('.xls') || ext.endsWith('.xlsx')) {
+      return Icons.table_chart_outlined;
+    }
+    if (ext.endsWith('.doc') || ext.endsWith('.docx')) {
+      return Icons.description_outlined;
+    }
+    return Icons.insert_drive_file_outlined;
+  }
+
+  /// Writes the full frame out and hands it to the platform.
+  ///
+  /// Deliberately the same route as [_openDocument] rather than a media-store
+  /// write: saving into the gallery needs a storage permission this app does
+  /// not ask for, and the system viewer this opens already offers Save and
+  /// Share. So the file genuinely lands on disk and the OS owns what happens
+  /// next, which is the correct division of labour.
+  Future<void> _saveImage(BuildContext context, WidgetRef ref) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    try {
+      if (!message.attachmentInline) {
+        final String? url = message.attachmentUrl;
+        if (url == null || url.isEmpty) return;
+        await OpenFilex.open(url);
+        return;
+      }
+
+      final String? dataUri = await ref
+          .read(chatRepositoryProvider)
+          .fetchInlineAttachment(chatId: message.chatId, messageId: message.id);
+      // Falls back to the thumbnail rather than failing outright: a smaller
+      // copy of the right picture beats an error message.
+      final String base64Part = dataUri == null
+          ? (message.attachmentThumb ?? '')
+          : dataUri.substring(dataUri.indexOf(',') + 1);
+      if (base64Part.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('That attachment is no longer available.'),
+          ),
+        );
+        return;
+      }
+
+      final Uint8List bytes = base64Decode(base64Part);
+      final Directory dir = await getTemporaryDirectory();
+      final File out = File(
+        '${dir.path}/${message.attachmentName ?? 'photo.jpg'}',
+      );
+      await out.writeAsBytes(bytes, flush: true);
+      await OpenFilex.open(out.path);
+    } on Object catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not save that image: $e'),
+          backgroundColor: StatusColors.failed,
+        ),
+      );
+    }
   }
 
   /// Full resolution, fetched on demand.
@@ -707,8 +1005,44 @@ class _FullScreenImage extends StatelessWidget {
   }
 }
 
-class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({
+/// A round action floating on an image bubble.
+class _ImageAction extends StatelessWidget {
+  const _ImageAction({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        // Opaque-ish dark rather than glass: this sits on photography, where
+        // a translucent white disc disappears against a bright picture.
+        color: const Color(0x8C0B2018),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: Icon(icon, size: 18, color: AppColors.onDark),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A non-image attachment: tinted file icon, name, size.
+class _AttachmentCard extends StatelessWidget {
+  const _AttachmentCard({
     required this.label,
     required this.icon,
     this.subtitle,
@@ -720,37 +1054,64 @@ class _AttachmentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Icon(icon, size: 18),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                label,
-                style: const TextStyle(fontSize: 12.5),
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (subtitle != null)
-                Text(
-                  subtitle!,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-            ],
-          ),
+    return Container(
+      constraints: const BoxConstraints(minWidth: 190),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.chatDeep.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppRadius.tile),
+        border: Border.all(
+          color: AppColors.chatDeep.withValues(alpha: 0.14),
         ),
-      ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.chatDeep.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, size: 19, color: AppColors.chatDeep),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: AppTypography.body.copyWith(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: AppTypography.support.copyWith(fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
+/// The composer: a floating frosted bar with the paperclip, the field and the
+/// send button.
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
@@ -768,68 +1129,109 @@ class _Composer extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        child: GlassSurface(
+          // The thread scrolls under this, so it earns a real blur.
+          depth: GlassDepth.frosted,
+          radius: BorderRadius.circular(AppRadius.sheet),
+          fill: AppColors.glassFillStrong,
+          shadows: AppShadows.floating,
+          sheen: false,
+          padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              _RoundAction(
+                // Tilted. Upright, the paperclip reads as a pin or a straw in
+                // a row of small grey glyphs; the diagonal is the silhouette
+                // an eye already searches for in a message composer.
+                icon: Icons.attach_file,
+                tooltip: 'Attach',
+                onTap: sending ? () {} : onAttach,
+                rotate: -0.72,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: TextField(
+                    controller: controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: AppTypography.input,
+                    cursorColor: AppColors.chatDeep,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      hintText: 'Type a message',
+                      hintStyle: AppTypography.placeholder,
+                    ),
+                    onSubmitted: (_) => sending ? null : onSend(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              _SendButton(sending: sending, onTap: onSend),
+            ],
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            IconButton(
-              // Tilted. Upright, the paperclip reads as a pin or a straw in a
-              // row of small grey glyphs; the diagonal is the silhouette an
-              // eye already searches for in a message composer.
-              icon: Transform.rotate(
-                angle: -0.72,
-                child: const Icon(Icons.attach_file),
-              ),
-              tooltip: 'Attach',
-              onPressed: sending ? null : onAttach,
-            ),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Type a message',
-                  isDense: true,
+      ),
+    );
+  }
+}
+
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.sending, required this.onTap});
+
+  final bool sending;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: sending ? null : onTap,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
+          ),
+          boxShadow: sending
+              ? null
+              : AppShadows.glow(AppColors.chatDeep),
+        ),
+        child: AnimatedSwitcher(
+          duration: AppMotion.fast,
+          child: sending
+              ? const Padding(
+                  key: ValueKey<bool>(true),
+                  padding: EdgeInsets.all(14),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.onDark,
+                    ),
+                  ),
+                )
+              : const Icon(
+                  Icons.send_rounded,
+                  key: ValueKey<bool>(false),
+                  size: 20,
+                  color: AppColors.onDark,
                 ),
-                onSubmitted: (_) => sending ? null : onSend(),
-              ),
-            ),
-            const SizedBox(width: 6),
-            IconButton.filled(
-              style: IconButton.styleFrom(
-                backgroundColor: JoinTheme.header,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: sending ? null : onSend,
-              icon: AnimatedSwitcher(
-                duration: AppMotion.fast,
-                child: sending
-                    ? const SizedBox(
-                        key: ValueKey<bool>(true),
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : const Icon(Icons.send, key: ValueKey<bool>(false)),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -841,24 +1243,41 @@ class _BroadcastBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: Theme.of(context).colorScheme.tertiaryContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: <Widget>[
-          const Icon(Icons.campaign_outlined, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Announcement - only the admin office can post here.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onTertiaryContainer,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        0,
+        AppSpacing.gutter,
+        AppSpacing.sm,
+      ),
+      child: GlassSurface(
+        radius: BorderRadius.circular(AppRadius.field),
+        fill: AppColors.pendingTint.withValues(alpha: 0.85),
+        borderColor: AppColors.pending.withValues(alpha: 0.22),
+        shadows: AppShadows.subtle,
+        sheen: false,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          children: <Widget>[
+            const Icon(
+              Icons.campaign_outlined,
+              size: 17,
+              color: AppColors.pending,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Announcement - only the admin office can post here.',
+                style: AppTypography.support.copyWith(
+                  color: AppColors.inkBody,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -871,16 +1290,32 @@ class _ReadOnlyFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Text(
-          'You cannot reply to an announcement.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12.5,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        child: GlassSurface(
+          radius: BorderRadius.circular(AppRadius.sheet),
+          fill: AppColors.glassFillStrong,
+          shadows: AppShadows.subtle,
+          sheen: false,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.lg,
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(Icons.lock_outline, size: 16, color: AppColors.inkMuted),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'You cannot reply to an announcement.',
+                style: AppTypography.support,
+              ),
+            ],
           ),
         ),
       ),
@@ -895,22 +1330,37 @@ class _EmptyMessages extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(
-              searching ? Icons.search_off : Icons.chat_bubble_outline,
-              size: 46,
-              color: theme.colorScheme.outline,
+            Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: AppGradients.statusTint(AppColors.chatAccent),
+              ),
+              child: Icon(
+                searching ? Icons.search_off : Icons.forum_outlined,
+                size: 34,
+                color: AppColors.chatDeep,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               searching ? 'No messages match' : 'No messages yet',
-              style: theme.textTheme.titleSmall,
+              style: AppTypography.title,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              searching
+                  ? 'Try a shorter search term.'
+                  : 'Send the first one.',
+              style: AppTypography.support,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
