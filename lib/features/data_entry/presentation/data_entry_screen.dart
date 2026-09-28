@@ -16,8 +16,16 @@ import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_gradients.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
@@ -424,18 +432,27 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
           context.go('/home');
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.entryId == null ? 'New ID Card' : 'Edit Entry'),
+      child: GlassScaffold(
+        header: GlassHeader(
+          title: widget.entryId == null ? 'New ID Card' : 'Edit Entry',
+          subtitle: widget.entryId == null
+              ? 'Capture the student, then preview the card'
+              : 'Changes go back into the sync queue',
+          // Routed through maybePop so the PopScope above still gets its say
+          // and the unsaved-work prompt is not bypassed by the back button.
+          onBack: () => Navigator.of(context).maybePop(),
           actions: <Widget>[
-            IconButton(
+            GlassIconButton(
+              icon: Icons.content_copy_outlined,
               tooltip: 'Copy Class & Div from last entry',
-              icon: const Icon(Icons.content_copy_outlined),
-              onPressed: _saving ? null : _repeatLast,
+              onTap: _saving ? null : _repeatLast,
             ),
           ],
         ),
-        body: SmoothSwitcher(
+        bottomBar: configAsync.hasValue
+            ? _saveBar(configAsync.requireValue)
+            : null,
+        child: SmoothSwitcher(
           alignment: Alignment.center,
           child: configAsync.when(
             loading: () => const Center(
@@ -444,14 +461,18 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
             ),
             error: (Object e, StackTrace s) => Center(
               key: const ValueKey<String>('error'),
-              child: Text('Settings error: $e'),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.gutter),
+                child: Text(
+                  'Settings error: $e',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.body,
+                ),
+              ),
             ),
             data: _form,
           ),
         ),
-        bottomNavigationBar: configAsync.hasValue
-            ? _saveBar(configAsync.requireValue)
-            : null,
       ),
     );
   }
@@ -507,105 +528,128 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(
-          AppTheme.gutter,
-          AppTheme.gutter,
-          AppTheme.gutter,
-          AppTheme.gutter * 2,
+          AppSpacing.gutter,
+          0,
+          AppSpacing.gutter,
+          // Clears the floating save bar, which the page scrolls underneath.
+          AppSpacing.navClearance,
         ),
         children: <Widget>[
           FadeSlideIn(
-            child: _PhotoTile(path: _photoPath, onTap: _capturePhoto),
+            child: _PhotoCard(path: _photoPath, onTap: _capturePhoto),
           ),
-          const SizedBox(height: 20),
-          // Staggered so the form assembles itself rather than appearing all
-          // at once - which on a school's enabled-field set can be a dozen
-          // identical boxes landing in one frame.
-          for (int i = 0; i < fields.length; i++) ...<Widget>[
-            FadeSlideIn(
-              index: i + 1,
-              child: DynamicFormField(
-                field: fields[i],
-                controller: _ctrl(fields[i]),
-                readOnlyReason: _stampReason(fields[i], join),
-                selectedDate: _dob,
-                options: fields[i] == StudentField.studentClass
-                    ? config.classes
-                    : (fields[i] == StudentField.division
-                          ? config.divisions
-                          : null),
-                onDateChanged: (DateTime? d) {
-                  setState(() {
-                    _dob = d;
-                    _dirty = true;
-                  });
-                  // DOB does not go through a text controller, so autosave has
-                  // to be triggered explicitly here.
-                  _scheduleAutosave();
-                },
-                autofocus: i == 0 && widget.entryId == null,
-              ),
+          const SizedBox(height: AppSpacing.xl),
+          const Padding(
+            padding: EdgeInsets.only(
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
             ),
-            const SizedBox(height: 14),
-          ],
+            child: Text('Student Details', style: AppTypography.title),
+          ),
+          // One panel holding every field, rather than a field per card: the
+          // reference groups them, and a dozen separate floating cards on a
+          // school with every field enabled reads as a pile rather than a
+          // form.
+          GlassSurface(
+            radius: AppRadius.panelR,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                // Staggered so the form assembles itself rather than
+                // appearing all at once - which on a school's enabled-field
+                // set can be a dozen identical boxes landing in one frame.
+                for (int i = 0; i < fields.length; i++) ...<Widget>[
+                  if (i > 0) const SizedBox(height: AppSpacing.md),
+                  FadeSlideIn(
+                    index: i + 1,
+                    child: DynamicFormField(
+                      field: fields[i],
+                      controller: _ctrl(fields[i]),
+                      readOnlyReason: _stampReason(fields[i], join),
+                      selectedDate: _dob,
+                      options: fields[i] == StudentField.studentClass
+                          ? config.classes
+                          : (fields[i] == StudentField.division
+                                ? config.divisions
+                                : null),
+                      onDateChanged: (DateTime? d) {
+                        setState(() {
+                          _dob = d;
+                          _dirty = true;
+                        });
+                        // DOB does not go through a text controller, so
+                        // autosave has to be triggered explicitly here.
+                        _scheduleAutosave();
+                      },
+                      autofocus: i == 0 && widget.entryId == null,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _saveBar(SchoolConfig config) {
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(
-        AppTheme.gutter,
-        0,
-        AppTheme.gutter,
-        12,
+    return GlassSurface(
+      // One of the few real blurs in the app: the form scrolls underneath
+      // this bar, so a flat gradient would show the seam the moment a field
+      // passed behind it.
+      depth: GlassDepth.frosted,
+      radius: const BorderRadius.vertical(
+        top: Radius.circular(AppRadius.sheet),
       ),
-      child: FilledButton.icon(
-        onPressed: _saving ? null : () => _save(config),
-        icon: AnimatedSwitcher(
-          duration: AppMotion.fast,
-          child: _saving
-              ? const SizedBox(
-                  key: ValueKey<bool>(true),
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Icon(
-                  Icons.visibility_outlined,
-                  key: ValueKey<bool>(false),
-                ),
+      fill: AppColors.glassFillStrong,
+      shadows: AppShadows.floating,
+      sheen: false,
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter,
+          AppSpacing.md,
+          AppSpacing.gutter,
+          AppSpacing.md,
         ),
-        label: AnimatedSwitcher(
-          duration: AppMotion.fast,
-          child: Text(
-            _saving ? 'Saving...' : 'Save & Preview Card',
-            key: ValueKey<bool>(_saving),
-          ),
+        child: GlassButton(
+          label: _saving ? 'Saving...' : 'Save & Preview Card',
+          icon: Icons.visibility_outlined,
+          trailingIcon: _saving ? null : Icons.arrow_forward,
+          busy: _saving,
+          onPressed: _saving ? null : () => _save(config),
         ),
       ),
     );
   }
 }
 
-/// Photo slot rendered at the true 1.2:1.5 aspect ratio so the operator sees
-/// the real crop, not a square thumbnail that hides a bad framing.
-class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.path, required this.onTap});
+/// The photo slot.
+///
+/// Rendered at the true 1.2:1.5 aspect ratio so the operator sees the real
+/// crop, not a square thumbnail that hides a bad framing. This is the one
+/// thing on the screen that cannot be re-typed later - if the framing is
+/// wrong, somebody has to find the student again - so it gets the top of the
+/// page and a card of its own.
+class _PhotoCard extends StatelessWidget {
+  const _PhotoCard({required this.path, required this.onTap});
 
   final String? path;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     final bool hasPhoto =
         path != null && path!.isNotEmpty && File(path!).existsSync();
 
-    return Center(
+    return GlassSurface(
+      radius: AppRadius.panelR,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xl,
+      ),
       child: Column(
         children: <Widget>[
           PressableSurface(
@@ -617,14 +661,18 @@ class _PhotoTile extends StatelessWidget {
               width: 132,
               height: 165, // 1.2 : 1.5
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                color: AppColors.card,
+                gradient: hasPhoto ? null : AppGradients.avatar,
+                borderRadius: AppRadius.cardR,
                 border: Border.all(
                   color: hasPhoto
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.outline,
-                  width: hasPhoto ? 2 : 1.2,
+                      ? AppColors.royal
+                      : AppColors.royal.withValues(alpha: 0.28),
+                  width: hasPhoto ? 2 : 1.4,
                 ),
+                boxShadow: hasPhoto
+                    ? AppShadows.lifted
+                    : AppShadows.subtle,
               ),
               clipBehavior: Clip.antiAlias,
               child: AnimatedSwitcher(
@@ -637,41 +685,63 @@ class _PhotoTile extends StatelessWidget {
                         cacheWidth: 360,
                         cacheHeight: 450,
                       )
-                    : Column(
-                        key: const ValueKey<String>('empty'),
+                    : const Column(
+                        key: ValueKey<String>('empty'),
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
                           Icon(
                             Icons.add_a_photo_outlined,
-                            size: 34,
-                            color: theme.colorScheme.outline,
+                            size: 32,
+                            color: AppColors.onDark,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Add Photo',
-                            style: TextStyle(color: theme.colorScheme.outline),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '1.2 x 1.5 in',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
+                          SizedBox(height: AppSpacing.sm),
+                          Text('Add Photo', style: AppTypography.buttonSmall),
                         ],
                       ),
               ),
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            hasPhoto ? 'Student Photo' : 'Photo required',
+            style: AppTypography.section,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            hasPhoto ? 'Tap to retake or re-crop' : 'Passport size, 1.2 x 1.5 in',
+            style: AppTypography.support,
+            textAlign: TextAlign.center,
+          ),
           SmoothSwitcher(
             child: hasPhoto
                 ? Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: TextButton.icon(
-                      onPressed: onTap,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Retake / Edit'),
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    child: GlassSurface(
+                      radius: BorderRadius.circular(AppRadius.pill),
+                      fill: AppColors.glassFillStrong,
+                      shadows: AppShadows.subtle,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.sm,
+                      ),
+                      onTap: onTap,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.refresh,
+                            size: 17,
+                            color: AppColors.royal,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Retake / Edit',
+                            style: AppTypography.badge.copyWith(
+                              color: AppColors.royal,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : const SizedBox.shrink(),

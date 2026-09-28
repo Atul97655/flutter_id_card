@@ -222,7 +222,12 @@ class GlassIconButton extends StatelessWidget {
   });
 
   final IconData icon;
-  final VoidCallback onTap;
+
+  /// Null disables the button and dims it. A header action that cannot be
+  /// used while a save is in flight has to look unusable, or it just gets
+  /// pressed repeatedly.
+  final VoidCallback? onTap;
+
   final bool onDark;
 
   /// A small dot in the corner. Used for "there is something unread here",
@@ -234,6 +239,8 @@ class GlassIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool enabled = onTap != null;
+
     Widget button = GlassSurface(
       width: size,
       height: size,
@@ -249,7 +256,9 @@ class GlassIconButton extends StatelessWidget {
           Icon(
             icon,
             size: size * 0.46,
-            color: onDark ? AppColors.onDark : AppColors.ink,
+            color: (onDark ? AppColors.onDark : AppColors.ink).withValues(
+              alpha: enabled ? 1 : 0.4,
+            ),
           ),
           if (badge)
             Positioned(

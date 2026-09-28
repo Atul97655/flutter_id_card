@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
 import 'package:flutter_id_card/shared/utils/input_formatters.dart';
 import 'package:flutter_id_card/shared/utils/validators.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_text_field.dart';
 
 /// Renders the correct input for a [StudentField].
 ///
 /// The form screen walks the school's enabled-field list and drops one of these
 /// in per field, so adding a field to the system means adding an enum value and
 /// a case here - never editing a hand-built form layout.
+///
+/// Every branch wears the same glass chrome, either directly via
+/// [GlassTextField] or by putting a bare input inside a [GlassFieldShell].
+/// That is deliberate: a form where the date picker is a slightly different
+/// shape from the text boxes is the single most visible way a redesign leaks.
 class DynamicFormField extends StatelessWidget {
   const DynamicFormField({
     super.key,
@@ -45,71 +53,34 @@ class DynamicFormField extends StatelessWidget {
   /// cannot see.
   final String? readOnlyReason;
 
-  /// A value the teacher is shown rather than asked for.
-  Widget _stamped(BuildContext context, String reason) {
-    final ThemeData theme = Theme.of(context);
-    return TextFormField(
-      controller: controller,
-      readOnly: true,
-      enabled: false,
-      decoration: InputDecoration(
-        labelText: field.formLabel,
-        helperText: reason,
-        helperMaxLines: 2,
-        filled: true,
-        fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.5,
-        ),
-        suffixIcon: const Icon(Icons.lock_outline, size: 18),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final String? reason = readOnlyReason;
-    if (reason != null) return _stamped(context, reason);
+    if (reason != null) return _stamped(reason);
 
     if (options != null &&
         options!.isNotEmpty &&
         field.kind == FieldKind.text) {
-      return _dropdown(context, options!);
+      return _dropdown(options!, _iconFor(field));
     }
     return switch (field.kind) {
-      FieldKind.text => _text(context),
-      FieldKind.multiline => _multiline(context),
-      FieldKind.mobile => _mobile(context),
-      FieldKind.bloodGroup => _bloodGroup(context),
+      FieldKind.text => _text(),
+      FieldKind.multiline => _multiline(),
+      FieldKind.mobile => _mobile(),
+      FieldKind.bloodGroup => _bloodGroup(),
       FieldKind.date => _date(context),
       // The photo is captured on its own screen, not inline in the form.
       FieldKind.photo => const SizedBox.shrink(),
     };
   }
 
-  Widget _dropdown(BuildContext context, List<String> items) {
-    final String current = controller.text.trim();
-    final List<String> allItems = <String>[
-      ...items,
-      if (current.isNotEmpty && !items.contains(current)) current,
-    ];
-
-    return DropdownButtonFormField<String>(
-      initialValue: current.isNotEmpty ? current : null,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: field.formLabel,
-        prefixIcon: Icon(_iconFor(field)),
-      ),
-      items: allItems
-          .map(
-            (String val) =>
-                DropdownMenuItem<String>(value: val, child: Text(val)),
-          )
-          .toList(),
-      onChanged: (String? val) {
-        controller.text = val ?? '';
-      },
-      validator: (String? v) => Validators.forField(field, v, isRequired: true),
+  /// A value the teacher is shown rather than asked for.
+  Widget _stamped(String reason) {
+    return GlassTextField(
+      label: field.formLabel,
+      icon: _iconFor(field),
+      controller: controller,
+      readOnlyReason: reason,
     );
   }
 
@@ -118,28 +89,29 @@ class DynamicFormField extends StatelessWidget {
     const CollapseWhitespaceFormatter(),
   ];
 
-  Widget _text(BuildContext context) {
-    return TextFormField(
+  Widget _text() {
+    return GlassTextField(
+      label: field.formLabel,
+      icon: _iconFor(field),
       controller: controller,
+      placeholder: _placeholderFor(field),
       autofocus: autofocus,
       textInputAction: TextInputAction.next,
       textCapitalization: TextCapitalization.characters,
       inputFormatters: _textFormatters,
+      // No counter: it is noise on short fields. Only the address needs one,
+      // and that has its own branch.
       maxLength: Validators.nameMaxLength,
-      decoration: InputDecoration(
-        labelText: field.formLabel,
-        prefixIcon: Icon(_iconFor(field)),
-        // The character counter is noise on short fields; only the address
-        // needs it, and that has its own branch.
-        counterText: '',
-      ),
       validator: (String? v) => Validators.forField(field, v, isRequired: true),
     );
   }
 
-  Widget _multiline(BuildContext context) {
-    return TextFormField(
+  Widget _multiline() {
+    return GlassTextField(
+      label: field.formLabel,
+      icon: Icons.home_outlined,
       controller: controller,
+      placeholder: 'House, street, area',
       minLines: 2,
       maxLines: 3,
       textInputAction: TextInputAction.newline,
@@ -147,78 +119,144 @@ class DynamicFormField extends StatelessWidget {
       textCapitalization: TextCapitalization.characters,
       inputFormatters: _textFormatters,
       maxLength: Validators.addressMaxLength,
-      decoration: InputDecoration(
-        labelText: field.formLabel,
-        prefixIcon: const Icon(Icons.home_outlined),
-        helperText: 'Prints on up to 2 lines',
-      ),
+      showCounter: true,
+      helperText: 'Prints on up to 2 lines',
       validator: Validators.address,
     );
   }
 
-  Widget _mobile(BuildContext context) {
-    return TextFormField(
+  Widget _mobile() {
+    return GlassTextField(
+      label: field.formLabel,
+      icon: Icons.phone_outlined,
       controller: controller,
+      placeholder: '10-digit number',
       keyboardType: TextInputType.phone,
       textInputAction: TextInputAction.next,
       inputFormatters: const <TextInputFormatter>[
         DigitsOnlyFormatter(maxLength: Validators.mobileLength),
       ],
-      decoration: InputDecoration(
-        labelText: field.formLabel,
-        prefixIcon: const Icon(Icons.phone_outlined),
-        counterText: '',
-      ),
       validator: Validators.mobile,
     );
   }
 
-  Widget _bloodGroup(BuildContext context) {
+  Widget _bloodGroup() {
     final String current = controller.text.trim();
-    return DropdownButtonFormField<String>(
-      initialValue: kBloodGroups.contains(current) ? current : null,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: field.formLabel,
-        prefixIcon: const Icon(Icons.bloodtype_outlined),
+    return _dropdownShell(
+      icon: Icons.bloodtype_outlined,
+      child: DropdownButtonFormField<String>(
+        initialValue: kBloodGroups.contains(current) ? current : null,
+        isExpanded: true,
+        decoration: glassInputDecoration(
+          hintText: 'Select',
+          suppressError: false,
+        ),
+        style: AppTypography.input,
+        icon: const Icon(
+          Icons.expand_more,
+          size: 20,
+          color: AppColors.inkMuted,
+        ),
+        items: kBloodGroups
+            .map(
+              (String g) => DropdownMenuItem<String>(value: g, child: Text(g)),
+            )
+            .toList(),
+        onChanged: (String? v) => controller.text = v ?? '',
+        validator: Validators.bloodGroup,
       ),
-      items: kBloodGroups
-          .map((String g) => DropdownMenuItem<String>(value: g, child: Text(g)))
-          .toList(),
-      onChanged: (String? v) => controller.text = v ?? '',
-      validator: Validators.bloodGroup,
+    );
+  }
+
+  Widget _dropdown(List<String> items, IconData icon) {
+    final String current = controller.text.trim();
+    final List<String> allItems = <String>[
+      ...items,
+      // A school can edit its class list. An entry captured under the old
+      // list must not silently lose its value when the form reopens.
+      if (current.isNotEmpty && !items.contains(current)) current,
+    ];
+
+    return _dropdownShell(
+      icon: icon,
+      child: DropdownButtonFormField<String>(
+        initialValue: current.isNotEmpty ? current : null,
+        isExpanded: true,
+        decoration: glassInputDecoration(
+          hintText: 'Select',
+          suppressError: false,
+        ),
+        style: AppTypography.input,
+        icon: const Icon(
+          Icons.expand_more,
+          size: 20,
+          color: AppColors.inkMuted,
+        ),
+        items: allItems
+            .map(
+              (String val) =>
+                  DropdownMenuItem<String>(value: val, child: Text(val)),
+            )
+            .toList(),
+        onChanged: (String? val) {
+          controller.text = val ?? '';
+        },
+        validator: (String? v) =>
+            Validators.forField(field, v, isRequired: true),
+      ),
+    );
+  }
+
+  /// A dropdown keeps its own error text inside the shell rather than below
+  /// it: `DropdownButtonFormField` owns its validation state, and there is no
+  /// clean way to observe it from outside without rebuilding the field.
+  Widget _dropdownShell({required IconData icon, required Widget child}) {
+    return GlassFieldShell(
+      label: field.formLabel,
+      icon: icon,
+      child: child,
     );
   }
 
   Widget _date(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final String? error = Validators.dateOfBirth(selectedDate);
+    final String? fallback = Validators.dateOfBirth(selectedDate);
 
     return FormField<DateTime>(
       initialValue: selectedDate,
       validator: (DateTime? v) => Validators.dateOfBirth(v ?? selectedDate),
       builder: (FormFieldState<DateTime> state) {
-        return InkWell(
+        final bool hasError = state.hasError;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => _pickDate(context, state),
-          borderRadius: BorderRadius.circular(10),
-          child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: field.formLabel,
-              prefixIcon: const Icon(Icons.cake_outlined),
-              // Show the live validator result, not just the post-submit one,
-              // so a mistyped year is caught before the operator moves on.
-              errorText: state.hasError ? (state.errorText ?? error) : null,
-              suffixIcon: const Icon(Icons.calendar_month_outlined),
+          child: GlassFieldShell(
+            label: field.formLabel,
+            icon: Icons.cake_outlined,
+            hasError: hasError,
+            trailing: const Icon(
+              Icons.calendar_month_outlined,
+              size: 20,
+              color: AppColors.royal,
             ),
-            child: Text(
-              selectedDate == null
-                  ? 'DD-MM-YYYY'
-                  : StudentEntry.dobFormat.format(selectedDate!),
-              style: TextStyle(
-                fontSize: 16,
-                color: selectedDate == null
-                    ? theme.colorScheme.onSurfaceVariant
-                    : theme.colorScheme.onSurface,
+            // Shows the live validator result, not just the post-submit one,
+            // so a mistyped year is caught before the operator moves on.
+            footer: hasError
+                ? Text(
+                    state.errorText ?? fallback ?? '',
+                    style: AppTypography.support.copyWith(
+                      color: AppColors.rejected,
+                    ),
+                  )
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 1),
+              child: Text(
+                selectedDate == null
+                    ? 'DD-MM-YYYY'
+                    : StudentEntry.dobFormat.format(selectedDate!),
+                style: selectedDate == null
+                    ? AppTypography.placeholder
+                    : AppTypography.input,
               ),
             ),
           ),
@@ -247,11 +285,24 @@ class DynamicFormField extends StatelessWidget {
     state.didChange(picked);
   }
 
+  static String? _placeholderFor(StudentField field) => switch (field) {
+    StudentField.name => 'Full name as it prints',
+    StudentField.fatherName => "Father's full name",
+    StudentField.studentClass => 'e.g. 5',
+    StudentField.division => 'e.g. A',
+    StudentField.rollNumber => 'e.g. 12',
+    _ => null,
+  };
+
   static IconData _iconFor(StudentField field) => switch (field) {
     StudentField.name => Icons.person_outline,
     StudentField.fatherName => Icons.family_restroom_outlined,
     StudentField.studentClass => Icons.class_outlined,
     StudentField.division => Icons.grid_view_outlined,
+    StudentField.rollNumber => Icons.format_list_numbered,
+    StudentField.bloodGroup => Icons.bloodtype_outlined,
+    StudentField.mobile => Icons.phone_outlined,
+    StudentField.address => Icons.home_outlined,
     _ => Icons.edit_outlined,
   };
 }

@@ -123,6 +123,14 @@ abstract final class AppTypography {
     color: AppColors.onDark,
   );
 
+  /// The same, on a compact surface - a chip, a small tile.
+  static const TextStyle buttonSmall = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.1,
+    color: AppColors.onDark,
+  );
+
   /// A timestamp beside a message.
   static const TextStyle timestamp = TextStyle(
     fontSize: 11,
