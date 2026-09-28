@@ -26,7 +26,40 @@ final class AppTheme {
   static const double minTapTarget = AppSpacing.minTap;
 
   static ThemeData light() {
-    final ColorScheme scheme = ColorScheme.fromSeed(seedColor: seed);
+    // Seeded, then pinned. Sixteen screens read colours off the ColorScheme
+    // rather than off AppColors - `onSurfaceVariant` for secondary text,
+    // `outline` for muted icons, `primary` for accents. Left as Material
+    // generated them, those screens sit a few degrees away from every screen
+    // that was rebuilt by hand, which is exactly the drift the token file
+    // exists to prevent.
+    //
+    // Pinning the roles here fixes all of them at once, and means code
+    // written later that reaches for `colorScheme.onSurfaceVariant` out of
+    // habit still lands on the right colour.
+    final ColorScheme scheme = ColorScheme.fromSeed(seedColor: seed).copyWith(
+      primary: AppColors.royal,
+      onPrimary: AppColors.onDark,
+      primaryContainer: AppColors.mist,
+      onPrimaryContainer: AppColors.navy,
+      secondary: AppColors.violet,
+      onSecondary: AppColors.onDark,
+      secondaryContainer: AppColors.printedTint,
+      onSecondaryContainer: AppColors.printed,
+      error: AppColors.rejected,
+      onError: AppColors.onDark,
+      errorContainer: AppColors.rejectedTint,
+      onErrorContainer: AppColors.rejected,
+      surface: AppColors.card,
+      onSurface: AppColors.ink,
+      // Secondary text everywhere. By far the most-read role in the app.
+      onSurfaceVariant: AppColors.inkMuted,
+      surfaceContainerHighest: AppColors.mist,
+      // Every use of `outline` in this codebase is a muted ICON, not a
+      // border - borders go through dividerTheme and outlineVariant - so it
+      // maps to the muted ink rather than to the hairline.
+      outline: AppColors.inkMuted,
+      outlineVariant: AppColors.hairline,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -205,19 +238,32 @@ final class AppTheme {
   }
 }
 
-/// Status colours for the sync indicator. Chosen to stay distinguishable for
-/// red-green colour blindness by pairing each with a distinct icon at the call
-/// site rather than relying on hue alone.
+/// Status colours for the sync indicator.
+///
+/// Now an alias layer over [AppColors], not a palette of its own. It used to
+/// hold its own Material hues, which meant a "pending" chip on the dashboard
+/// and a "pending" figure on the Profile screen were two different oranges -
+/// close enough to look like a rendering fault rather than a decision.
+///
+/// Kept as a named type rather than renamed at 107 call sites: the sync
+/// vocabulary (pending / syncing / synced / failed) genuinely differs from
+/// the approval vocabulary (pending / approved / rejected / printed), and
+/// collapsing the names would lose that distinction even though the colours
+/// are shared.
+///
+/// Still paired with a distinct icon at every call site rather than relying
+/// on hue alone, so the states stay tellable apart with red-green colour
+/// blindness.
 final class StatusColors {
   const StatusColors._();
 
-  static const Color pending = Color(0xFFF57C00);
-  static const Color syncing = Color(0xFF0288D1);
-  static const Color synced = Color(0xFF2E7D32);
-  static const Color failed = Color(0xFFC62828);
+  static const Color pending = AppColors.pending;
+  static const Color syncing = AppColors.info;
+  static const Color synced = AppColors.approved;
+  static const Color failed = AppColors.rejected;
 
   /// A card that has been through a print run. Indigo rather than another
   /// green so "approved" and "printed" stay tellable apart at a glance - they
   /// are adjacent states an operator asks the office about by name.
-  static const Color printed = Color(0xFF4527A0);
+  static const Color printed = AppColors.printed;
 }
