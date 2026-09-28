@@ -5,14 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Stream of connectivity results from connectivity_plus.
 final StreamProvider<List<ConnectivityResult>> connectivityStreamProvider =
     StreamProvider<List<ConnectivityResult>>((Ref ref) {
-  final Connectivity conn = Connectivity();
-  return conn.onConnectivityChanged;
-});
+      final Connectivity conn = Connectivity();
+      return conn.onConnectivityChanged;
+    });
 
 /// Indicates whether the device currently has no active network interfaces.
 final Provider<bool> isOfflineProvider = Provider<bool>((Ref ref) {
-  final AsyncValue<List<ConnectivityResult>> results =
-      ref.watch(connectivityStreamProvider);
+  final AsyncValue<List<ConnectivityResult>> results = ref.watch(
+    connectivityStreamProvider,
+  );
   return results.maybeWhen(
     data: (List<ConnectivityResult> list) =>
         list.isEmpty ||
@@ -44,8 +45,7 @@ class OfflineBanner extends ConsumerWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              message ??
-                  'Working offline. Entries are saved locally and will sync when connected.',
+              message ?? 'Working offline. Entries are saved locally and will sync when connected.',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,

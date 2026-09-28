@@ -11,11 +11,15 @@ class GlassNavItem {
     required this.icon,
     required this.activeIcon,
     required this.label,
+    this.badge = 0,
   });
 
   final IconData icon;
   final IconData activeIcon;
   final String label;
+
+  /// Unread or outstanding items on that tab. Zero draws nothing.
+  final int badge;
 }
 
 /// The floating glass navigation bar.
@@ -108,10 +112,42 @@ class _NavCell extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(
-              selected ? item.activeIcon : item.icon,
-              size: 22,
-              color: selected ? AppColors.royal : AppColors.inkMuted,
+            Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                Icon(
+                  selected ? item.activeIcon : item.icon,
+                  size: 22,
+                  color: selected ? AppColors.royal : AppColors.inkMuted,
+                ),
+                if (item.badge > 0)
+                  Positioned(
+                    top: -3,
+                    right: -7,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4.5,
+                        vertical: 1,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.rejected,
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                        border: Border.all(color: Colors.white, width: 1.4),
+                      ),
+                      child: Text(
+                        item.badge > 99 ? '99+' : '${item.badge}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          height: 1.25,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 3),
             Text(

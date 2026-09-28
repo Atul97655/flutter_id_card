@@ -6,11 +6,7 @@ import 'package:flutter/material.dart';
 /// with crisp scaling, rounded squircle corners, and a subtle drop shadow.
 /// Retains a vector painter fallback for test/headless environments.
 class AppLogo extends StatelessWidget {
-  const AppLogo({
-    super.key,
-    this.size = 72,
-    this.onDark = false,
-  });
+  const AppLogo({super.key, this.size = 72, this.onDark = false});
 
   final double size;
 
@@ -43,13 +39,10 @@ class AppLogo extends StatelessWidget {
           height: size,
           fit: BoxFit.cover,
           filterQuality: FilterQuality.high,
-          errorBuilder: (
-            BuildContext context,
-            Object error,
-            StackTrace? stackTrace,
-          ) {
-            return _FallbackLogo(size: size, onDark: onDark);
-          },
+          errorBuilder:
+              (BuildContext context, Object error, StackTrace? stackTrace) {
+                return _FallbackLogo(size: size, onDark: onDark);
+              },
         ),
       ),
     );
@@ -57,10 +50,7 @@ class AppLogo extends StatelessWidget {
 }
 
 class _FallbackLogo extends StatelessWidget {
-  const _FallbackLogo({
-    required this.size,
-    required this.onDark,
-  });
+  const _FallbackLogo({required this.size, required this.onDark});
 
   final double size;
   final bool onDark;

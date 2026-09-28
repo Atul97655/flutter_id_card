@@ -26,15 +26,9 @@ class ApprovalStatusChip extends StatelessWidget {
 
   static (Color, IconData) visualsFor(ApprovalStatus status) =>
       switch (status) {
-        ApprovalStatus.pending => (
-            StatusColors.pending,
-            Icons.pending_actions,
-          ),
+        ApprovalStatus.pending => (StatusColors.pending, Icons.pending_actions),
         ApprovalStatus.approved => (StatusColors.synced, Icons.verified),
-        ApprovalStatus.rejected => (
-            StatusColors.failed,
-            Icons.cancel_outlined,
-          ),
+        ApprovalStatus.rejected => (StatusColors.failed, Icons.cancel_outlined),
         ApprovalStatus.printed => (StatusColors.printed, Icons.print_rounded),
       };
 

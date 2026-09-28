@@ -15,18 +15,18 @@ class SyncStatusChip extends StatelessWidget {
   final bool dense;
 
   static Color colorFor(SyncStatus status) => switch (status) {
-        SyncStatus.pending => StatusColors.pending,
-        SyncStatus.syncing => StatusColors.syncing,
-        SyncStatus.synced => StatusColors.synced,
-        SyncStatus.failed => StatusColors.failed,
-      };
+    SyncStatus.pending => StatusColors.pending,
+    SyncStatus.syncing => StatusColors.syncing,
+    SyncStatus.synced => StatusColors.synced,
+    SyncStatus.failed => StatusColors.failed,
+  };
 
   static IconData iconFor(SyncStatus status) => switch (status) {
-        SyncStatus.pending => Icons.schedule,
-        SyncStatus.syncing => Icons.sync,
-        SyncStatus.synced => Icons.cloud_done,
-        SyncStatus.failed => Icons.error_outline,
-      };
+    SyncStatus.pending => Icons.schedule,
+    SyncStatus.syncing => Icons.sync,
+    SyncStatus.synced => Icons.cloud_done,
+    SyncStatus.failed => Icons.error_outline,
+  };
 
   @override
   Widget build(BuildContext context) {

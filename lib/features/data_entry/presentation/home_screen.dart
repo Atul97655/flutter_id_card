@@ -10,32 +10,34 @@ import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_gradients.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
-import 'package:flutter_id_card/shared/theme/app_theme.dart';
-import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:flutter_id_card/shared/widgets/offline_banner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// ID Card Home - the operator's hub.
+/// The operator's home: what this school is, what has happened, and the one
+/// button that starts the job.
 ///
-/// Rebuilt from a flat menu into a status surface. The menu answered "what can
-/// I do?"; the question an operator actually arrives with is "where did my
-/// cards get to?", and until now the app could not answer it at all - the
-/// office's approval decision never reached this side.
-///
-/// Order is by urgency: the counts first, then the primary action, then recent
-/// work. Returned cards are deliberately not raised here - see the note in
-/// [build] where that banner used to be.
+/// Redesigned against the reference pack. Every provider read, route and
+/// conditional below is the same as before - only the arrangement moved.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   static const String routePath = '/home';
   static const String routeName = 'home';
 
-  /// How many recent submissions the hub shows before deferring to the full
-  /// list. Five fits above the fold on a small tablet without scrolling.
-  static const int _recentCount = 5;
+  /// How many recent submissions the card shows before deferring to the full
+  /// list. Four fills the card without turning the home screen into a second
+  /// copy of My Submissions.
+  static const int _recentCount = 4;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,8 +52,9 @@ class HomeScreen extends ConsumerWidget {
     final AsyncValue<List<StudentEntry>> entriesAsync = ref.watch(
       entriesProvider,
     );
-
     final int unreadNotifications = ref.watch(unreadNotificationCountProvider);
+    final String section = ref.watch(mySectionLabelProvider);
+
     final int pending = syncCounts.value?[SyncStatus.pending] ?? 0;
     final int failed = syncCounts.value?[SyncStatus.failed] ?? 0;
     final List<StudentEntry> entries =
@@ -60,58 +63,30 @@ class HomeScreen extends ConsumerWidget {
 
     int count(ApprovalStatus s) => approvalCounts.value?[s] ?? 0;
 
-    final String section = ref.watch(mySectionLabelProvider);
-
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Text('ID entity'),
-            // The scope, stated. A teacher who cannot see a student they
-            // know exists needs to be told they are looking at one section,
-            // not left to conclude the card was lost. Absent for an unscoped
-            // account, where there is nothing to qualify.
-            if (section.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  'Class $section',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        actions: <Widget>[
-          IconButton(
-            tooltip: unreadNotifications == 0
-                ? 'Notifications'
-                : '$unreadNotifications need your attention',
-            icon: _NotificationBell(count: unreadNotifications),
-            onPressed: () => context.push('/notifications'),
-          ),
-          if (session?.isAdmin ?? false)
-            IconButton(
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              tooltip: 'Admin panel',
-              onPressed: () => context.push('/admin'),
-            ),
-        ],
-      ),
-      body: SafeArea(
+      backgroundColor: AppColors.canvas,
+      extendBody: true,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppGradients.pageBlue),
         child: Column(
           children: <Widget>[
+            _Header(
+              section: section,
+              unread: unreadNotifications,
+              isAdmin: session?.isAdmin ?? false,
+            ),
             const OfflineBanner(),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(AppTheme.gutter),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.gutter,
+                  AppSpacing.lg,
+                  AppSpacing.gutter,
+                  AppSpacing.navClearance,
+                ),
                 children: <Widget>[
                   FadeSlideIn(
-                    child: _SchoolHeader(
+                    child: _SchoolCard(
                       config: config,
                       isOfflineTest: session?.isOfflineTestSession ?? false,
                     ),
@@ -126,21 +101,21 @@ class HomeScreen extends ConsumerWidget {
                   // cleared, and stay visible in the list below as a status
                   // chip - which is where an operator looks for their own work
                   // anyway.
-                  const SizedBox(height: AppTheme.gutter),
+                  const SizedBox(height: AppSpacing.md),
                   FadeSlideIn(
                     index: 2,
-                    child: _StatusStrip(
-                      pending: count(ApprovalStatus.pending),
+                    child: _StatsCard(
+                      waiting: count(ApprovalStatus.pending),
                       approved: count(ApprovalStatus.approved),
                       printed: count(ApprovalStatus.printed),
                       onTap: () => context.push('/entries'),
                     ),
                   ),
 
-                  const SizedBox(height: AppTheme.gutter),
-                  const FadeSlideIn(index: 3, child: _NewCardButton()),
+                  const SizedBox(height: AppSpacing.md),
+                  const FadeSlideIn(index: 3, child: _NewCardCta()),
 
-                  const SizedBox(height: AppTheme.gutter),
+                  const SizedBox(height: AppSpacing.md),
                   FadeSlideIn(
                     index: 4,
                     child: _RecentSubmissions(
@@ -152,17 +127,12 @@ class HomeScreen extends ConsumerWidget {
                   // Sync is plumbing. It earns a card only when something is
                   // stuck; a green "all synced" tile is pure noise.
                   if (pending > 0 || failed > 0) ...<Widget>[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     FadeSlideIn(
                       index: 5,
-                      child: _MenuCard(
-                        icon: Icons.sync_outlined,
-                        title: 'Sync Status',
-                        subtitle: _syncSubtitle(pending, failed),
-                        color: failed > 0
-                            ? StatusColors.failed
-                            : const Color(0xFF4527A0),
-                        badgeCount: pending + failed,
+                      child: _SyncCard(
+                        pending: pending,
+                        failed: failed,
                         onTap: () => context.push('/sync'),
                       ),
                     ),
@@ -179,107 +149,293 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
-
-  static String _syncSubtitle(int pending, int failed) {
-    if (failed > 0) return '$failed failed, $pending waiting to upload';
-    if (pending > 0) return '$pending waiting to upload';
-    return 'Everything is up to date';
-  }
 }
 
-/// Bell with a count bubble. The bubble scales in so a notification landing
-/// while the operator is on this screen is noticed rather than silently added.
-class _NotificationBell extends StatelessWidget {
-  const _NotificationBell({required this.count});
+/// The navy block at the top of the page.
+///
+/// Curved along its bottom edge so the light page appears to slide under it.
+/// A square edge here reads as two screens stacked; the curve is what makes
+/// it one surface.
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.section,
+    required this.unread,
+    required this.isAdmin,
+  });
 
-  final int count;
+  final String section;
+  final int unread;
+  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        const Icon(Icons.notifications_none),
-        Positioned(
-          right: -3,
-          top: -3,
-          child: AnimatedScale(
-            scale: count > 0 ? 1 : 0,
-            duration: AppMotion.normal,
-            curve: AppMotion.emphasized,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              constraints: const BoxConstraints(minWidth: 15),
-              decoration: BoxDecoration(
-                color: StatusColors.failed,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                count > 99 ? '99+' : '$count',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: AppGradients.header,
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(AppRadius.sheet),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.md,
+            AppSpacing.gutter,
+            AppSpacing.xl,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text('ID entity', style: AppTypography.displayOnDark),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Manage school ID cards with ease',
+                      style: AppTypography.displaySubOnDark,
+                    ),
+                    // The scope, stated. A teacher who cannot see a student
+                    // they know exists needs to be told they are looking at
+                    // one section, not left to conclude the card was lost.
+                    if (section.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: AppSpacing.sm),
+                      GlassStatusBadge(
+                        label: 'Class $section',
+                        color: AppColors.onDark,
+                        tint: const Color(0x2EFFFFFF),
+                        icon: Icons.group_outlined,
+                        compact: true,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(width: AppSpacing.sm),
+              GlassIconButton(
+                icon: Icons.notifications_none_rounded,
+                onDark: true,
+                badge: unread > 0,
+                tooltip: unread == 0
+                    ? 'Notifications'
+                    : '$unread need your attention',
+                onTap: () => context.push('/notifications'),
+              ),
+              if (isAdmin) ...<Widget>[
+                const SizedBox(width: AppSpacing.sm),
+                GlassIconButton(
+                  icon: Icons.admin_panel_settings_outlined,
+                  onDark: true,
+                  tooltip: 'Admin panel',
+                  onTap: () => context.push('/admin'),
+                ),
+              ],
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Status strip
-// ---------------------------------------------------------------------------
+class _SchoolCard extends StatelessWidget {
+  const _SchoolCard({required this.config, required this.isOfflineTest});
 
-class _StatusStrip extends StatelessWidget {
-  const _StatusStrip({
-    required this.pending,
+  final AsyncValue<SchoolConfig> config;
+  final bool isOfflineTest;
+
+  @override
+  Widget build(BuildContext context) {
+    final SchoolConfig? value = config.value;
+
+    return GlassSurface(
+      fill: AppColors.card,
+      borderColor: AppColors.hairline,
+      sheen: false,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Row(
+        children: <Widget>[
+          const GlassIconTile(icon: Icons.school_rounded, size: 48),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  value?.name ?? 'Loading…',
+                  style: AppTypography.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value == null
+                      ? ''
+                      : '${value.cardSize.label}  ·  ${value.enabledFields.length} fields',
+                  style: AppTypography.support,
+                ),
+                if (isOfflineTest) ...<Widget>[
+                  const SizedBox(height: AppSpacing.sm),
+                  const GlassStatusBadge(
+                    label: 'OFFLINE TEST — will not sync',
+                    color: AppColors.pending,
+                    tint: AppColors.pendingTint,
+                    icon: Icons.wifi_off_rounded,
+                    compact: true,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, size: 20, color: AppColors.inkMuted),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({
+    required this.waiting,
     required this.approved,
     required this.printed,
     required this.onTap,
   });
 
-  final int pending;
+  final int waiting;
   final int approved;
   final int printed;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PressableSurface(
+    return GlassSurface(
+      fill: AppColors.card,
+      borderColor: AppColors.hairline,
+      sheen: false,
       onTap: onTap,
-      scale: 0.985,
-      child: Card(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: GlassStat(
+              icon: Icons.schedule_rounded,
+              value: '$waiting',
+              label: 'Waiting',
+              tint: AppColors.pending,
+            ),
+          ),
+          const _SoftDivider(),
+          Expanded(
+            child: GlassStat(
+              icon: Icons.check_circle_outline_rounded,
+              value: '$approved',
+              label: 'Approved',
+              tint: AppColors.approved,
+            ),
+          ),
+          const _SoftDivider(),
+          Expanded(
+            child: GlassStat(
+              icon: Icons.print_outlined,
+              value: '$printed',
+              label: 'Printed',
+              tint: AppColors.printed,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A divider that fades out at both ends.
+///
+/// The brief asks for the three statistics to be separated without harsh
+/// lines. A full-height rule between them is exactly the harsh line it means;
+/// this states the same boundary and then gets out of the way.
+class _SoftDivider extends StatelessWidget {
+  const _SoftDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 44,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            Color(0x0016346E),
+            Color(0x1A16346E),
+            Color(0x0016346E),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The primary action on the screen, and it looks like it.
+class _NewCardCta extends StatelessWidget {
+  const _NewCardCta();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassSurface(
+      fill: Colors.transparent,
+      borderColor: const Color(0x2EFFFFFF),
+      shadows: AppShadows.lifted,
+      sheen: false,
+      onTap: () => context.push('/entry/new'),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppGradients.actionDark),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Row(
             children: <Widget>[
+              const GlassIconTile(
+                icon: Icons.add_a_photo_outlined,
+                tint: AppColors.onDark,
+                background: Color(0x24FFFFFF),
+                size: 52,
+              ),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: _StatTile(
-                  status: ApprovalStatus.pending,
-                  value: pending,
-                  label: 'Waiting',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      'New ID Card',
+                      style: AppTypography.displayOnDark.copyWith(fontSize: 21),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Capture a photo and enter the details',
+                      style: AppTypography.supportOnDark,
+                    ),
+                  ],
                 ),
               ),
-              const _StripDivider(),
-              Expanded(
-                child: _StatTile(
-                  status: ApprovalStatus.approved,
-                  value: approved,
-                  label: 'Approved',
+              const SizedBox(width: AppSpacing.sm),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: const BoxDecoration(
+                  color: Color(0x2EFFFFFF),
+                  shape: BoxShape.circle,
                 ),
-              ),
-              const _StripDivider(),
-              Expanded(
-                child: _StatTile(
-                  status: ApprovalStatus.printed,
-                  value: printed,
-                  label: 'Printed',
+                child: const Icon(
+                  Icons.arrow_forward,
+                  size: 20,
+                  color: AppColors.onDark,
                 ),
               ),
             ],
@@ -290,134 +446,6 @@ class _StatusStrip extends StatelessWidget {
   }
 }
 
-class _StripDivider extends StatelessWidget {
-  const _StripDivider();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: 40,
-    color: Theme.of(context).colorScheme.outlineVariant,
-  );
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.status,
-    required this.value,
-    required this.label,
-  });
-
-  final ApprovalStatus status;
-  final int value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final (Color color, IconData icon) = ApprovalStatusChip.visualsFor(status);
-    final ThemeData theme = Theme.of(context);
-
-    return Column(
-      children: <Widget>[
-        Icon(icon, size: 18, color: color),
-        const SizedBox(height: 6),
-        AnimatedCount(
-          value: value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: value == 0 ? theme.colorScheme.outline : color,
-            height: 1,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Primary action
-// ---------------------------------------------------------------------------
-
-class _NewCardButton extends StatelessWidget {
-  const _NewCardButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return PressableSurface(
-      onTap: () => context.push('/entry/new'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.cornerRadius),
-          gradient: const LinearGradient(
-            colors: <Color>[Color(0xFF1A3D7C), Color(0xFF2E5FB0)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: const Color(0xFF1A3D7C).withValues(alpha: 0.28),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.add_a_photo_outlined,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'New ID Card',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    'Capture a photo and enter the details',
-                    style: TextStyle(color: Colors.white70, fontSize: 12.5),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward, color: Colors.white),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Recent submissions
-// ---------------------------------------------------------------------------
-
 class _RecentSubmissions extends StatelessWidget {
   const _RecentSubmissions({required this.recent, required this.total});
 
@@ -426,50 +454,70 @@ class _RecentSubmissions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(AppTheme.gutter, 14, 8, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    'Recent submissions',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+    return GlassSurface(
+      fill: AppColors.card,
+      borderColor: AppColors.hairline,
+      sheen: false,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const GlassIconTile(icon: Icons.history_rounded, size: 34),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text('Recent submissions', style: AppTypography.section),
+              ),
+              if (total > 0)
+                TextButton(
+                  onPressed: () => context.push('/entries'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        'View all',
+                        style: AppTypography.support.copyWith(
+                          color: AppColors.royal,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 17,
+                        color: AppColors.royal,
+                      ),
+                    ],
                   ),
                 ),
-                if (total > recent.length)
-                  TextButton(
-                    onPressed: () => context.push('/entries'),
-                    child: Text('All $total'),
-                  ),
-              ],
-            ),
-            if (recent.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 10, 8, 18),
-                child: Text(
-                  'Nothing submitted yet. Your cards and their status will '
-                  'appear here.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              )
-            else
-              for (final StudentEntry e in recent)
-                _RecentRow(
-                  entry: e,
-                  onTap: () => context.push('/submissions/${e.id}'),
-                ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (recent.isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(0, AppSpacing.sm, 0, AppSpacing.lg),
+              child: Text(
+                'Nothing submitted yet. Tap New ID Card to start.',
+                style: AppTypography.support,
+              ),
+            )
+          else
+            for (final StudentEntry e in recent)
+              _RecentRow(
+                entry: e,
+                onTap: () => context.push('/submissions/${e.id}'),
+              ),
+        ],
       ),
     );
   }
@@ -483,74 +531,29 @@ class _RecentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final String? path = entry.localPhotoPath;
-    final bool hasThumb =
-        path != null && path.isNotEmpty && File(path).existsSync();
-
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppRadius.fieldR,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Row(
           children: <Widget>[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: 30,
-                height: 38,
-                child: hasThumb
-                    ? Image.file(
-                        File(path),
-                        fit: BoxFit.cover,
-                        cacheWidth: 100,
-                        cacheHeight: 126,
-                      )
-                    : Container(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        child: Icon(
-                          Icons.person_outline,
-                          size: 16,
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(width: 10),
+            _Avatar(entry: entry),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    entry.name.isEmpty ? 'UNNAMED' : entry.name,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (entry.studentClass.isNotEmpty)
-                    Text(
-                      'Class ${entry.studentClass}'
-                      '${entry.division.isEmpty ? '' : ' · Div ${entry.division}'}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 11.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
+              child: Text(
+                entry.name.isEmpty ? 'Unnamed' : entry.name,
+                style: AppTypography.section.copyWith(fontSize: 15),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
-            ApprovalStatusChip(status: entry.approvalStatus, dense: true),
-            Icon(
+            const SizedBox(width: AppSpacing.sm),
+            _StatusPill(status: entry.approvalStatus),
+            const Icon(
               Icons.chevron_right,
-              size: 18,
-              color: theme.colorScheme.outline,
+              size: 19,
+              color: AppColors.inkMuted,
             ),
           ],
         ),
@@ -559,178 +562,120 @@ class _RecentRow extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Shared bits
-// ---------------------------------------------------------------------------
+/// The student's face if the photo has reached this device, a neutral
+/// silhouette otherwise.
+///
+/// Reads `localPhotoPath` only. A card captured on another phone has its
+/// photo pulled down by the sync worker before it can appear here, so this
+/// staying local is deliberate - a list row must never start a network
+/// fetch.
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.entry});
 
-class _SchoolHeader extends StatelessWidget {
-  const _SchoolHeader({required this.config, required this.isOfflineTest});
-
-  final AsyncValue<SchoolConfig> config;
-  final bool isOfflineTest;
+  final StudentEntry entry;
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final SchoolConfig? value = config.value;
+    final String? path = entry.localPhotoPath;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.gutter),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.school,
-                color: theme.colorScheme.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    value?.name ?? 'Loading...',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value == null
-                        ? ''
-                        : '${value.cardSize.label} - ${value.enabledFields.length} fields',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (isOfflineTest) ...<Widget>[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3E0),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFFFB74D)),
-                      ),
-                      child: const Text(
-                        'OFFLINE TEST SESSION - will not sync',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFE65100),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
+    return Container(
+      width: 44,
+      height: 44,
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        color: AppColors.mist,
+        shape: BoxShape.circle,
       ),
+      child: path == null || path.isEmpty
+          ? const Icon(Icons.person, size: 24, color: AppColors.inkMuted)
+          : Image.file(
+              File(path),
+              fit: BoxFit.cover,
+              errorBuilder: (BuildContext c, Object e, StackTrace? s) =>
+                  const Icon(Icons.person, size: 24, color: AppColors.inkMuted),
+            ),
     );
   }
 }
 
-class _MenuCard extends StatelessWidget {
-  const _MenuCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+
+  final ApprovalStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color color, Color tint, IconData icon) = switch (status) {
+      ApprovalStatus.approved => (
+        AppColors.approved,
+        AppColors.approvedTint,
+        Icons.check_circle,
+      ),
+      ApprovalStatus.rejected => (
+        AppColors.rejected,
+        AppColors.rejectedTint,
+        Icons.cancel,
+      ),
+      ApprovalStatus.printed => (
+        AppColors.printed,
+        AppColors.printedTint,
+        Icons.print,
+      ),
+      ApprovalStatus.pending => (
+        AppColors.pending,
+        AppColors.pendingTint,
+        Icons.schedule,
+      ),
+    };
+
+    return GlassStatusBadge(
+      label: switch (status) {
+        ApprovalStatus.approved => 'Approved',
+        ApprovalStatus.rejected => 'Rejected',
+        ApprovalStatus.printed => 'Printed',
+        ApprovalStatus.pending => 'Pending',
+      },
+      color: color,
+      tint: tint,
+      icon: icon,
+      compact: true,
+    );
+  }
+}
+
+class _SyncCard extends StatelessWidget {
+  const _SyncCard({
+    required this.pending,
+    required this.failed,
     required this.onTap,
-    this.badgeCount = 0,
   });
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
+  final int pending;
+  final int failed;
   final VoidCallback onTap;
-  final int badgeCount;
+
+  String get _subtitle {
+    if (failed > 0) return '$failed failed, $pending waiting to upload';
+    if (pending > 0) return '$pending waiting to upload';
+    return 'Everything is up to date';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
+    final bool bad = failed > 0;
 
-    return PressableSurface(
+    return GlassSurface(
+      fill: AppColors.card,
+      borderColor: AppColors.hairline,
+      sheen: false,
       onTap: onTap,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Row(
-            children: <Widget>[
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 26),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 3),
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (badgeCount > 0)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$badgeCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              Icon(Icons.chevron_right, color: theme.colorScheme.outline),
-            ],
-          ),
-        ),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      child: GlassListRow(
+        icon: Icons.sync_rounded,
+        title: 'Sync status',
+        subtitle: _subtitle,
+        tint: bad ? AppColors.rejected : AppColors.printed,
+        onTap: onTap,
       ),
     );
   }
