@@ -451,57 +451,61 @@ class _UtilityGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: <Widget>[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Expanded(
-              child: _UtilityTile(
-                icon: Icons.notifications_none,
-                title: 'Notifications',
-                subtitle: unreadNotifications == 0
-                    ? 'Approvals and messages'
-                    : '$unreadNotifications need you',
-                tint: AppColors.info,
-                badge: unreadNotifications,
-                onTap: onNotifications,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Expanded(
+                child: _UtilityTile(
+                  icon: Icons.notifications_none,
+                  title: 'Notifications',
+                  subtitle: unreadNotifications == 0
+                      ? 'Approvals and messages'
+                      : '$unreadNotifications need you',
+                  tint: AppColors.info,
+                  badge: unreadNotifications,
+                  onTap: onNotifications,
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _UtilityTile(
-                icon: Icons.sync_outlined,
-                title: 'Sync status',
-                subtitle: 'Uploads waiting',
-                tint: AppColors.royal,
-                onTap: onSync,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _UtilityTile(
+                  icon: Icons.sync_outlined,
+                  title: 'Sync status',
+                  subtitle: 'Uploads waiting',
+                  tint: AppColors.royal,
+                  onTap: onSync,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Expanded(
-              child: _UtilityTile(
-                icon: Icons.lock_outline,
-                title: 'Change password',
-                subtitle: 'For this account',
-                tint: AppColors.violet,
-                onTap: onPassword,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Expanded(
+                child: _UtilityTile(
+                  icon: Icons.lock_outline,
+                  title: 'Change password',
+                  subtitle: 'For this account',
+                  tint: AppColors.violet,
+                  onTap: onPassword,
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _UtilityTile(
-                icon: Icons.logout,
-                title: 'Log out',
-                subtitle: 'Entries stay saved',
-                tint: AppColors.rejected,
-                onTap: onLogout,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _UtilityTile(
+                  icon: Icons.logout,
+                  title: 'Log out',
+                  subtitle: 'Entries stay saved',
+                  tint: AppColors.rejected,
+                  onTap: onLogout,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

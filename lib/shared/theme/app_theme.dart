@@ -105,11 +105,25 @@ final class AppTheme {
           vertical: AppSpacing.xs,
         ),
       ),
-      chipTheme: const ChipThemeData(
-        backgroundColor: AppColors.mist,
-        side: BorderSide(color: AppColors.glassBorder),
-        labelStyle: AppTypography.badge,
-        shape: StadiumBorder(),
+      // Every value here is explicit on purpose. Left to Material defaults the
+      // label took a faded colour and the outline was a translucent white,
+      // which on a pale page gradient made a row of filter chips look
+      // disabled rather than tappable.
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.card,
+        selectedColor: AppColors.mist,
+        disabledColor: AppColors.mist,
+        side: BorderSide(color: AppColors.navy.withValues(alpha: 0.14)),
+        labelStyle: AppTypography.badge.copyWith(color: AppColors.inkBody),
+        secondaryLabelStyle: AppTypography.badge.copyWith(
+          color: AppColors.royal,
+        ),
+        checkmarkColor: AppColors.royal,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        shape: const StadiumBorder(),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.card,

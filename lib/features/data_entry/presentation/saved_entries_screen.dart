@@ -6,8 +6,10 @@ import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
 import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
@@ -170,8 +172,11 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
 
   Widget _statusChip(ApprovalStatus? status, String label, int count) {
     final bool selected = _filter == status;
-    final Color? tint = status == null
-        ? null
+    // "All" is a status too as far as this row is concerned. Leaving it
+    // untinted meant its selected state fell through to whatever Material
+    // picked, which is how it became the one washed-out chip in the row.
+    final Color tint = status == null
+        ? AppColors.royal
         : ApprovalStatusChip.visualsFor(status).$1;
 
     return Padding(
@@ -181,13 +186,17 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
         label: Text('$label ($count)'),
         onSelected: (_) => setState(() => _filter = selected ? null : status),
         showCheckmark: false,
-        selectedColor: tint?.withValues(alpha: 0.16),
-        side: selected && tint != null
-            ? BorderSide(color: tint.withValues(alpha: 0.5))
-            : null,
-        labelStyle: selected && tint != null
-            ? TextStyle(color: tint, fontWeight: FontWeight.w700)
-            : null,
+        selectedColor: tint.withValues(alpha: 0.16),
+        side: BorderSide(
+          color: selected
+              ? tint.withValues(alpha: 0.55)
+              : AppColors.navy.withValues(alpha: 0.14),
+          width: selected ? 1.4 : 1,
+        ),
+        labelStyle: AppTypography.badge.copyWith(
+          color: selected ? tint : AppColors.inkBody,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+        ),
       ),
     );
   }

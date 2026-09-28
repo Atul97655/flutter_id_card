@@ -105,14 +105,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }),
         onBack: () => Navigator.of(context).maybePop(),
       ),
-      bottomBar: canPost
-          ? _Composer(
-              controller: _composer,
-              sending: _sending,
-              onSend: () => _send(chat, session),
-              onAttach: () => _openTray(chat, session),
-            )
-          : const _ReadOnlyFooter(),
       child: Column(
         children: <Widget>[
           if (chat?.kind == ChatKind.broadcast) const _BroadcastBanner(),
@@ -164,6 +156,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           ),
+          // The composer lives in the body, NOT in the Scaffold's bottom bar.
+          // A bottomNavigationBar is pinned to the bottom of the scaffold and
+          // is not lifted by the keyboard, so putting it there hid the very
+          // field you were typing into. In the body it sits above the
+          // shrinking message list and stays visible.
+          if (canPost)
+            _Composer(
+              controller: _composer,
+              sending: _sending,
+              onSend: () => _send(chat, session),
+              onAttach: () => _openTray(chat, session),
+            )
+          else
+            const _ReadOnlyFooter(),
         ],
       ),
     );
