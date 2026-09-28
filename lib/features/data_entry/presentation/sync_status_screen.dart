@@ -7,6 +7,7 @@ import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,9 +36,11 @@ class SyncStatusScreen extends ConsumerWidget {
       photosAwaitingUploadProvider,
     );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Sync Status')),
-      body: ListView(
+    return AdminPage(
+      title: 'Sync Status',
+      subtitle: 'What has reached the office, and what has not',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: ListView(
         padding: const EdgeInsets.all(AppTheme.gutter),
         children: <Widget>[
           FadeSlideIn(child: _ConnectionBanner(backendUp: backendUp)),

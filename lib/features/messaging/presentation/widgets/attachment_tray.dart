@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
 import 'package:flutter_id_card/shared/theme/join_theme.dart';
 
 /// What the teacher can attach to a message.
@@ -30,8 +33,6 @@ class _Tray extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
     return Padding(
       padding: const EdgeInsets.all(12),
       child: SafeArea(
@@ -42,8 +43,8 @@ class _Tray extends StatelessWidget {
         // touch - no ripple, no pressed state - while still working. Flutter
         // asserts about this in debug, which is how it was caught.
         child: Material(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.sheet),
           clipBehavior: Clip.antiAlias,
           // Scrollable, because six rows plus a handle do not fit a short
           // viewport - a phone in landscape, or one with the system text
@@ -59,7 +60,7 @@ class _Tray extends StatelessWidget {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.outlineVariant,
+                    color: AppColors.inkMuted.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -141,7 +142,6 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool enabled = unavailable == null;
-    final ThemeData theme = Theme.of(context);
 
     return Opacity(
       opacity: enabled ? 1 : 0.45,
@@ -159,7 +159,7 @@ class _Row extends StatelessWidget {
         ),
         title: Text(
           label,
-          style: TextStyle(
+          style: AppTypography.section.copyWith(
             fontSize: 15,
             fontWeight: highlighted ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -168,10 +168,7 @@ class _Row extends StatelessWidget {
             ? null
             : Text(
                 subtitle ?? unavailable!,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: AppTypography.support.copyWith(fontSize: 12),
               ),
       ),
     );

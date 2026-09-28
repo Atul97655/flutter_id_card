@@ -4,6 +4,7 @@ import 'package:flutter_id_card/features/data_entry/application/entry_providers.
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -33,14 +34,13 @@ class SubmissionSuccessScreen extends ConsumerWidget {
     final StudentEntry? entry = ref.watch(entryByIdProvider(entryId));
     final ThemeData theme = Theme.of(context);
 
-    return Scaffold(
+    return AdminPage(
       // No back arrow: going "back" from here would land on a form that has
-      // already been submitted. Every route onward is an explicit button.
-      appBar: AppBar(
-        title: const Text('Submitted'),
-        automaticallyImplyLeading: false,
-      ),
-      body: SafeArea(
+      // already been submitted. Every route onward is an explicit button,
+      // which is why AdminPage is given no onBack.
+      title: 'Submitted',
+      subtitle: 'The office has it now',
+      child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.gutter),
           child: Column(

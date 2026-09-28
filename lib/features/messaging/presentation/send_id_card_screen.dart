@@ -4,6 +4,8 @@ import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/join_theme.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Picking which card to send into a conversation.
@@ -36,13 +38,14 @@ class _SendIdCardScreenState extends ConsumerState<SendIdCardScreen> {
         .where((StudentEntry e) => e.approvalStatus.isPrintable)
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: JoinTheme.header,
-        foregroundColor: Colors.white,
-        title: const Text('Send ID Card'),
-      ),
-      body: Column(
+    return AdminPage(
+      // The chat backdrop: this screen is reached from a conversation, and
+      // arriving on the card pipeline's blue would read as having left it.
+      backdrop: GlassBackdrop.chat,
+      title: 'Send ID Card',
+      subtitle: 'Only approved cards can be sent',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: Column(
         children: <Widget>[
           Container(
             width: double.infinity,

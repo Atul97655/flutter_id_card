@@ -11,6 +11,8 @@ import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/print/print_units.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -86,23 +88,23 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
       }
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Card Preview'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: _trueSize ? 'Fit to screen' : 'Show at true size',
-            icon: Icon(
-              _trueSize ? Icons.fit_screen_outlined : Icons.straighten,
-            ),
-            onPressed: () => setState(() => _trueSize = !_trueSize),
-          ),
-        ],
-      ),
-      body: entry == null
+    return AdminPage(
+      title: 'Card Preview',
+      subtitle: _trueSize
+          ? 'Shown at the real printed size'
+          : 'Fitted to the screen',
+      onBack: () => Navigator.of(context).maybePop(),
+      actions: <Widget>[
+        GlassIconButton(
+          icon: _trueSize ? Icons.fit_screen_outlined : Icons.straighten,
+          tooltip: _trueSize ? 'Fit to screen' : 'Show at true size',
+          onTap: () => setState(() => _trueSize = !_trueSize),
+        ),
+      ],
+      bottomBar: entry == null ? null : _actions(entry),
+      child: entry == null
           ? const Center(child: CircularProgressIndicator())
           : _body(entry, configAsync.value),
-      bottomNavigationBar: entry == null ? null : _actions(entry),
     );
   }
 

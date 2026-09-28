@@ -258,9 +258,16 @@ class _GlassTextFieldState extends State<GlassTextField> {
   Widget? _footer() {
     final bool locked = widget.readOnlyReason != null;
     if (_error != null) {
-      return Text(
-        _error!,
-        style: AppTypography.support.copyWith(color: AppColors.rejected),
+      // Excluded from semantics on purpose. The TextFormField still owns the
+      // real error - it is only suppressed VISUALLY, with a zero-height
+      // errorStyle - and InputDecorator already wires that into the field's
+      // own semantics. Without this, a screen reader reads the validation
+      // message twice: once from the field, once from this copy.
+      return ExcludeSemantics(
+        child: Text(
+          _error!,
+          style: AppTypography.support.copyWith(color: AppColors.rejected),
+        ),
       );
     }
     if (locked) {

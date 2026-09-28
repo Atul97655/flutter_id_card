@@ -11,6 +11,8 @@ import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -33,19 +35,19 @@ class RequestDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final StudentEntry? entry = ref.watch(entryByIdProvider(entryId));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Submission'),
-        actions: <Widget>[
-          if (entry != null)
-            IconButton(
-              tooltip: 'Preview card',
-              icon: const Icon(Icons.badge_outlined),
-              onPressed: () => context.push('/preview/${entry.id}'),
-            ),
-        ],
-      ),
-      body: entry == null
+    return AdminPage(
+      title: 'Submission',
+      subtitle: entry?.name ?? 'Loading',
+      onBack: () => Navigator.of(context).maybePop(),
+      actions: <Widget>[
+        if (entry != null)
+          GlassIconButton(
+            icon: Icons.badge_outlined,
+            tooltip: 'Preview card',
+            onTap: () => context.push('/preview/${entry.id}'),
+          ),
+      ],
+      child: entry == null
           ? const _MissingEntry()
           : ListView(
               padding: const EdgeInsets.all(AppTheme.gutter),

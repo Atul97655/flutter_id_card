@@ -9,6 +9,7 @@ import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,9 +59,11 @@ class _SavedEntriesScreenState extends ConsumerState<SavedEntriesScreen> {
       entriesProvider,
     );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Submissions')),
-      body: entriesAsync.when(
+    return AdminPage(
+      title: 'My Submissions',
+      subtitle: 'Everything captured on this device',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: entriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (Object e, StackTrace s) =>
             Center(child: Text('Could not load submissions: $e')),

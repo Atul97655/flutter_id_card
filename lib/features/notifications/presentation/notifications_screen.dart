@@ -5,6 +5,7 @@ import 'package:flutter_id_card/shared/providers/core_providers.dart';
 import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -62,9 +63,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget build(BuildContext context) {
     final List<AppNotification> items = ref.watch(notificationsProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
-      body: SmoothSwitcher(
+    return AdminPage(
+      title: 'Notifications',
+      subtitle: 'Approvals, returned cards and messages',
+      onBack: () => Navigator.of(context).maybePop(),
+      child: SmoothSwitcher(
         child: items.isEmpty
             ? const _Empty()
             : ListView.separated(
