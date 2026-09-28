@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_gradients.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:go_router/go_router.dart';
 
 /// Placeholder for a route whose feature lands in a later phase.
@@ -21,75 +28,61 @@ class ComingSoonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
+    return GlassScaffold(
+      backdrop: GlassBackdrop.calm,
+      child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.construction_outlined,
-                    size: 40,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    phase,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      letterSpacing: 0.6,
-                      color: theme.colorScheme.onSecondaryContainer,
+            child: GlassSurface(
+              radius: AppRadius.panelR,
+              fill: AppColors.glassFillStrong,
+              shadows: AppShadows.card,
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: AppGradients.statusTint(AppColors.royal),
+                    ),
+                    child: const Icon(
+                      Icons.construction_outlined,
+                      size: 36,
+                      color: AppColors.royal,
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: AppSpacing.xl),
+                  GlassStatusBadge(
+                    label: phase,
+                    color: AppColors.violet,
+                    tint: AppColors.printedTint,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  description,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    height: 1.5,
-                    color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.display.copyWith(fontSize: 23),
                   ),
-                ),
-                const SizedBox(height: AppTheme.gutter * 2),
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      context.canPop() ? context.pop() : context.go('/home'),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Go back'),
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    description,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body.copyWith(height: 1.5),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  GlassButton(
+                    label: 'Go back',
+                    icon: Icons.arrow_back,
+                    onPressed: () =>
+                        context.canPop() ? context.pop() : context.go('/home'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

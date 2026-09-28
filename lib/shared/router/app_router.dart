@@ -32,6 +32,7 @@ import 'package:flutter_id_card/features/onboarding/presentation/register_screen
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/widgets/app_shell.dart';
+import 'package:flutter_id_card/shared/widgets/coming_soon_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -353,10 +354,16 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         ],
       ),
     ],
-    errorBuilder: (BuildContext context, GoRouterState state) => Scaffold(
-      appBar: AppBar(title: const Text('Page not found')),
-      body: Center(child: Text('No route for ${state.uri}')),
-    ),
+    // A 404 in a shipped app is a bug, not a user error, so it says what it
+    // knows and offers the one way out rather than dead-ending.
+    errorBuilder: (BuildContext context, GoRouterState state) =>
+        ComingSoonScreen(
+          title: 'Page not found',
+          phase: 'NO ROUTE',
+          description:
+              'There is no screen at ${state.uri}. Tell the office if a '
+              'button in the app brought you here.',
+        ),
   );
 });
 
