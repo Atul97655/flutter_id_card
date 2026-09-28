@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/primitives';
 import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
+import { formatTime } from '@/lib/dates';
 import {
   createChat,
   fetchChatAttachment,
@@ -473,12 +474,7 @@ function Bubble({ message, mine }: { message: ChatMessage; mine: boolean }) {
         <p
           className={`mt-1 text-[10.5px] ${mine ? 'text-white/70' : 'text-ink-400'}`}
         >
-          {message.sentAt
-            ? new Date(message.sentAt).toLocaleTimeString(undefined, {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : ''}
+          {formatTime(message.sentAt)}
         </p>
       </div>
     </motion.li>

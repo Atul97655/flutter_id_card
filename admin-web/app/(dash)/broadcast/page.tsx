@@ -19,6 +19,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
 import { sendBroadcast } from '@/lib/data';
 import { readCount, recipientCount, type Chat } from '@/lib/types';
+import { formatDate } from '@/lib/dates';
 
 type Mode = 'everyone' | 'schools' | 'people';
 
@@ -307,12 +308,7 @@ function HistoryRow({
             {chat.title || 'Announcement'}
           </p>
           <p className="truncate text-[11px] text-ink-400">
-            {chat.lastMessageAt
-              ? new Date(chat.lastMessageAt).toLocaleDateString(undefined, {
-                  day: '2-digit',
-                  month: 'short',
-                })
-              : ''}
+            {formatDate(chat.lastMessageAt, '')}
             {chat.lastMessage ? ` · ${chat.lastMessage}` : ''}
           </p>
 

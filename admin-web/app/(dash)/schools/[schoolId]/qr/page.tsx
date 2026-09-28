@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import QRCode from 'qrcode';
 import { Download, Printer, RefreshCw } from 'lucide-react';
 import { ensureJoinCode, issueJoinCode, watchJoinCode } from '@/lib/joins';
+import { Topbar } from '@/components/layout/topbar';
+import { formatDate } from '@/lib/dates';
 import { useStore } from '@/lib/store';
 import type { JoinCode } from '@/lib/types';
 import { Banner, Button, MOTION, Panel } from '@/components/ui/primitives';
@@ -89,12 +91,11 @@ export default function SchoolQrPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="px-1 print:hidden">
-        <h1 className="text-[20px] font-semibold text-ink-700">
-          {school.name} — QR Join Code
-        </h1>
-        <p className="mt-0.5 text-[13px] text-ink-400">
-          Print this and pin it in the staffroom
+      {/* Carries the nav drawer - see the note in pending-joins. */}
+      <div className="print:hidden">
+        <Topbar greeting="Configuration" title="QR Join Code" />
+        <p className="-mt-1 px-1 text-[13px] text-ink-400">
+          {school.name} — print this and pin it in the staffroom
         </p>
       </div>
 
@@ -149,12 +150,7 @@ export default function SchoolQrPage({
                 </Button>
                 {code?.issuedAt ? (
                   <span className="text-[12px] text-ink-400">
-                    Last issued{' '}
-                    {new Date(code.issuedAt).toLocaleDateString(undefined, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    Last issued {formatDate(code.issuedAt)}
                   </span>
                 ) : null}
               </div>
@@ -252,7 +248,7 @@ function CodeSheet({
           assigns their class before they can send anything.
         </p>
 
-        <div className="flex gap-2 pt-2 print:hidden">
+        <div className="flex flex-wrap justify-center gap-2 pt-2 print:hidden">
           <Button variant="outline" icon={Download} onClick={download} disabled={!drawn}>
             Download PNG
           </Button>

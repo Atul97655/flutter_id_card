@@ -17,6 +17,7 @@ import { useStore } from '@/lib/store';
 import { setUserActive, updateUser } from '@/lib/data';
 import { assignSection, clearSection } from '@/lib/joins';
 import { useAuth } from '@/lib/auth-context';
+import { formatDate } from '@/lib/dates';
 import {
   isScoped,
   sectionLabel,
@@ -170,7 +171,11 @@ export default function AccountsPage() {
       {unattributedTotal > 0 ? (
         <Banner
           tone="warn"
-          title={`${unattributedTotal} cards have no teacher recorded against them`}
+          title={
+            unattributedTotal === 1
+              ? '1 card has no teacher recorded against it'
+              : `${unattributedTotal} cards have no teacher recorded against them`
+          }
         >
           Cards captured before this panel started recording who submitted them
           are not counted in any teacher&rsquo;s total below. The figures are
@@ -276,11 +281,7 @@ export default function AccountsPage() {
 
                     <td className="px-2 py-3 text-[12px] text-ink-400">
                       {u.lastLoginDate
-                        ? u.lastLoginDate.toDate().toLocaleDateString(undefined, {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })
+                        ? formatDate(u.lastLoginDate.toDate())
                         : 'Never'}
                     </td>
 

@@ -14,6 +14,7 @@ import {
   staggerDelay,
 } from '@/components/ui/primitives';
 import { useStore } from '@/lib/store';
+import { formatMonth } from '@/lib/dates';
 import {
   APPROVAL_LABELS,
   APPROVAL_STATUSES,
@@ -224,9 +225,7 @@ export default function ReportsPage() {
                           style={{ minHeight: 3 }}
                         />
                         <span className="w-full truncate text-center text-[9.5px] text-ink-400">
-                          {new Date(`${month}-01`).toLocaleDateString(undefined, {
-                            month: 'short',
-                          })}
+                          {formatMonth(`${month}-01`).split(' ')[0]}
                         </span>
                       </div>
                     ))}

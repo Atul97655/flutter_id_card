@@ -14,6 +14,7 @@ import {
   staggerDelay,
 } from '@/components/ui/primitives';
 import { useSchoolName, useStore } from '@/lib/store';
+import { formatDateTime } from '@/lib/dates';
 
 /**
  * Recent activity.
@@ -86,14 +87,7 @@ export default function AuditPage() {
                   </div>
 
                   <span className="shrink-0 text-[11.5px] text-ink-400">
-                    {e.reviewedAt
-                      ? new Date(e.reviewedAt).toLocaleString(undefined, {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : ''}
+                    {formatDateTime(e.reviewedAt, '')}
                   </span>
                 </Link>
               </motion.li>

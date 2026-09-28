@@ -28,6 +28,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useSchoolName, useStore } from '@/lib/store';
 import { reviewEntry, updateEntry } from '@/lib/data';
 import { hasPhoto, isPrintable, type StudentEntry } from '@/lib/types';
+import { formatFull } from '@/lib/dates';
 import { EntryPhoto } from '@/components/ui/entry-photo';
 
 /** Fields the office can correct before approving. */
@@ -218,16 +219,12 @@ export function RequestDetail({
               <Meta label="Request ID" value={entry.id.replace(/-/g, '').slice(0, 6).toUpperCase()} mono />
               <Meta
                 label="Submitted"
-                value={
-                  entry.createdAt
-                    ? new Date(entry.createdAt).toLocaleString()
-                    : 'Unknown'
-                }
+                value={formatFull(entry.createdAt, 'Unknown')}
               />
               {entry.reviewedAt ? (
                 <Meta
                   label="Reviewed"
-                  value={new Date(entry.reviewedAt).toLocaleString()}
+                  value={formatFull(entry.reviewedAt)}
                 />
               ) : null}
               {entry.reviewedBy ? (

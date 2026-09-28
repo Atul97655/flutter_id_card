@@ -3,10 +3,12 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { UserCheck } from 'lucide-react';
+import { Topbar } from '@/components/layout/topbar';
 import { useAuth } from '@/lib/auth-context';
 import { approveJoin, declineJoin } from '@/lib/joins';
 import { useSchoolName, useStore } from '@/lib/store';
 import type { JoinRequest, SchoolConfig } from '@/lib/types';
+import { formatDateTime } from '@/lib/dates';
 import {
   Banner,
   Button,
@@ -90,12 +92,16 @@ export default function PendingJoinsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="px-1">
-        <h1 className="text-[20px] font-semibold text-ink-700">Pending Joins</h1>
-        <p className="mt-0.5 text-[13px] text-ink-400">
-          Teachers who scanned a school QR code and are waiting for a class
-        </p>
-      </div>
+      {/*
+        The Topbar carries the nav drawer, and on a phone the sidebar is
+        hidden - so a page without one is a dead end with no way to reach any
+        other page. Every page in this panel needs it for that reason alone.
+      */}
+      <Topbar greeting="Access" title="Pending Joins" />
+
+      <p className="-mt-1 px-1 text-[13px] text-ink-400">
+        Teachers who scanned a school QR code and are waiting for a class
+      </p>
 
       {error ? (
         <Banner tone="error" title="That did not go through">
@@ -187,14 +193,7 @@ export default function PendingJoinsPage() {
 }
 
 function Who({ request, school }: { request: JoinRequest; school: string }) {
-  const when = request.requestedAt
-    ? new Date(request.requestedAt).toLocaleString(undefined, {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : 'unknown time';
+  const when = formatDateTime(request.requestedAt, 'an unknown time');
 
   return (
     <div className="min-w-0 flex-1">

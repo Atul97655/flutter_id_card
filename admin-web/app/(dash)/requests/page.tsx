@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { useSchoolName, useStore } from '@/lib/store';
 import { reviewMany } from '@/lib/data';
+import { formatDate } from '@/lib/dates';
 import {
   APPROVAL_LABELS,
   APPROVAL_STATUSES,
@@ -600,12 +601,7 @@ function Row({
       </td>
 
       <td className="px-2 py-2.5 text-[12px] text-ink-400">
-        {entry.createdAt
-          ? new Date(entry.createdAt).toLocaleDateString(undefined, {
-              day: '2-digit',
-              month: 'short',
-            })
-          : '—'}
+        {formatDate(entry.createdAt)}
       </td>
 
       <td className="px-2 py-2.5">

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Layers } from 'lucide-react';
+import { Topbar } from '@/components/layout/topbar';
 import { useStore } from '@/lib/store';
 import {
   isScoped,
@@ -46,15 +47,13 @@ export default function ClassesPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Carries the nav drawer - see the note in pending-joins. */}
+      <Topbar greeting="Configuration" title="Classes & Sections" />
+
       <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-[20px] font-semibold text-ink-700">
-            Classes &amp; Sections
-          </h1>
-          <p className="mt-0.5 text-[13px] text-ink-400">
-            {school ? school.name : 'No schools yet'}
-          </p>
-        </div>
+        <p className="text-[13px] text-ink-400">
+          {school ? school.name : 'No schools yet'}
+        </p>
 
         {schools.length > 1 ? (
           <select
@@ -124,35 +123,47 @@ export default function ClassesPage() {
                 </div>
 
                 <ul className="divide-y divide-black/5">
+                  {/*
+                    Each row stacks on a phone. As one flex line, the name
+                    column was squeezed between the chip and the count until
+                    "No teacher assigned" truncated to "No te..." - the single
+                    most important fact on this page being the one thing cut.
+                  */}
                   {row.sections.map((s) => (
                     <li
                       key={s.division}
-                      className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3"
+                      className="flex flex-col gap-1.5 px-5 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1"
                     >
-                      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-mint-600/10 text-[12.5px] font-semibold text-mint-700">
-                        {s.division}
-                      </span>
-
-                      <span className="min-w-0 flex-1 truncate text-[13.5px]">
-                        {s.teachers.length === 0 ? (
-                          <span className="font-semibold text-[#e65100]">
-                            No teacher assigned
-                          </span>
-                        ) : (
-                          <span className="text-ink-700">
-                            {s.teachers.map((t) => t.displayName || t.email).join(', ')}
-                          </span>
-                        )}
-                      </span>
-
-                      {s.teachers.length === 0 ? (
-                        <span className="shrink-0 rounded-md bg-[rgb(245_124_0/0.12)] px-2 py-0.5 text-[11.5px] font-semibold text-[#e65100]">
-                          Needs teacher
+                      <span className="flex min-w-0 items-center gap-3 sm:flex-1">
+                        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-mint-600/10 text-[12.5px] font-semibold text-mint-700">
+                          {s.division}
                         </span>
-                      ) : null}
 
-                      <span className="shrink-0 text-[12px] text-ink-400">
-                        {s.cards} {s.cards === 1 ? 'card' : 'cards'} submitted
+                        <span className="min-w-0 flex-1 truncate text-[13.5px]">
+                          {s.teachers.length === 0 ? (
+                            <span className="font-semibold text-[#e65100]">
+                              No teacher assigned
+                            </span>
+                          ) : (
+                            <span className="text-ink-700">
+                              {s.teachers
+                                .map((t) => t.displayName || t.email)
+                                .join(', ')}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+
+                      <span className="flex shrink-0 items-center gap-3 pl-10 sm:pl-0">
+                        {s.teachers.length === 0 ? (
+                          <span className="shrink-0 rounded-md bg-[rgb(245_124_0/0.12)] px-2 py-0.5 text-[11.5px] font-semibold text-[#e65100]">
+                            Needs teacher
+                          </span>
+                        ) : null}
+
+                        <span className="shrink-0 text-[12px] text-ink-400">
+                          {s.cards} {s.cards === 1 ? 'card' : 'cards'} submitted
+                        </span>
                       </span>
                     </li>
                   ))}
