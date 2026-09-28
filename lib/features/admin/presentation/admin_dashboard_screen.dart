@@ -23,8 +23,12 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<AdminStats> stats = ref.watch(adminStatsProvider);
-    final AsyncValue<List<SchoolConfig>> schools = ref.watch(allSchoolsProvider);
-    final AsyncValue<List<StudentEntry>> entries = ref.watch(allEntriesProvider);
+    final AsyncValue<List<SchoolConfig>> schools = ref.watch(
+      allSchoolsProvider,
+    );
+    final AsyncValue<List<StudentEntry>> entries = ref.watch(
+      allEntriesProvider,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -86,9 +90,7 @@ class AdminDashboardScreen extends ConsumerWidget {
             children: <Widget>[
               Text(
                 'Schools',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
+                style: Theme.of(context).textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
               const Spacer(),
@@ -114,7 +116,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                         _SchoolCard(
                           school: school,
                           entries: (entries.value ?? const <StudentEntry>[])
-                              .where((StudentEntry e) => e.schoolId == school.id)
+                              .where(
+                                (StudentEntry e) => e.schoolId == school.id,
+                              )
                               .toList(),
                         ),
                         const SizedBox(height: 10),
@@ -235,9 +239,7 @@ class _QuickActions extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(4, 2, 4, 10),
               child: Text(
                 'Quick actions',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleSmall
+                style: Theme.of(context).textTheme.titleSmall
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -375,8 +377,9 @@ class _LatestRequests extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Latest requests',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 if (entries.length > shown.length)
@@ -392,8 +395,9 @@ class _LatestRequests extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(0, 8, 8, 12),
                 child: Text(
                   'Nothing has been submitted yet.',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               )
             else
@@ -568,8 +572,9 @@ class _SchoolCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final int awaiting =
-        entries.where((StudentEntry e) => e.approvalStatus.awaitsReview).length;
+    final int awaiting = entries
+        .where((StudentEntry e) => e.approvalStatus.awaitsReview)
+        .length;
 
     return Card(
       child: InkWell(
@@ -594,16 +599,18 @@ class _SchoolCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       school.name,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${entries.length} entries  -  ${school.cardSize.label}',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -613,7 +620,10 @@ class _SchoolCard extends StatelessWidget {
               if (awaiting > 0)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: StatusColors.pending,
                     borderRadius: BorderRadius.circular(20),
@@ -647,7 +657,11 @@ class _NoSchoolsCard extends StatelessWidget {
         padding: const EdgeInsets.all(28),
         child: Column(
           children: <Widget>[
-            Icon(Icons.school_outlined, size: 44, color: theme.colorScheme.outline),
+            Icon(
+              Icons.school_outlined,
+              size: 44,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: 12),
             Text('No schools yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
@@ -655,8 +669,9 @@ class _NoSchoolsCard extends StatelessWidget {
               'Schools appear here once they exist in Firestore and have synced '
               'to this device. You can also add one directly.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(

@@ -71,21 +71,21 @@ class PhotoProcessor {
   SelfieSegmenter? _segmenter;
 
   FaceDetector get _faces => _faceDetector ??= FaceDetector(
-        options: FaceDetectorOptions(
-          performanceMode: FaceDetectorMode.accurate,
-          // Landmarks/classification are not needed - only the bounding box
-          // drives the crop, and disabling the rest is measurably faster.
-          enableLandmarks: false,
-          enableClassification: false,
-          enableTracking: false,
-          minFaceSize: 0.15,
-        ),
-      );
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.accurate,
+      // Landmarks/classification are not needed - only the bounding box
+      // drives the crop, and disabling the rest is measurably faster.
+      enableLandmarks: false,
+      enableClassification: false,
+      enableTracking: false,
+      minFaceSize: 0.15,
+    ),
+  );
 
   SelfieSegmenter get _selfie => _segmenter ??= SelfieSegmenter(
-        mode: SegmenterMode.single,
-        enableRawSizeMask: true,
-      );
+    mode: SegmenterMode.single,
+    enableRawSizeMask: true,
+  );
 
   Future<void> dispose() async {
     await _faceDetector?.close();
@@ -102,7 +102,9 @@ class PhotoProcessor {
   }) async {
     final File file = File(sourcePath);
     if (!file.existsSync()) {
-      throw const PhotoProcessingException('The captured image could not be found.');
+      throw const PhotoProcessingException(
+        'The captured image could not be found.',
+      );
     }
 
     final Uint8List sourceBytes = await file.readAsBytes();
@@ -176,7 +178,10 @@ class PhotoProcessor {
 
   /// Largest detected face, which is the subject when a classmate wanders into
   /// the background.
-  Future<PixelRect?> _detectFace(InputImage input, List<String> warnings) async {
+  Future<PixelRect?> _detectFace(
+    InputImage input,
+    List<String> warnings,
+  ) async {
     try {
       final List<Face> found = await _faces.processImage(input);
       if (found.isEmpty) {
@@ -195,9 +200,9 @@ class PhotoProcessor {
       final Face subject = found.reduce(
         (Face a, Face b) =>
             a.boundingBox.width * a.boundingBox.height >=
-                    b.boundingBox.width * b.boundingBox.height
-                ? a
-                : b,
+                b.boundingBox.width * b.boundingBox.height
+            ? a
+            : b,
       );
       final ui.Rect box = subject.boundingBox;
       return PixelRect(
@@ -217,8 +222,10 @@ class PhotoProcessor {
     try {
       final SegmentationMask? mask = await _selfie.processImage(input);
       if (mask == null) {
-        warnings.add('Background removal produced no result; the original '
-            'background has been kept.');
+        warnings.add(
+          'Background removal produced no result; the original '
+          'background has been kept.',
+        );
         return null;
       }
       return _MaskData(
@@ -227,7 +234,9 @@ class PhotoProcessor {
         height: mask.height,
       );
     } on Object catch (e) {
-      warnings.add('Background removal unavailable ($e). Original background kept.');
+      warnings.add(
+        'Background removal unavailable ($e). Original background kept.',
+      );
       return null;
     }
   }
@@ -295,7 +304,8 @@ class _ProcessRequest {
   final double cropScale;
 
   bool get hasFace => faceLeft >= 0 && faceWidth > 0 && faceHeight > 0;
-  bool get hasMask => maskConfidences != null && maskWidth > 0 && maskHeight > 0;
+  bool get hasMask =>
+      maskConfidences != null && maskWidth > 0 && maskHeight > 0;
 }
 
 class _ProcessResponse {
@@ -307,10 +317,10 @@ class _ProcessResponse {
   }) : error = null;
 
   const _ProcessResponse.failure(this.error)
-      : pngBytes = null,
-        sourceDpi = 0,
-        averageLuminance = 0,
-        isLowLight = false;
+    : pngBytes = null,
+      sourceDpi = 0,
+      averageLuminance = 0,
+      isLowLight = false;
 
   final Uint8List? pngBytes;
   final double sourceDpi;
@@ -424,7 +434,9 @@ _ProcessResponse _runPipeline(_ProcessRequest req) {
         sampledPixels++;
       }
     }
-    final double avgLuma = sampledPixels > 0 ? totalLuma / sampledPixels : 128.0;
+    final double avgLuma = sampledPixels > 0
+        ? totalLuma / sampledPixels
+        : 128.0;
     final bool isLowLight = avgLuma < 60.0;
 
     out = _applyAdjustments(out, req.brightness, req.contrast, req.saturation);
@@ -531,8 +543,14 @@ PixelRect _applyNudge(
   final int dx = (crop.width * nudgeX).round();
   final int dy = (crop.height * nudgeY).round();
 
-  final int left = (crop.left + dx).clamp(0, math.max(0, sourceWidth - crop.width));
-  final int top = (crop.top + dy).clamp(0, math.max(0, sourceHeight - crop.height));
+  final int left = (crop.left + dx).clamp(
+    0,
+    math.max(0, sourceWidth - crop.width),
+  );
+  final int top = (crop.top + dy).clamp(
+    0,
+    math.max(0, sourceHeight - crop.height),
+  );
 
   return PixelRect(
     left: left,

@@ -89,23 +89,26 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
       .toList();
 
   /// The operators the current selection resolves to.
-  List<ManagedUser> _recipientsFrom(List<ManagedUser> users) =>
-      switch (_mode) {
-        RecipientMode.everyone => users,
-        RecipientMode.bySchool => users
-            .where((ManagedUser u) =>
-                u.schoolId != null && _schoolIds.contains(u.schoolId))
-            .toList(),
-        RecipientMode.selected =>
-          users.where((ManagedUser u) => _userUids.contains(u.uid)).toList(),
-      };
+  List<ManagedUser> _recipientsFrom(List<ManagedUser> users) => switch (_mode) {
+    RecipientMode.everyone => users,
+    RecipientMode.bySchool =>
+      users
+          .where(
+            (ManagedUser u) =>
+                u.schoolId != null && _schoolIds.contains(u.schoolId),
+          )
+          .toList(),
+    RecipientMode.selected =>
+      users.where((ManagedUser u) => _userUids.contains(u.uid)).toList(),
+  };
 
   @override
   Widget build(BuildContext context) {
     final List<SchoolConfig> schools =
         ref.watch(allSchoolsProvider).value ?? const <SchoolConfig>[];
-    final AsyncValue<List<ManagedUser>> usersAsync =
-        ref.watch(allUsersProvider);
+    final AsyncValue<List<ManagedUser>> usersAsync = ref.watch(
+      allUsersProvider,
+    );
     final List<ManagedUser> users = _eligible(
       usersAsync.value ?? const <ManagedUser>[],
     );
@@ -134,27 +137,27 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
                   SmoothSwitcher(
                     child: switch (_mode) {
                       RecipientMode.bySchool => _SchoolPicker(
-                          key: const ValueKey<String>('schools'),
-                          schools: schools,
-                          users: users,
-                          selected: _schoolIds,
-                          onToggle: (String id) => setState(() {
-                            if (!_schoolIds.remove(id)) _schoolIds.add(id);
-                            _result = null;
-                          }),
-                        ),
+                        key: const ValueKey<String>('schools'),
+                        schools: schools,
+                        users: users,
+                        selected: _schoolIds,
+                        onToggle: (String id) => setState(() {
+                          if (!_schoolIds.remove(id)) _schoolIds.add(id);
+                          _result = null;
+                        }),
+                      ),
                       RecipientMode.selected => _UserPicker(
-                          key: const ValueKey<String>('users'),
-                          users: users,
-                          selected: _userUids,
-                          onToggle: (String uid) => setState(() {
-                            if (!_userUids.remove(uid)) _userUids.add(uid);
-                            _result = null;
-                          }),
-                        ),
+                        key: const ValueKey<String>('users'),
+                        users: users,
+                        selected: _userUids,
+                        onToggle: (String uid) => setState(() {
+                          if (!_userUids.remove(uid)) _userUids.add(uid);
+                          _result = null;
+                        }),
+                      ),
                       RecipientMode.everyone => const SizedBox.shrink(
-                          key: ValueKey<String>('everyone'),
-                        ),
+                        key: ValueKey<String>('everyone'),
+                      ),
                     },
                   ),
 
@@ -171,7 +174,9 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
                     child: _error == null
                         ? const SizedBox.shrink()
                         : Padding(
-                            padding: const EdgeInsets.only(top: AppTheme.gutter),
+                            padding: const EdgeInsets.only(
+                              top: AppTheme.gutter,
+                            ),
                             child: _ErrorCard(message: _error!),
                           ),
                   ),
@@ -180,7 +185,9 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
                     child: _result == null
                         ? const SizedBox.shrink()
                         : Padding(
-                            padding: const EdgeInsets.only(top: AppTheme.gutter),
+                            padding: const EdgeInsets.only(
+                              top: AppTheme.gutter,
+                            ),
                             child: _DeliveryReport(result: _result!),
                           ),
                   ),
@@ -194,8 +201,7 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
 
                   const SizedBox(height: AppTheme.gutter),
                   FilledButton.icon(
-                    onPressed:
-                        _sending || recipients.isEmpty ? null : _send,
+                    onPressed: _sending || recipients.isEmpty ? null : _send,
                     icon: _sending
                         ? const SizedBox(
                             width: 18,
@@ -207,8 +213,8 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
                       _sending
                           ? 'Sending...'
                           : recipients.isEmpty
-                              ? 'Choose at least one recipient'
-                              : 'Send to ${recipients.length} recipient(s)',
+                          ? 'Choose at least one recipient'
+                          : 'Send to ${recipients.length} recipient(s)',
                     ),
                   ),
                 ],
@@ -226,9 +232,7 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
           children: <Widget>[
             Text(
               'Message',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
+              style: Theme.of(context).textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
@@ -307,7 +311,9 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
           if (u.schoolId != null) u.schoolId!,
       };
 
-      final Chat chat = await ref.read(chatRepositoryProvider).createChat(
+      final Chat chat = await ref
+          .read(chatRepositoryProvider)
+          .createChat(
             title: _title.text.trim(),
             // The admin is a member too, so the announcement appears in their
             // own list as a record of what went out.
@@ -318,16 +324,18 @@ class _BroadcastScreenState extends ConsumerState<BroadcastScreen> {
             kind: ChatKind.broadcast,
           );
 
-      await ref.read(chatRepositoryProvider).sendMessage(
+      await ref
+          .read(chatRepositoryProvider)
+          .sendMessage(
             chat: chat,
             senderId: admin.uid,
-            senderName: admin.displayName.isEmpty
-                ? 'Admin'
-                : admin.displayName,
+            senderName: admin.displayName.isEmpty ? 'Admin' : admin.displayName,
             body: _body.text.trim(),
           );
 
-      await ref.read(auditRepositoryProvider).log(
+      await ref
+          .read(auditRepositoryProvider)
+          .log(
             action: 'broadcast',
             entityType: 'chat',
             entityId: chat.id,
@@ -380,9 +388,7 @@ class _ModeCard extends StatelessWidget {
           children: <Widget>[
             Text(
               'Send to',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
+              style: Theme.of(context).textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
@@ -405,8 +411,7 @@ class _ModeCard extends StatelessWidget {
                 ),
               ],
               selected: <RecipientMode>{mode},
-              onSelectionChanged: (Set<RecipientMode> s) =>
-                  onChanged(s.first),
+              onSelectionChanged: (Set<RecipientMode> s) => onChanged(s.first),
             ),
           ],
         ),
@@ -528,8 +533,7 @@ class _RecipientSummary extends StatelessWidget {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color:
-                    none ? StatusColors.pending : theme.colorScheme.primary,
+                color: none ? StatusColors.pending : theme.colorScheme.primary,
               ),
             ),
             const SizedBox(width: 8),
@@ -636,7 +640,7 @@ class _DeliveryReport extends ConsumerWidget {
               allRead
                   ? 'Every recipient has opened this announcement.'
                   : '$unread of ${result.recipients} have not opened it yet. '
-                      'This updates as they do.',
+                        'This updates as they do.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.4,
@@ -677,21 +681,27 @@ class _BroadcastHistory extends ConsumerWidget {
 
     return Card(
       child: Padding(
-        padding:
-            const EdgeInsets.fromLTRB(AppTheme.gutter, 14, AppTheme.gutter, 8),
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.gutter,
+          14,
+          AppTheme.gutter,
+          8,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
               'Past announcements',
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               'Read counts update live as recipients open them.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 8),
             for (final Chat c in sent.take(10))
@@ -748,7 +758,7 @@ class _HistoryRow extends StatelessWidget {
                   chat.lastMessageAt == null
                       ? chat.lastMessage
                       : '${_stamp.format(chat.lastMessageAt!)} - '
-                          '${chat.lastMessage}',
+                            '${chat.lastMessage}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 11.5,
@@ -793,8 +803,9 @@ class _Stat extends StatelessWidget {
           ),
           Text(
             label,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),

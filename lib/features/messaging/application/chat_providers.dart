@@ -13,8 +13,9 @@ final Provider<ChatRepository> chatRepositoryProvider =
 /// Emits an empty list rather than an error when Firebase is unavailable or
 /// nobody is signed in, so the screen shows its empty state instead of a red
 /// error box for what is a perfectly normal situation.
-final StreamProvider<List<Chat>> myChatsProvider =
-    StreamProvider<List<Chat>>((Ref ref) {
+final StreamProvider<List<Chat>> myChatsProvider = StreamProvider<List<Chat>>((
+  Ref ref,
+) {
   final SessionUser? session = ref.watch(currentSessionProvider);
 
   if (session == null ||
@@ -27,8 +28,10 @@ final StreamProvider<List<Chat>> myChatsProvider =
 });
 
 /// Live messages for one conversation.
-final messagesProvider =
-    StreamProvider.family<List<ChatMessage>, String>((Ref ref, String chatId) {
+final messagesProvider = StreamProvider.family<List<ChatMessage>, String>((
+  Ref ref,
+  String chatId,
+) {
   if (!FirebaseBootstrap.instance.isReady) {
     return Stream<List<ChatMessage>>.value(const <ChatMessage>[]);
   }
@@ -58,17 +61,17 @@ final Provider<Chat?> adminChatProvider = Provider<Chat?>((Ref ref) {
 /// so the conversation list already is the archive. That also means the
 /// delivery report stays live rather than being a snapshot frozen at send
 /// time - `unreadFor` shrinks as recipients open it.
-final Provider<List<Chat>> sentBroadcastsProvider =
-    Provider<List<Chat>>((Ref ref) {
+final Provider<List<Chat>> sentBroadcastsProvider = Provider<List<Chat>>((
+  Ref ref,
+) {
   final List<Chat> chats = ref.watch(myChatsProvider).value ?? const <Chat>[];
-  final List<Chat> broadcasts = chats
-      .where((Chat c) => c.kind == ChatKind.broadcast)
-      .toList()
-    ..sort((Chat a, Chat b) {
-      final DateTime x = a.lastMessageAt ?? DateTime(1970);
-      final DateTime y = b.lastMessageAt ?? DateTime(1970);
-      return y.compareTo(x);
-    });
+  final List<Chat> broadcasts =
+      chats.where((Chat c) => c.kind == ChatKind.broadcast).toList()
+        ..sort((Chat a, Chat b) {
+          final DateTime x = a.lastMessageAt ?? DateTime(1970);
+          final DateTime y = b.lastMessageAt ?? DateTime(1970);
+          return y.compareTo(x);
+        });
   return broadcasts;
 });
 

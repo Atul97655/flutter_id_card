@@ -39,7 +39,10 @@ final class PhotoGeometry {
   const PhotoGeometry._();
 
   /// Largest 4:5 rectangle centred in the source. Used when no face is found.
-  static PixelRect centreCrop({required int sourceWidth, required int sourceHeight}) {
+  static PixelRect centreCrop({
+    required int sourceWidth,
+    required int sourceHeight,
+  }) {
     return _fitAspect(
       sourceWidth: sourceWidth,
       sourceHeight: sourceHeight,
@@ -76,7 +79,8 @@ final class PhotoGeometry {
     const double headToFaceBoxRatio = 1.42;
     final double headHeight = face.height * headToFaceBoxRatio;
 
-    final double desiredHeight = headHeight / PhotoSpec.targetHeadHeightFraction;
+    final double desiredHeight =
+        headHeight / PhotoSpec.targetHeadHeightFraction;
 
     return _fitAspect(
       sourceWidth: sourceWidth,
@@ -85,7 +89,8 @@ final class PhotoGeometry {
       // Solve for the crop centre from where we want the face to land:
       // faceCentreY = cropTop + H * faceCentreYFraction, and
       // cropCentreY = cropTop + H / 2.
-      centerY: face.centerY + desiredHeight * (0.5 - PhotoSpec.faceCentreYFraction),
+      centerY:
+          face.centerY + desiredHeight * (0.5 - PhotoSpec.faceCentreYFraction),
       desiredHeight: desiredHeight,
     );
   }

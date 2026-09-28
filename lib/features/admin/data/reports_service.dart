@@ -106,8 +106,7 @@ class ReportsService {
     final Map<String, String> monthLabels = <String, String>{};
 
     for (final SchoolConfig school in allSchools) {
-      final List<StudentEntry> entries =
-          await students.listBySchool(school.id);
+      final List<StudentEntry> entries = await students.listBySchool(school.id);
 
       int approved = 0;
       int pending = 0;
@@ -153,7 +152,9 @@ class ReportsService {
 
     // Sort school reports by student count descending
     schoolReports.sort(
-        (SchoolReportItem a, SchoolReportItem b) => b.totalCount.compareTo(a.totalCount));
+      (SchoolReportItem a, SchoolReportItem b) =>
+          b.totalCount.compareTo(a.totalCount),
+    );
 
     // Sort monthly trend chronologically
     final List<String> sortedMonths = monthlyCounts.keys.toList()..sort();

@@ -67,10 +67,12 @@ final class PrintUnits {
 
   /// Millimetres -> raster pixels at [dpi]. Used to decide how large a bitmap
   /// must be to fill a given mm-sized box without upscaling.
-  static double mmToPx(double mm, {double dpi = printDpi}) => mm * dpi / mmPerInch;
+  static double mmToPx(double mm, {double dpi = printDpi}) =>
+      mm * dpi / mmPerInch;
 
   /// Raster pixels at [dpi] -> millimetres.
-  static double pxToMm(double px, {double dpi = printDpi}) => px * mmPerInch / dpi;
+  static double pxToMm(double px, {double dpi = printDpi}) =>
+      px * mmPerInch / dpi;
 
   static double inchToMm(double inch) => inch * mmPerInch;
 

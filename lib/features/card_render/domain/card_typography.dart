@@ -37,21 +37,42 @@ class CardTypography {
   static const ColorRef _red = ColorRef.token(ColorToken.primary);
   static const ColorRef _blue = ColorRef.token(ColorToken.secondary);
 
-  static const Map<StudentField, CardTypography> byField =
-      <StudentField, CardTypography>{
+  static const Map<StudentField, CardTypography>
+  byField = <StudentField, CardTypography>{
     StudentField.name: CardTypography(sizePt: 8, bold: true, color: _red),
-    StudentField.fatherName: CardTypography(sizePt: 7, bold: false, color: _blue),
-    StudentField.studentClass: CardTypography(sizePt: 8, bold: false, color: _red),
+    StudentField.fatherName: CardTypography(
+      sizePt: 7,
+      bold: false,
+      color: _blue,
+    ),
+    StudentField.studentClass: CardTypography(
+      sizePt: 8,
+      bold: false,
+      color: _red,
+    ),
     StudentField.division: CardTypography(sizePt: 8, bold: false, color: _red),
     // 7 pt rather than the 8 pt Class and Div carry: the register number is a
     // secondary identifier, and the 54 x 86 card is already tight enough that
     // an extra 8 pt row costs legibility everywhere else. Matches Mobile,
     // which plays the same supporting role.
-    StudentField.rollNumber: CardTypography(sizePt: 7, bold: false, color: _red),
-    StudentField.bloodGroup: CardTypography(sizePt: 7, bold: false, color: _blue),
+    StudentField.rollNumber: CardTypography(
+      sizePt: 7,
+      bold: false,
+      color: _red,
+    ),
+    StudentField.bloodGroup: CardTypography(
+      sizePt: 7,
+      bold: false,
+      color: _blue,
+    ),
     StudentField.dob: CardTypography(sizePt: 7, bold: false, color: _blue),
     StudentField.mobile: CardTypography(sizePt: 7, bold: false, color: _red),
-    StudentField.address: CardTypography(sizePt: 5, bold: false, color: _red, maxLines: 2),
+    StudentField.address: CardTypography(
+      sizePt: 5,
+      bold: false,
+      color: _red,
+      maxLines: 2,
+    ),
   };
 
   /// Style for a field.
@@ -71,9 +92,9 @@ class CardTypography {
   static const double lineHeightFactor = 1.18;
 
   CardTypography scaled(double factor) => CardTypography(
-        sizePt: sizePt * factor,
-        bold: bold,
-        color: color,
-        maxLines: maxLines,
-      );
+    sizePt: sizePt * factor,
+    bold: bold,
+    color: color,
+    maxLines: maxLines,
+  );
 }

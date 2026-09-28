@@ -38,9 +38,7 @@ class ChatListScreen extends ConsumerWidget {
       backdrop: GlassBackdrop.chat,
       header: GlassHeader(
         title: 'Messages',
-        subtitle: isAdmin
-            ? 'Every school you talk to'
-            : 'The admin office',
+        subtitle: isAdmin ? 'Every school you talk to' : 'The admin office',
       ),
       floatingActionButton: isAdmin
           ? _NewChatButton(

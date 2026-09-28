@@ -54,7 +54,10 @@ class CardShareService {
     // that sends a card a day.
     final Directory dir = await getTemporaryDirectory();
     final File file = File(
-      p.join(dir.path, 'card_${entry.id}_${DateTime.now().millisecondsSinceEpoch}.png'),
+      p.join(
+        dir.path,
+        'card_${entry.id}_${DateTime.now().millisecondsSinceEpoch}.png',
+      ),
     );
     await file.writeAsBytes(png, flush: true);
 

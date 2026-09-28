@@ -50,8 +50,7 @@ class ExportService {
 
   /// True where a directory can actually be revealed to the user.
   static bool get canOpenFolder =>
-      !kIsWeb &&
-      (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   /// True where a document can be sent to a printer without a per-file dialog.
   static bool get canPrintDirectly => canOpenFolder;

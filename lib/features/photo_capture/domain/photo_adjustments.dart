@@ -85,7 +85,7 @@ class PhotoAdjustments {
   }
 
   PhotoAdjustments reset() => PhotoAdjustments(
-        removeBackground: removeBackground,
-        autoFrame: autoFrame,
-      );
+    removeBackground: removeBackground,
+    autoFrame: autoFrame,
+  );
 }

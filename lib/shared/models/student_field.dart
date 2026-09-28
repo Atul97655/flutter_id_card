@@ -50,12 +50,7 @@ enum StudentField {
     cardLabel: 'BLOOD GRP',
     kind: FieldKind.bloodGroup,
   ),
-  dob(
-    key: 'dob',
-    formLabel: 'DOB',
-    cardLabel: 'DOB',
-    kind: FieldKind.date,
-  ),
+  dob(key: 'dob', formLabel: 'DOB', cardLabel: 'DOB', kind: FieldKind.date),
   mobile(
     key: 'mobile',
     formLabel: 'Mobile No',
@@ -120,14 +115,7 @@ enum StudentField {
   }
 }
 
-enum FieldKind {
-  text,
-  multiline,
-  date,
-  mobile,
-  bloodGroup,
-  photo,
-}
+enum FieldKind { text, multiline, date, mobile, bloodGroup, photo }
 
 /// The eight clinically recognised ABO/Rh groups, in the order operators
 /// expect to see them in a dropdown.

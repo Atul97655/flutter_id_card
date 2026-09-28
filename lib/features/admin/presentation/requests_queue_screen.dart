@@ -61,8 +61,9 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<List<StudentEntry>> entriesAsync =
-        ref.watch(allEntriesProvider);
+    final AsyncValue<List<StudentEntry>> entriesAsync = ref.watch(
+      allEntriesProvider,
+    );
     final List<SchoolConfig> schools =
         ref.watch(allSchoolsProvider).value ?? const <SchoolConfig>[];
 
@@ -77,10 +78,7 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
           if (_selected.isNotEmpty)
             TextButton(
               onPressed: () => setState(_selected.clear),
-              child: const Text(
-                'Clear',
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text('Clear', style: TextStyle(color: Colors.white)),
             ),
         ],
       ),
@@ -116,7 +114,8 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
                               index: i,
                               child: _RequestTile(
                                 entry: e,
-                                schoolName: schoolNames[e.schoolId] ?? e.schoolId,
+                                schoolName:
+                                    schoolNames[e.schoolId] ?? e.schoolId,
                                 selected: _selected.contains(e.id),
                                 selectionMode: _selected.isNotEmpty,
                                 onToggle: () => setState(() {
@@ -145,8 +144,12 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
 
   Widget _filterBar(List<StudentEntry> all, List<SchoolConfig> schools) {
     return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(AppTheme.gutter, 12, AppTheme.gutter, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.gutter,
+        12,
+        AppTheme.gutter,
+        12,
+      ),
       child: Column(
         children: <Widget>[
           TextField(
@@ -197,8 +200,10 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
                     isExpanded: true,
                     decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: <DropdownMenuItem<String?>>[
                       const DropdownMenuItem<String?>(
@@ -223,8 +228,9 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
 
   Widget _statusChip(ApprovalStatus? status, String label, int count) {
     final bool selected = _status == status;
-    final Color? tint =
-        status == null ? null : ApprovalStatusChip.visualsFor(status).$1;
+    final Color? tint = status == null
+        ? null
+        : ApprovalStatusChip.visualsFor(status).$1;
 
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -252,7 +258,12 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
   Widget _bulkBar() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(AppTheme.gutter, 8, AppTheme.gutter, 8),
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.gutter,
+          8,
+          AppTheme.gutter,
+          8,
+        ),
         child: Row(
           children: <Widget>[
             Text(
@@ -291,7 +302,9 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
     if (uid == null || ids.isEmpty) return;
 
     await ref.read(studentRepositoryProvider).approveAll(ids, reviewerUid: uid);
-    await ref.read(auditRepositoryProvider).log(
+    await ref
+        .read(auditRepositoryProvider)
+        .log(
           action: ids.length == 1 ? 'approve' : 'bulk_approve',
           entityType: 'student',
           entityId: ids.length == 1 ? ids.first : '${ids.length} entries',
@@ -305,9 +318,7 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
   }
 
   Future<void> _rejectOne(StudentEntry entry) async {
-    final String? reason = await _askReason(
-      title: 'Send back ${entry.name}?',
-    );
+    final String? reason = await _askReason(title: 'Send back ${entry.name}?');
     if (reason == null) return;
 
     final String? uid = _reviewerUid;
@@ -316,7 +327,9 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
     await ref
         .read(studentRepositoryProvider)
         .reject(entry.id, reviewerUid: uid, reason: reason);
-    await ref.read(auditRepositoryProvider).log(
+    await ref
+        .read(auditRepositoryProvider)
+        .log(
           action: 'reject',
           entityType: 'student',
           entityId: entry.id,
@@ -344,7 +357,9 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
     await ref
         .read(studentRepositoryProvider)
         .rejectAll(ids, reviewerUid: uid, reason: reason);
-    await ref.read(auditRepositoryProvider).log(
+    await ref
+        .read(auditRepositoryProvider)
+        .log(
           action: 'bulk_reject',
           entityType: 'student',
           entityId: '${ids.length} entries',
@@ -392,9 +407,7 @@ class _RequestsQueueScreenState extends ConsumerState<RequestsQueueScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: StatusColors.failed,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: StatusColors.failed),
             onPressed: () {
               if (!(form.currentState?.validate() ?? false)) return;
               Navigator.of(ctx).pop(controller.text.trim());
@@ -504,8 +517,9 @@ class _RequestTile extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           entry.name.isEmpty ? 'UNNAMED' : entry.name,
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -543,8 +557,7 @@ class _RequestTile extends StatelessWidget {
                               status: entry.approvalStatus,
                               dense: true,
                             ),
-                            if (!entry.hasPhoto)
-                              const _Warn(text: 'No photo'),
+                            if (!entry.hasPhoto) const _Warn(text: 'No photo'),
                           ],
                         ),
                       ],
@@ -660,8 +673,9 @@ class _Empty extends StatelessWidget {
                   ? 'No cards are waiting for review.'
                   : 'Try a different status, school or search.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

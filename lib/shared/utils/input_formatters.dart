@@ -58,7 +58,10 @@ class CollapseWhitespaceFormatter extends TextInputFormatter {
 
     final String collapsed = newValue.text.replaceAll(_runs, ' ');
     final int removed = newValue.text.length - collapsed.length;
-    final int offset = (newValue.selection.baseOffset - removed).clamp(0, collapsed.length);
+    final int offset = (newValue.selection.baseOffset - removed).clamp(
+      0,
+      collapsed.length,
+    );
 
     return TextEditingValue(
       text: collapsed,
@@ -88,7 +91,10 @@ class DigitsOnlyFormatter extends TextInputFormatter {
     if (digits == newValue.text) return newValue;
 
     final int removed = newValue.text.length - digits.length;
-    final int offset = (newValue.selection.baseOffset - removed).clamp(0, digits.length);
+    final int offset = (newValue.selection.baseOffset - removed).clamp(
+      0,
+      digits.length,
+    );
 
     return TextEditingValue(
       text: digits,

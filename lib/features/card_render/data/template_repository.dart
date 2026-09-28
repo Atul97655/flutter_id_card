@@ -40,7 +40,8 @@ class TemplateRepository {
 
   /// Custom templates pushed down from Firestore, keyed by id. Populated by
   /// the sync service; empty until then.
-  final Map<String, Map<String, Object?>> _remoteJson = <String, Map<String, Object?>>{};
+  final Map<String, Map<String, Object?>> _remoteJson =
+      <String, Map<String, Object?>>{};
 
   List<String> get bundledIds => _bundledAssets.keys.toList();
 

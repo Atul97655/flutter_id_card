@@ -68,7 +68,10 @@ class _CropGuidePainter extends CustomPainter {
       width: boxWidth,
       height: boxHeight,
     );
-    final RRect rounded = RRect.fromRectAndRadius(box, const Radius.circular(6));
+    final RRect rounded = RRect.fromRectAndRadius(
+      box,
+      const Radius.circular(6),
+    );
 
     // Scrim everywhere except the crop box.
     canvas.drawPath(
@@ -112,7 +115,12 @@ class _CropGuidePainter extends CustomPainter {
       // Where the face centre should land - the same fraction the auto-crop
       // targets, so the guide and the processor agree.
       final double eyeY = box.top + box.height * PhotoSpec.faceCentreYFraction;
-      _dashedLine(canvas, Offset(box.left, eyeY), Offset(box.right, eyeY), guide);
+      _dashedLine(
+        canvas,
+        Offset(box.left, eyeY),
+        Offset(box.right, eyeY),
+        guide,
+      );
 
       // Vertical centre line for left/right alignment.
       _dashedLine(
@@ -178,11 +186,7 @@ class _CropGuidePainter extends CustomPainter {
     double travelled = 0;
     while (travelled < total) {
       final double end = (travelled + dash).clamp(0, total);
-      canvas.drawLine(
-        from + step * travelled,
-        from + step * end,
-        paint,
-      );
+      canvas.drawLine(from + step * travelled, from + step * end, paint);
       travelled = end + gap;
     }
   }

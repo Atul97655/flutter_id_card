@@ -557,7 +557,6 @@ class IdCardRenderer {
       );
     }
 
-
     // Only rows that are enabled for this school AND actually have a value.
     // Printing "MOBILE NO :" with nothing after it looks like a defect.
     final List<StudentField> fields = config.enabledFields

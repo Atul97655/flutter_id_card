@@ -82,17 +82,17 @@ class ColorRef {
   static const ColorRef transparent = ColorRef.token(ColorToken.transparent);
 
   int resolve(CardPalette palette) => switch (token) {
-        null => argb,
-        ColorToken.primary => palette.primary,
-        ColorToken.secondary => palette.secondary,
-        // Both resolve through headerColorFor, so any template with a header
-        // band picks up division colouring automatically once an admin
-        // configures it - no template change needed.
-        ColorToken.header || ColorToken.divAccent => palette.header,
-        ColorToken.white => 0xFFFFFFFF,
-        ColorToken.black => 0xFF000000,
-        ColorToken.transparent => 0x00000000,
-      };
+    null => argb,
+    ColorToken.primary => palette.primary,
+    ColorToken.secondary => palette.secondary,
+    // Both resolve through headerColorFor, so any template with a header
+    // band picks up division colouring automatically once an admin
+    // configures it - no template change needed.
+    ColorToken.header || ColorToken.divAccent => palette.header,
+    ColorToken.white => 0xFFFFFFFF,
+    ColorToken.black => 0xFF000000,
+    ColorToken.transparent => 0x00000000,
+  };
 
   /// Accepts `@token` or `#RRGGBB`. Unparseable input resolves to the supplied
   /// fallback rather than throwing - a typo in a template must not stop a
@@ -112,10 +112,10 @@ enum TextAlignH {
   right;
 
   static TextAlignH parse(Object? raw) => switch (raw) {
-        'center' => TextAlignH.center,
-        'right' => TextAlignH.right,
-        _ => TextAlignH.left,
-      };
+    'center' => TextAlignH.center,
+    'right' => TextAlignH.right,
+    _ => TextAlignH.left,
+  };
 }
 
 /// Base for everything drawable. The box is the element's slot on the card.
@@ -133,9 +133,9 @@ sealed class CardElement {
   final double heightMm;
 
   static double _num(Object? v, [double fallback = 0]) => switch (v) {
-        final num n => n.toDouble(),
-        _ => fallback,
-      };
+    final num n => n.toDouble(),
+    _ => fallback,
+  };
 
   static CardElement? parse(Map<String, Object?> json) {
     final double x = _num(json['x']);
@@ -145,60 +145,66 @@ sealed class CardElement {
 
     return switch (json['type']) {
       'rect' => RectElement(
-          xMm: x,
-          yMm: y,
-          widthMm: w,
-          heightMm: h,
-          fill: ColorRef.parse(json['fill'], fallback: ColorRef.transparent),
-          cornerRadiusMm: _num(json['radius']),
-        ),
+        xMm: x,
+        yMm: y,
+        widthMm: w,
+        heightMm: h,
+        fill: ColorRef.parse(json['fill'], fallback: ColorRef.transparent),
+        cornerRadiusMm: _num(json['radius']),
+      ),
       'text' => TextElement(
-          xMm: x,
-          yMm: y,
-          widthMm: w,
-          heightMm: h,
-          value: (json['value'] as String?) ?? '',
-          sizePt: _num(json['size'], 7),
-          bold: json['bold'] == true,
-          color: ColorRef.parse(json['color'], fallback: ColorRef.white),
-          align: TextAlignH.parse(json['align']),
-          maxLines: _num(json['maxLines'], 1).toInt(),
-          requiresFieldKey: json['requires'] as String?,
-        ),
+        xMm: x,
+        yMm: y,
+        widthMm: w,
+        heightMm: h,
+        value: (json['value'] as String?) ?? '',
+        sizePt: _num(json['size'], 7),
+        bold: json['bold'] == true,
+        color: ColorRef.parse(json['color'], fallback: ColorRef.white),
+        align: TextAlignH.parse(json['align']),
+        maxLines: _num(json['maxLines'], 1).toInt(),
+        requiresFieldKey: json['requires'] as String?,
+      ),
       'photo' => PhotoElement(
-          xMm: x,
-          yMm: y,
-          widthMm: w,
-          heightMm: h,
-          borderWidthMm: _num(json['borderWidth']),
-          borderColor: ColorRef.parse(json['borderColor'], fallback: ColorRef.transparent),
+        xMm: x,
+        yMm: y,
+        widthMm: w,
+        heightMm: h,
+        borderWidthMm: _num(json['borderWidth']),
+        borderColor: ColorRef.parse(
+          json['borderColor'],
+          fallback: ColorRef.transparent,
         ),
+      ),
       'logo' => LogoElement(xMm: x, yMm: y, widthMm: w, heightMm: h),
       'signature' => SignatureElement(xMm: x, yMm: y, widthMm: w, heightMm: h),
       'fields' => FieldBlockElement(
-          xMm: x,
-          yMm: y,
-          widthMm: w,
-          heightMm: h,
-          labelWidthMm: _num(json['labelWidth'], 14),
-          rowGapMm: _num(json['rowGap'], 0.8),
-          showLabels: json['showLabels'] != false,
-          exclude: <StudentField>{
-            ...?(json['exclude'] as List<Object?>?)
-                ?.whereType<String>()
-                .map(StudentField.fromKey)
-                .whereType<StudentField>(),
-          },
-        ),
+        xMm: x,
+        yMm: y,
+        widthMm: w,
+        heightMm: h,
+        labelWidthMm: _num(json['labelWidth'], 14),
+        rowGapMm: _num(json['rowGap'], 0.8),
+        showLabels: json['showLabels'] != false,
+        exclude: <StudentField>{
+          ...?(json['exclude'] as List<Object?>?)
+              ?.whereType<String>()
+              .map(StudentField.fromKey)
+              .whereType<StudentField>(),
+        },
+      ),
       'nameBanner' => NameBannerElement(
-          xMm: x,
-          yMm: y,
-          widthMm: w,
-          heightMm: h,
-          sizePt: _num(json['size'], 8),
-          color: ColorRef.parse(json['color'], fallback: const ColorRef.token(ColorToken.primary)),
-          align: TextAlignH.parse(json['align'] ?? 'center'),
+        xMm: x,
+        yMm: y,
+        widthMm: w,
+        heightMm: h,
+        sizePt: _num(json['size'], 8),
+        color: ColorRef.parse(
+          json['color'],
+          fallback: const ColorRef.token(ColorToken.primary),
         ),
+        align: TextAlignH.parse(json['align'] ?? 'center'),
+      ),
       _ => null,
     };
   }
@@ -387,7 +393,8 @@ class CardTemplate {
 
   static CardTemplate fromJson(Map<String, Object?> json) {
     final List<CardElement> elements = <CardElement>[];
-    for (final Object? raw in (json['elements'] as List<Object?>?) ?? const <Object?>[]) {
+    for (final Object? raw
+        in (json['elements'] as List<Object?>?) ?? const <Object?>[]) {
       if (raw is! Map<String, Object?>) continue;
       final CardElement? element = CardElement.parse(raw);
       // Unknown element types are skipped rather than fatal, so a template
@@ -399,11 +406,15 @@ class CardTemplate {
       id: (json['id'] as String?) ?? 'unnamed',
       name: (json['name'] as String?) ?? 'Unnamed template',
       cardSizeId: (json['cardSizeId'] as String?) ?? CardSize.defaultSize.id,
-      backgroundColor: ColorRef.parse(json['background'], fallback: ColorRef.white),
+      backgroundColor: ColorRef.parse(
+        json['background'],
+        fallback: ColorRef.white,
+      ),
       elements: elements,
     );
   }
 
   @override
-  String toString() => 'CardTemplate($id, $cardSizeId, ${elements.length} elements)';
+  String toString() =>
+      'CardTemplate($id, $cardSizeId, ${elements.length} elements)';
 }

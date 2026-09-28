@@ -54,10 +54,8 @@ class SheetSpec {
 
   static const List<SheetSpec> all = <SheetSpec>[sheet12x18, a4Landscape];
 
-  static SheetSpec fromId(String id) => all.firstWhere(
-        (SheetSpec s) => s.id == id,
-        orElse: () => sheet12x18,
-      );
+  static SheetSpec fromId(String id) =>
+      all.firstWhere((SheetSpec s) => s.id == id, orElse: () => sheet12x18);
 }
 
 /// Where one card sits on a sheet, in millimetres from the sheet's top-left.
@@ -231,10 +229,8 @@ class ImpositionGrid {
 
   /// Real resolution a photo achieves once placed on this sheet, for the
   /// pre-flight check.
-  double photoDpi(int photoPixelWidth) => PrintUnits.effectiveDpi(
-        pixels: photoPixelWidth,
-        mm: PhotoSpec.widthMm,
-      );
+  double photoDpi(int photoPixelWidth) =>
+      PrintUnits.effectiveDpi(pixels: photoPixelWidth, mm: PhotoSpec.widthMm);
 
   @override
   String toString() =>

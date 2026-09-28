@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_gradients.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
-import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
 import 'package:flutter_id_card/shared/widgets/app_logo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -76,58 +80,118 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (!next.isLoading) _maybeNavigate();
     });
 
-    final ThemeData theme = Theme.of(context);
-
     return Scaffold(
-      backgroundColor: theme.colorScheme.primary,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: DecoratedBox(
+        // The navy gradient, not a flat primary fill. This is the first thing
+        // anyone sees of the app, and it is the moment that decides whether
+        // the rest of it is going to look considered.
+        decoration: const BoxDecoration(gradient: AppGradients.header),
+        child: Stack(
           children: <Widget>[
-            // The first thing anyone sees of the app. It used to appear fully
-            // formed in one frame, which is the moment that set the tone for
-            // the whole thing feeling static.
-            const FadeSlideIn(
-              offset: 22,
-              duration: AppMotion.slow,
-              child: AppLogo(size: 108, onDark: true),
+            const Positioned(
+              top: -70,
+              right: -70,
+              child: _Glow(size: 280, color: Color(0x3D6E9BF0)),
             ),
-            const SizedBox(height: AppTheme.gutter * 1.5),
-            FadeSlideIn(
-              index: 2,
-              child: Text(
-                'ID ENTITY',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                ),
-              ),
+            const Positioned(
+              bottom: -110,
+              left: -80,
+              child: _Glow(size: 320, color: Color(0x337C4DDB)),
             ),
-            const SizedBox(height: 6),
-            FadeSlideIn(
-              index: 4,
-              child: Text(
-                'School Identity Management',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white70,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            const FadeSlideIn(
-              index: 6,
-              child: SizedBox(
-                width: 26,
-                height: 26,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
-                ),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  // It used to appear fully formed in one frame, which is the
+                  // moment that set the tone for the whole thing feeling
+                  // static.
+                  FadeSlideIn(
+                    offset: 22,
+                    duration: AppMotion.slow,
+                    child: Container(
+                      width: 148,
+                      height: 148,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.11),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          width: 1.4,
+                        ),
+                        boxShadow: AppShadows.floating,
+                      ),
+                      child: const Center(
+                        child: AppLogo(size: 92, onDark: true),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  FadeSlideIn(
+                    index: 2,
+                    child: Text(
+                      'ID ENTITY',
+                      style: AppTypography.displayOnDark.copyWith(
+                        fontSize: 28,
+                        letterSpacing: 2.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  FadeSlideIn(
+                    index: 4,
+                    child: Text(
+                      'School Identity Management',
+                      style: AppTypography.displaySubOnDark.copyWith(
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 44),
+                  const FadeSlideIn(
+                    index: 6,
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.onDarkMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A soft radial bloom on the splash backdrop.
+///
+/// A radial gradient rather than a blurred circle: a BackdropFilter on the
+/// very first frame of the app is the one place a dropped frame is certain to
+/// be noticed.
+class _Glow extends StatelessWidget {
+  const _Glow({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: <Color>[color, color.withValues(alpha: 0)],
+          ),
         ),
       ),
     );

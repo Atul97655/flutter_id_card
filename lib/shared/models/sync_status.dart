@@ -25,10 +25,11 @@ enum SyncStatus {
   bool get isTerminal => this == SyncStatus.synced;
 
   /// Whether the sync worker should attempt this record on its next pass.
-  bool get needsUpload => this == SyncStatus.pending || this == SyncStatus.failed;
+  bool get needsUpload =>
+      this == SyncStatus.pending || this == SyncStatus.failed;
 
   static SyncStatus fromName(String? value) => SyncStatus.values.firstWhere(
-        (SyncStatus s) => s.name == value,
-        orElse: () => SyncStatus.pending,
-      );
+    (SyncStatus s) => s.name == value,
+    orElse: () => SyncStatus.pending,
+  );
 }

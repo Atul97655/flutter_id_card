@@ -6,8 +6,14 @@ import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/home_screen.dart';
 import 'package:flutter_id_card/features/onboarding/application/join_providers.dart';
 import 'package:flutter_id_card/features/onboarding/domain/join_models.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
-import 'package:flutter_id_card/shared/theme/join_theme.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -86,92 +92,87 @@ class _AwaitingAssignmentScreenState
 
     final String schoolName = joinState.value?.schoolName ?? '';
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const FadeSlideIn(child: _WaitingBadge()),
-                  const SizedBox(height: 24),
-                  FadeSlideIn(
-                    index: 1,
-                    child: Column(
-                      children: <Widget>[
-                        Text(
-                          'Connected to',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          schoolName.isEmpty ? 'your school' : schoolName,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
+    return GlassScaffold(
+      backdrop: GlassBackdrop.chat,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxl,
+            vertical: 32,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const FadeSlideIn(child: _WaitingBadge()),
+                const SizedBox(height: AppSpacing.xl),
+                FadeSlideIn(
+                  index: 1,
+                  child: Column(
+                    children: <Widget>[
+                      const Text('Connected to', style: AppTypography.support),
+                      const SizedBox(height: 4),
+                      Text(
+                        schoolName.isEmpty ? 'your school' : schoolName,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.display.copyWith(fontSize: 24),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  const FadeSlideIn(
-                    index: 2,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FadeSlideIn(
+                  index: 2,
+                  child: Text(
+                    'Your class and section have not been assigned yet.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body.copyWith(height: 1.5),
+                  ),
+                ),
+                const SizedBox(height: 26),
+                const FadeSlideIn(index: 3, child: _WhatHappensNext()),
+                const SizedBox(height: 26),
+                FadeSlideIn(
+                  index: 4,
+                  child: GlassButton(
+                    label: 'Check again',
+                    icon: Icons.refresh,
+                    busy: _checking,
+                    gradient: const LinearGradient(
+                      colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
+                    ),
+                    onPressed: _checking
+                        ? null
+                        : () => unawaited(_checkAgain()),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                FadeSlideIn(
+                  index: 5,
+                  child: TextButton(
+                    onPressed: () => unawaited(
+                      ref.read(authControllerProvider.notifier).signOut(),
+                    ),
                     child: Text(
-                      'Your class and section have not been assigned yet.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, height: 1.5),
-                    ),
-                  ),
-                  const SizedBox(height: 26),
-                  const FadeSlideIn(index: 3, child: _WhatHappensNext()),
-                  const SizedBox(height: 26),
-                  FadeSlideIn(
-                    index: 4,
-                    child: FilledButton(
-                      style: JoinTheme.filledButton(),
-                      onPressed: _checking
-                          ? null
-                          : () => unawaited(_checkAgain()),
-                      child: _checking
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Check again'),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  FadeSlideIn(
-                    index: 5,
-                    child: TextButton(
-                      onPressed: () => unawaited(
-                        ref.read(authControllerProvider.notifier).signOut(),
-                      ),
-                      child: const Text('Sign out'),
-                    ),
-                  ),
-                  if (session != null && session.email.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    // So a teacher asking the office to find them can say
-                    // which account to look for.
-                    Text(
-                      'Waiting as ${session.email}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
+                      'Sign out',
+                      style: AppTypography.badge.copyWith(
+                        fontSize: 14,
+                        color: AppColors.chatDeep,
                       ),
                     ),
-                  ],
+                  ),
+                ),
+                if (session != null && session.email.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  // So a teacher asking the office to find them can say which
+                  // account to look for.
+                  Text(
+                    'Waiting as ${session.email}',
+                    style: AppTypography.support.copyWith(fontSize: 12),
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
@@ -180,22 +181,31 @@ class _AwaitingAssignmentScreenState
   }
 }
 
+/// Waiting, not failing. Amber rather than red, and an hourglass rather than a
+/// warning triangle: this state is the system working as designed, and error
+/// language would send a teacher to the office to report a fault that does not
+/// exist.
 class _WaitingBadge extends StatelessWidget {
   const _WaitingBadge();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 84,
-      height: 84,
-      decoration: const BoxDecoration(
-        color: JoinTheme.waitingSoft,
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
+        color: AppColors.pendingTint,
+        border: Border.all(
+          color: AppColors.pending.withValues(alpha: 0.26),
+          width: 1.4,
+        ),
+        boxShadow: AppShadows.subtle,
       ),
       child: const Icon(
         Icons.hourglass_empty,
-        color: Color(0xFF9A7B16),
-        size: 36,
+        color: AppColors.pending,
+        size: 40,
       ),
     );
   }
@@ -216,49 +226,49 @@ class _WhatHappensNext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F8FA),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return GlassSurface(
+      radius: AppRadius.panelR,
+      fill: AppColors.glassFillStrong,
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'What happens next',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-          ),
-          const SizedBox(height: 12),
+          const Text('What happens next', style: AppTypography.section),
+          const SizedBox(height: AppSpacing.md),
           for (int i = 0; i < _steps.length; i++)
             Padding(
-              padding: EdgeInsets.only(bottom: i == _steps.length - 1 ? 0 : 12),
+              padding: EdgeInsets.only(
+                bottom: i == _steps.length - 1 ? 0 : AppSpacing.md,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Container(
-                    width: 22,
-                    height: 22,
+                    width: 24,
+                    height: 24,
                     decoration: const BoxDecoration(
-                      color: JoinTheme.accent,
                       shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: <Color>[
+                          AppColors.chatAccent,
+                          AppColors.chatDeep,
+                        ],
+                      ),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       '${i + 1}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.buttonSmall.copyWith(fontSize: 11.5),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
                       _steps[i],
-                      style: const TextStyle(fontSize: 13, height: 1.45),
+                      style: AppTypography.body.copyWith(
+                        fontSize: 13,
+                        height: 1.45,
+                      ),
                     ),
                   ),
                 ],

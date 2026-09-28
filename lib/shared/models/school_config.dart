@@ -152,7 +152,9 @@ class SchoolConfig {
   /// canonical enum order. Always-on fields are forced in regardless of what
   /// the stored set says.
   List<StudentField> get enabledFields => StudentField.values
-      .where((StudentField f) => f.alwaysEnabled || enabledFieldKeys.contains(f.key))
+      .where(
+        (StudentField f) => f.alwaysEnabled || enabledFieldKeys.contains(f.key),
+      )
       .toList();
 
   bool isEnabled(StudentField field) =>
@@ -162,11 +164,8 @@ class SchoolConfig {
   static Set<String> get allFieldKeys =>
       StudentField.values.map((StudentField f) => f.key).toSet();
 
-  static SchoolConfig fallback(String id) => SchoolConfig(
-        id: id,
-        name: 'SCHOOL',
-        enabledFieldKeys: allFieldKeys,
-      );
+  static SchoolConfig fallback(String id) =>
+      SchoolConfig(id: id, name: 'SCHOOL', enabledFieldKeys: allFieldKeys);
 
   SchoolConfig copyWith({
     String? id,
@@ -206,7 +205,8 @@ class SchoolConfig {
       divisionColors: divisionColors ?? this.divisionColors,
       classes: classes ?? this.classes,
       divisions: divisions ?? this.divisions,
-      principalSignatureUrl: principalSignatureUrl ?? this.principalSignatureUrl,
+      principalSignatureUrl:
+          principalSignatureUrl ?? this.principalSignatureUrl,
       localPrincipalSignaturePath:
           localPrincipalSignaturePath ?? this.localPrincipalSignaturePath,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -226,28 +226,28 @@ class SchoolConfig {
   }
 
   Map<String, Object?> toFirestoreMap() => <String, Object?>{
-        'name': name,
-        'addressLine': addressLine,
-        'contactLine': contactLine,
-        'logoUrl': logoUrl,
-        'principalSignatureUrl': principalSignatureUrl,
-        'cardSizeId': cardSizeId,
-        'templateId': templateId,
-        'enabledFields': enabledFieldKeys.toList()..sort(),
-        'classes': classes,
-        'divisions': divisions,
-        'primaryColor': _toHexString(primaryColorHex),
-        'secondaryColor': _toHexString(secondaryColorHex),
-        'headerColor': _toHexString(headerColorHex),
-        'photoBackground': _toHexString(photoBackgroundHex),
-        // Stored as a native Firestore map of division -> hex so it is legible
-        // and editable straight from the console.
-        'divisionColors': <String, String>{
-          for (final MapEntry<String, int> e in divisionColors.entries)
-            e.key: _toHexString(e.value),
-        },
-        'updatedAt': (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
-      };
+    'name': name,
+    'addressLine': addressLine,
+    'contactLine': contactLine,
+    'logoUrl': logoUrl,
+    'principalSignatureUrl': principalSignatureUrl,
+    'cardSizeId': cardSizeId,
+    'templateId': templateId,
+    'enabledFields': enabledFieldKeys.toList()..sort(),
+    'classes': classes,
+    'divisions': divisions,
+    'primaryColor': _toHexString(primaryColorHex),
+    'secondaryColor': _toHexString(secondaryColorHex),
+    'headerColor': _toHexString(headerColorHex),
+    'photoBackground': _toHexString(photoBackgroundHex),
+    // Stored as a native Firestore map of division -> hex so it is legible
+    // and editable straight from the console.
+    'divisionColors': <String, String>{
+      for (final MapEntry<String, int> e in divisionColors.entries)
+        e.key: _toHexString(e.value),
+    },
+    'updatedAt': (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
+  };
 
   static SchoolConfig fromFirestoreMap(String id, Map<String, Object?> map) {
     return SchoolConfig(
@@ -262,15 +262,28 @@ class SchoolConfig {
       enabledFieldKeys: <String>{
         ...?(map['enabledFields'] as List<Object?>?)?.whereType<String>(),
       },
-      classes: (map['classes'] as List<Object?>?)?.whereType<String>().toList() ??
+      classes:
+          (map['classes'] as List<Object?>?)?.whereType<String>().toList() ??
           defaultClasses,
       divisions:
           (map['divisions'] as List<Object?>?)?.whereType<String>().toList() ??
-              defaultDivisions,
-      primaryColorHex: parseHex(map['primaryColor'] as String?, kDefaultPrimaryHex),
-      secondaryColorHex: parseHex(map['secondaryColor'] as String?, kDefaultSecondaryHex),
-      headerColorHex: parseHex(map['headerColor'] as String?, kDefaultHeaderHex),
-      photoBackgroundHex: parseHex(map['photoBackground'] as String?, kDefaultPhotoBackgroundHex),
+          defaultDivisions,
+      primaryColorHex: parseHex(
+        map['primaryColor'] as String?,
+        kDefaultPrimaryHex,
+      ),
+      secondaryColorHex: parseHex(
+        map['secondaryColor'] as String?,
+        kDefaultSecondaryHex,
+      ),
+      headerColorHex: parseHex(
+        map['headerColor'] as String?,
+        kDefaultHeaderHex,
+      ),
+      photoBackgroundHex: parseHex(
+        map['photoBackground'] as String?,
+        kDefaultPhotoBackgroundHex,
+      ),
       divisionColors: decodeDivisionColors(map['divisionColors']),
       updatedAt: DateTime.tryParse((map['updatedAt'] as String?) ?? ''),
     );

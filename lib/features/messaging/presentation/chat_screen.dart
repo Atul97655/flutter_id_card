@@ -283,9 +283,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _sendIdCard(Chat chat, SessionUser session) async {
     final String? entryId = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
-        builder: (BuildContext c) => SendIdCardScreen(
-          recipientLabel: chat.title,
-        ),
+        builder: (BuildContext c) =>
+            SendIdCardScreen(recipientLabel: chat.title),
       ),
     );
     if (entryId == null || !mounted) return;
@@ -295,9 +294,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final CardTemplate? template = ref.read(activeTemplateProvider).value;
 
     if (entry == null || config == null || template == null) {
-      _complain(
-        'The card is still loading. Give it a moment and try again.',
-      );
+      _complain('The card is still loading. Give it a moment and try again.');
       return;
     }
 
@@ -492,10 +489,7 @@ class _ChatHeader extends StatelessWidget {
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: <Color>[
-                      AppColors.chatAccent,
-                      AppColors.chatDeep,
-                    ],
+                    colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
                   ),
                 ),
                 child: Center(
@@ -1063,9 +1057,7 @@ class _AttachmentCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.chatDeep.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(AppRadius.tile),
-        border: Border.all(
-          color: AppColors.chatDeep.withValues(alpha: 0.14),
-        ),
+        border: Border.all(color: AppColors.chatDeep.withValues(alpha: 0.14)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1209,9 +1201,7 @@ class _SendButton extends StatelessWidget {
           gradient: const LinearGradient(
             colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
           ),
-          boxShadow: sending
-              ? null
-              : AppShadows.glow(AppColors.chatDeep),
+          boxShadow: sending ? null : AppShadows.glow(AppColors.chatDeep),
         ),
         child: AnimatedSwitcher(
           duration: AppMotion.fast,
@@ -1221,9 +1211,7 @@ class _SendButton extends StatelessWidget {
                   padding: EdgeInsets.all(14),
                   child: CircularProgressIndicator(
                     strokeWidth: 2.2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.onDark,
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.onDark),
                   ),
                 )
               : const Icon(
@@ -1271,9 +1259,7 @@ class _BroadcastBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 'Announcement - only the admin office can post here.',
-                style: AppTypography.support.copyWith(
-                  color: AppColors.inkBody,
-                ),
+                style: AppTypography.support.copyWith(color: AppColors.inkBody),
               ),
             ),
           ],
@@ -1356,9 +1342,7 @@ class _EmptyMessages extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              searching
-                  ? 'Try a shorter search term.'
-                  : 'Send the first one.',
+              searching ? 'Try a shorter search term.' : 'Send the first one.',
               style: AppTypography.support,
               textAlign: TextAlign.center,
             ),

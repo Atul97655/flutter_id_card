@@ -670,9 +670,7 @@ class _PhotoCard extends StatelessWidget {
                       : AppColors.royal.withValues(alpha: 0.28),
                   width: hasPhoto ? 2 : 1.4,
                 ),
-                boxShadow: hasPhoto
-                    ? AppShadows.lifted
-                    : AppShadows.subtle,
+                boxShadow: hasPhoto ? AppShadows.lifted : AppShadows.subtle,
               ),
               clipBehavior: Clip.antiAlias,
               child: AnimatedSwitcher(
@@ -708,7 +706,9 @@ class _PhotoCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            hasPhoto ? 'Tap to retake or re-crop' : 'Passport size, 1.2 x 1.5 in',
+            hasPhoto
+                ? 'Tap to retake or re-crop'
+                : 'Passport size, 1.2 x 1.5 in',
             style: AppTypography.support,
             textAlign: TextAlign.center,
           ),

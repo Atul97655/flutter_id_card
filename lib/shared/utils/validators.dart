@@ -98,7 +98,11 @@ final class Validators {
   /// DOB must be a real date in the past and within a plausible age range.
   ///
   /// [now] is injectable so the test suite is not time-dependent.
-  static String? dateOfBirth(DateTime? value, {bool isRequired = true, DateTime? now}) {
+  static String? dateOfBirth(
+    DateTime? value, {
+    bool isRequired = true,
+    DateTime? now,
+  }) {
     if (value == null) {
       return isRequired ? 'DOB is required' : null;
     }
@@ -109,7 +113,11 @@ final class Validators {
     if (!dobMidnight.isBefore(todayMidnight)) {
       return 'DOB must be in the past';
     }
-    final DateTime earliest = DateTime(today.year - maxAgeYears, today.month, today.day);
+    final DateTime earliest = DateTime(
+      today.year - maxAgeYears,
+      today.month,
+      today.day,
+    );
     if (dobMidnight.isBefore(earliest)) {
       return 'DOB looks wrong - check the year';
     }
@@ -138,7 +146,11 @@ final class Validators {
     return switch (field.kind) {
       FieldKind.mobile => mobile(value, isRequired: isRequired),
       FieldKind.bloodGroup => bloodGroup(value, isRequired: isRequired),
-      FieldKind.date => dateOfBirth(parsedDate, isRequired: isRequired, now: now),
+      FieldKind.date => dateOfBirth(
+        parsedDate,
+        isRequired: isRequired,
+        now: now,
+      ),
       FieldKind.multiline => address(value, isRequired: isRequired),
       FieldKind.text => name(value, label: field.formLabel),
       FieldKind.photo => null,

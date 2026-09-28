@@ -18,23 +18,25 @@ final Provider<TemplateRepository> templateRepositoryProvider =
 /// picker.
 final FutureProvider<List<CardTemplate>> bundledTemplatesProvider =
     FutureProvider<List<CardTemplate>>((Ref ref) {
-  return ref.watch(templateRepositoryProvider).loadAllBundled();
-});
+      return ref.watch(templateRepositoryProvider).loadAllBundled();
+    });
 
 final FutureProvider<ImpositionService> impositionServiceProvider =
     FutureProvider<ImpositionService>((Ref ref) async {
-  final IdCardRenderer renderer = await ref.watch(idCardRendererProvider.future);
-  return ImpositionService(renderer);
-});
+      final IdCardRenderer renderer = await ref.watch(
+        idCardRendererProvider.future,
+      );
+      return ImpositionService(renderer);
+    });
 
 /// The layout for the active school, resolved against its configured template
 /// id and card size.
 final FutureProvider<CardTemplate> activeTemplateProvider =
     FutureProvider<CardTemplate>((Ref ref) async {
-  final SchoolConfig config = await ref.watch(schoolConfigProvider.future);
-  final TemplateRepository repo = ref.watch(templateRepositoryProvider);
-  return repo.resolve(
-    templateId: config.templateId,
-    cardSize: config.cardSize,
-  );
-});
+      final SchoolConfig config = await ref.watch(schoolConfigProvider.future);
+      final TemplateRepository repo = ref.watch(templateRepositoryProvider);
+      return repo.resolve(
+        templateId: config.templateId,
+        cardSize: config.cardSize,
+      );
+    });

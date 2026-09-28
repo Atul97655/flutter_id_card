@@ -4,8 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/qr_scanner_screen.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
-import 'package:flutter_id_card/shared/theme/join_theme.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -84,126 +91,164 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: JoinTheme.header,
-        foregroundColor: Colors.white,
-        title: const Text('Create your account'),
+    return GlassScaffold(
+      backdrop: GlassBackdrop.chat,
+      header: GlassHeader(
+        title: 'Create your account',
+        subtitle: 'Step 1 of 2',
+        // Always present, so the header does not change shape mid-save.
+        onBack: () {
+          if (!_busy) context.pop();
+        },
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    const FadeSlideIn(
-                      child: Text(
-                        'This account is just you. Your school is added in the '
-                        'next step, when you scan the code your office printed.',
-                        style: TextStyle(fontSize: 13.5, height: 1.5),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-
-                    FadeSlideIn(
-                      index: 1,
-                      child: TextFormField(
-                        controller: _name,
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Your name',
-                          helperText:
-                              'The office sees this in their pending list',
-                        ),
-                        validator: (String? v) =>
-                            (v ?? '').trim().isEmpty ? 'Enter your name' : null,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    FadeSlideIn(
-                      index: 2,
-                      child: TextFormField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        autocorrect: false,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(labelText: 'Email'),
-                        validator: (String? v) {
-                          final String value = (v ?? '').trim();
-                          if (value.isEmpty) return 'Enter your email';
-                          if (!value.contains('@')) {
-                            return 'That does not look like an email address';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    FadeSlideIn(
-                      index: 3,
-                      child: TextFormField(
-                        controller: _password,
-                        obscureText: _obscure,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => unawaited(_submit()),
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          helperText: 'At least 6 characters',
-                          suffixIcon: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
-                            icon: Icon(
-                              _obscure
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter,
+          0,
+          AppSpacing.gutter,
+          32,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  FadeSlideIn(
+                    child: GlassSurface(
+                      radius: AppRadius.fieldR,
+                      fill: AppColors.chatTheirs,
+                      shadows: AppShadows.subtle,
+                      sheen: false,
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.info_outline,
+                            size: 18,
+                            color: AppColors.chatDeep,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'This account is just you. Your school is added '
+                              'in the next step, when you scan the code your '
+                              'office printed.',
+                              style: AppTypography.support.copyWith(
+                                fontSize: 13,
+                                height: 1.5,
+                                color: AppColors.inkBody,
+                              ),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+
+                  FadeSlideIn(
+                    index: 1,
+                    child: GlassTextField(
+                      label: 'Your name',
+                      icon: Icons.person_outline,
+                      controller: _name,
+                      placeholder: 'As the office knows you',
+                      helperText: 'The office sees this in their pending list',
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      validator: (String? v) =>
+                          (v ?? '').trim().isEmpty ? 'Enter your name' : null,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  FadeSlideIn(
+                    index: 2,
+                    child: GlassTextField(
+                      label: 'Email',
+                      icon: Icons.alternate_email,
+                      controller: _email,
+                      placeholder: 'you@example.com',
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      validator: (String? v) {
+                        final String value = (v ?? '').trim();
+                        if (value.isEmpty) return 'Enter your email';
+                        if (!value.contains('@')) {
+                          return 'That does not look like an email address';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  FadeSlideIn(
+                    index: 3,
+                    child: GlassTextField(
+                      label: 'Password',
+                      icon: Icons.lock_outline,
+                      controller: _password,
+                      obscureText: _obscure,
+                      helperText: 'At least 6 characters',
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => unawaited(_submit()),
+                      trailing: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => setState(() => _obscure = !_obscure),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          child: Icon(
+                            _obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 19,
+                            color: AppColors.inkMuted,
+                          ),
                         ),
-                        validator: (String? v) => (v ?? '').length < 6
-                            ? 'At least 6 characters'
-                            : null,
                       ),
+                      validator: (String? v) =>
+                          (v ?? '').length < 6 ? 'At least 6 characters' : null,
                     ),
+                  ),
 
-                    if (_error != null) ...<Widget>[
-                      const SizedBox(height: 16),
-                      _ErrorBox(message: _error!),
-                    ],
-
-                    const SizedBox(height: 26),
-                    FadeSlideIn(
-                      index: 4,
-                      child: FilledButton(
-                        style: JoinTheme.filledButton(),
-                        onPressed: _busy ? null : () => unawaited(_submit()),
-                        child: _busy
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Create account and scan'),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _busy ? null : () => context.pop(),
-                      child: const Text('I already have an account'),
-                    ),
+                  if (_error != null) ...<Widget>[
+                    const SizedBox(height: AppSpacing.md),
+                    _ErrorBox(message: _error!),
                   ],
-                ),
+
+                  const SizedBox(height: 26),
+                  FadeSlideIn(
+                    index: 4,
+                    child: GlassButton(
+                      label: 'Create account and scan',
+                      icon: Icons.qr_code_scanner,
+                      busy: _busy,
+                      gradient: const LinearGradient(
+                        colors: <Color>[
+                          AppColors.chatAccent,
+                          AppColors.chatDeep,
+                        ],
+                      ),
+                      onPressed: _busy ? null : () => unawaited(_submit()),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextButton(
+                    onPressed: _busy ? null : () => context.pop(),
+                    child: Text(
+                      'I already have an account',
+                      style: AppTypography.badge.copyWith(
+                        fontSize: 13.5,
+                        color: AppColors.chatDeep,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -220,22 +265,26 @@ class _ErrorBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFDECEA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF5C6C2)),
-      ),
+    return GlassSurface(
+      radius: AppRadius.fieldR,
+      fill: AppColors.rejectedTint.withValues(alpha: 0.92),
+      borderColor: AppColors.rejected.withValues(alpha: 0.26),
+      shadows: const <BoxShadow>[],
+      sheen: false,
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Icon(Icons.error_outline, color: Color(0xFFC62828), size: 20),
-          const SizedBox(width: 10),
+          const Icon(Icons.error_outline, color: AppColors.rejected, size: 19),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 13, height: 1.45),
+              style: AppTypography.body.copyWith(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.rejected,
+              ),
             ),
           ),
         ],

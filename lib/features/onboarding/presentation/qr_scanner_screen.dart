@@ -6,7 +6,13 @@ import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/onboarding/application/join_providers.dart';
 import 'package:flutter_id_card/features/onboarding/domain/join_models.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/awaiting_assignment_screen.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
+import 'package:flutter_id_card/shared/theme/app_shadows.dart';
+import 'package:flutter_id_card/shared/theme/app_spacing.dart';
+import 'package:flutter_id_card/shared/theme/app_typography.dart';
 import 'package:flutter_id_card/shared/theme/join_theme.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
+import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -221,11 +227,19 @@ class _ScanError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+    // Frosted rather than opaque white: this floats over the live camera
+    // preview, and a solid card there reads as the camera having stopped.
+    return GlassSurface(
+      depth: GlassDepth.frosted,
+      radius: AppRadius.fieldR,
+      fill: const Color(0xD9FFFFFF),
+      shadows: AppShadows.lifted,
+      sheen: false,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.sm,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -233,9 +247,18 @@ class _ScanError extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13.5, height: 1.45),
+            style: AppTypography.body.copyWith(fontSize: 13.5, height: 1.45),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Try again')),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(
+              'Try again',
+              style: AppTypography.badge.copyWith(
+                fontSize: 13.5,
+                color: AppColors.chatDeep,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -312,12 +335,22 @@ class _ConfirmSheet extends StatelessWidget {
         curve: Curves.easeOutCubic,
         builder: (BuildContext c, double t, Widget? child) =>
             Transform.translate(offset: Offset(0, t * 240), child: child),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        child: GlassSurface(
+          // Deep blur: the camera is still running behind this, and the point
+          // of the sheet is that the preview recedes while a question is
+          // being answered.
+          depth: GlassDepth.deep,
+          radius: const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.sheet),
+          ),
+          fill: const Color(0xF2FFFFFF),
+          shadows: AppShadows.floating,
+          sheen: false,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            AppSpacing.md,
+            AppSpacing.xl,
+            AppSpacing.xxl,
           ),
           child: SafeArea(
             top: false,
@@ -328,29 +361,31 @@ class _ConfirmSheet extends StatelessWidget {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black12,
+                    color: AppColors.inkMuted.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: AppSpacing.lg),
                 Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    color: JoinTheme.accentSoft,
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
+                    ),
+                    boxShadow: AppShadows.glow(AppColors.chatDeep),
                   ),
                   child: const Icon(
                     Icons.home_outlined,
-                    color: JoinTheme.header,
-                    size: 26,
+                    color: AppColors.onDark,
+                    size: 28,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 Text(
                   'Join this school?',
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: AppTypography.display.copyWith(fontSize: 21),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -358,37 +393,40 @@ class _ConfirmSheet extends StatelessWidget {
                       ? invitation.schoolId
                       : invitation.schoolName,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: JoinTheme.header,
-                    fontWeight: FontWeight.w700,
+                  style: AppTypography.section.copyWith(
+                    color: AppColors.chatDeep,
                     fontSize: 14.5,
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text(
+                const SizedBox(height: AppSpacing.md),
+                Text(
                   'Your name goes to this school office. They will assign '
                   'your class and section before you can send anything.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, height: 1.5),
+                  style: AppTypography.support.copyWith(
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
                 ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  style: JoinTheme.filledButton(),
+                const SizedBox(height: AppSpacing.xl),
+                GlassButton(
+                  label: 'Yes, join',
+                  icon: Icons.check_rounded,
+                  busy: busy,
+                  gradient: const LinearGradient(
+                    colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
+                  ),
                   onPressed: busy ? null : onJoin,
-                  child: busy
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Yes, join'),
                 ),
                 TextButton(
                   onPressed: busy ? null : onCancel,
-                  child: const Text('Scan a different code'),
+                  child: Text(
+                    'Scan a different code',
+                    style: AppTypography.badge.copyWith(
+                      fontSize: 13.5,
+                      color: AppColors.chatDeep,
+                    ),
+                  ),
                 ),
               ],
             ),

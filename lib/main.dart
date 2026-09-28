@@ -18,9 +18,5 @@ Future<void> main() async {
   // Firebase is missing or unreachable. See FirebaseBootstrap.
   await FirebaseBootstrap.instance.initialise();
 
-  runApp(
-    const ProviderScope(
-      child: IdCardApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: IdCardApp()));
 }

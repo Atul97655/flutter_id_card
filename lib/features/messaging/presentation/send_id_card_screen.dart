@@ -90,7 +90,9 @@ class _SendIdCardScreenState extends ConsumerState<SendIdCardScreen> {
                             side: BorderSide(
                               color: selected
                                   ? JoinTheme.header
-                                  : Theme.of(context).colorScheme.outlineVariant,
+                                  : Theme.of(context)
+                                        .colorScheme
+                                        .outlineVariant,
                               width: selected ? 2 : 1,
                             ),
                           ),
@@ -102,9 +104,7 @@ class _SendIdCardScreenState extends ConsumerState<SendIdCardScreen> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            subtitle: Text(
-                              _describe(e),
-                            ),
+                            subtitle: Text(_describe(e)),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: <Widget>[

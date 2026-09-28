@@ -11,8 +11,9 @@ import 'package:flutter_id_card/shared/services/local/school_repository.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final Provider<ExportService> exportServiceProvider =
-    Provider<ExportService>((Ref ref) => ExportService());
+final Provider<ExportService> exportServiceProvider = Provider<ExportService>(
+  (Ref ref) => ExportService(),
+);
 
 final Provider<CsvExportService> csvExportServiceProvider =
     Provider<CsvExportService>((Ref ref) => CsvExportService());
@@ -20,27 +21,32 @@ final Provider<CsvExportService> csvExportServiceProvider =
 /// Every school the admin can manage.
 final StreamProvider<List<SchoolConfig>> allSchoolsProvider =
     StreamProvider<List<SchoolConfig>>((Ref ref) {
-  final SchoolRepository repo = ref.watch(schoolRepositoryProvider);
-  return repo.watchAll();
-});
+      final SchoolRepository repo = ref.watch(schoolRepositoryProvider);
+      return repo.watchAll();
+    });
 
 /// Every entry across all schools - the source the dashboard counts from.
 final StreamProvider<List<StudentEntry>> allEntriesProvider =
     StreamProvider<List<StudentEntry>>((Ref ref) {
-  final StudentRepository repo = ref.watch(studentRepositoryProvider);
-  return repo.watchAll();
-});
+      final StudentRepository repo = ref.watch(studentRepositoryProvider);
+      return repo.watchAll();
+    });
 
 /// Entries for one school, for the submissions screen.
 final entriesForSchoolProvider =
-    StreamProvider.family<List<StudentEntry>, String>((Ref ref, String schoolId) {
-  final StudentRepository repo = ref.watch(studentRepositoryProvider);
-  return repo.watchBySchool(schoolId);
-});
+    StreamProvider.family<List<StudentEntry>, String>((
+      Ref ref,
+      String schoolId,
+    ) {
+      final StudentRepository repo = ref.watch(studentRepositoryProvider);
+      return repo.watchBySchool(schoolId);
+    });
 
 /// One school's settings, for the settings screen.
-final schoolByIdProvider =
-    StreamProvider.family<SchoolConfig?, String>((Ref ref, String schoolId) {
+final schoolByIdProvider = StreamProvider.family<SchoolConfig?, String>((
+  Ref ref,
+  String schoolId,
+) {
   final SchoolRepository repo = ref.watch(schoolRepositoryProvider);
   return repo.watch(schoolId);
 });
@@ -75,8 +81,8 @@ class AdminStats {
   final int printable;
 }
 
-final Provider<AsyncValue<AdminStats>> adminStatsProvider =
-    Provider<AsyncValue<AdminStats>>((Ref ref) {
+final Provider<AsyncValue<AdminStats>>
+adminStatsProvider = Provider<AsyncValue<AdminStats>>((Ref ref) {
   final AsyncValue<List<StudentEntry>> entries = ref.watch(allEntriesProvider);
   final AsyncValue<List<SchoolConfig>> schools = ref.watch(allSchoolsProvider);
 
@@ -122,34 +128,33 @@ final Provider<AsyncValue<AdminStats>> adminStatsProvider =
 /// Recent audit log entries, newest first.
 final StreamProvider<List<AuditEntry>> recentAuditLogsProvider =
     StreamProvider<List<AuditEntry>>((Ref ref) {
-  final AuditRepository repo = ref.watch(auditRepositoryProvider);
-  return repo.watchRecent();
-});
+      final AuditRepository repo = ref.watch(auditRepositoryProvider);
+      return repo.watchRecent();
+    });
 
 /// Audit entries filtered by action verbs (for the chip filter UI).
 final auditLogsByActionsProvider =
-    StreamProvider.family<List<AuditEntry>, List<String>>(
-  (Ref ref, List<String> actions) {
-    final AuditRepository repo = ref.watch(auditRepositoryProvider);
-    return repo.watchByActions(actions);
-  },
-);
+    StreamProvider.family<List<AuditEntry>, List<String>>((
+      Ref ref,
+      List<String> actions,
+    ) {
+      final AuditRepository repo = ref.watch(auditRepositoryProvider);
+      return repo.watchByActions(actions);
+    });
 
 /// Print batch history for one school.
 final printBatchesForSchoolProvider =
-    StreamProvider.family<List<PrintBatch>, String>(
-  (Ref ref, String schoolId) {
-    final PrintBatchRepository repo = ref.watch(printBatchRepositoryProvider);
-    return repo.watchBySchool(schoolId);
-  },
-);
+    StreamProvider.family<List<PrintBatch>, String>((Ref ref, String schoolId) {
+      final PrintBatchRepository repo = ref.watch(printBatchRepositoryProvider);
+      return repo.watchBySchool(schoolId);
+    });
 
 /// Global print batch history.
 final StreamProvider<List<PrintBatch>> allPrintBatchesProvider =
     StreamProvider<List<PrintBatch>>((Ref ref) {
-  final PrintBatchRepository repo = ref.watch(printBatchRepositoryProvider);
-  return repo.watchAll();
-});
+      final PrintBatchRepository repo = ref.watch(printBatchRepositoryProvider);
+      return repo.watchAll();
+    });
 
 // ------------------------------------------------------------------
 // Phase 5: Reports & Analytics providers
@@ -157,18 +162,18 @@ final StreamProvider<List<PrintBatch>> allPrintBatchesProvider =
 
 final Provider<ReportsService> reportsServiceProvider =
     Provider<ReportsService>((Ref ref) {
-  return ReportsService(
-    students: ref.watch(studentRepositoryProvider),
-    schools: ref.watch(schoolRepositoryProvider),
-    printBatches: ref.watch(printBatchRepositoryProvider),
-  );
-});
+      return ReportsService(
+        students: ref.watch(studentRepositoryProvider),
+        schools: ref.watch(schoolRepositoryProvider),
+        printBatches: ref.watch(printBatchRepositoryProvider),
+      );
+    });
 
 final FutureProvider<SystemReport> systemReportProvider =
     FutureProvider<SystemReport>((Ref ref) async {
-  // Re-run report whenever schools or entries change
-  ref.watch(allSchoolsProvider);
-  ref.watch(allEntriesProvider);
-  final ReportsService service = ref.watch(reportsServiceProvider);
-  return service.generateReport();
-});
+      // Re-run report whenever schools or entries change
+      ref.watch(allSchoolsProvider);
+      ref.watch(allEntriesProvider);
+      final ReportsService service = ref.watch(reportsServiceProvider);
+      return service.generateReport();
+    });

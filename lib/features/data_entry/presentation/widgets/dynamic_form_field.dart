@@ -211,11 +211,7 @@ class DynamicFormField extends StatelessWidget {
   /// it: `DropdownButtonFormField` owns its validation state, and there is no
   /// clean way to observe it from outside without rebuilding the field.
   Widget _dropdownShell({required IconData icon, required Widget child}) {
-    return GlassFieldShell(
-      label: field.formLabel,
-      icon: icon,
-      child: child,
-    );
+    return GlassFieldShell(label: field.formLabel, icon: icon, child: child);
   }
 
   Widget _date(BuildContext context) {
