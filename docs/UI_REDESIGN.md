@@ -265,24 +265,42 @@ flutter build apk --release --split-per-abi
 Ship `app-arm64-v8a-release.apk` unless a tablet is genuinely ancient, in
 which case `app-armeabi-v7a-release.apk` covers 32-bit ARM.
 
-**The Vercel deploy — note the destination ref.** The panel deploys from
-a separate repository via subtree split. The obvious form of this command
-fails:
+**The Vercel deploy — the command is shell-specific.** The panel deploys
+from a separate repository via subtree split, and there are *two*
+independent traps here.
+
+First, git cannot infer what kind of ref to create when the **source** is
+a bare SHA rather than a branch name, so the destination must be spelled
+out as `refs/heads/main`. Otherwise:
 
 ```
 fatal: <sha> cannot be resolved to branch
 ```
 
-Git cannot infer what kind of ref to create when the **source** is a bare
-SHA rather than a branch name, so the destination has to be spelled out
-in full. This is the form that works:
+Second — and this one bites only in PowerShell — a quoted string is **not
+joined to the text that follows it**. So this bash-correct line silently
+splits into two arguments under PowerShell and produces the same
+`cannot be resolved to branch` error even with the ref spelled out:
 
 ```bash
+# bash / git-bash ONLY
 git push website "$(git subtree split --prefix=admin-web)":refs/heads/main --force
 ```
 
-In PowerShell, `$( )` expands the same way, so the line is identical
-there. The push is still yours to run.
+In PowerShell the whole refspec has to sit inside one pair of quotes.
+Verified against a throwaway local bare repo: the form above exits 128,
+the form below exits 0 and reports `* [new branch] ... -> main`.
+
+```powershell
+# PowerShell
+$sha = (git subtree split --prefix=admin-web | Select-Object -Last 1).Trim()
+git push website "${sha}:refs/heads/main" --force
+```
+
+`git subtree split` writes its progress counter to stderr, so it scrolls
+past while this runs; only the SHA lands in `$sha`.
+
+The push is still yours to run.
 
 **Authenticated panel verification.** I have not signed in to the panel.
 Entering a password is something I will not do, whoever asks. If you sign
