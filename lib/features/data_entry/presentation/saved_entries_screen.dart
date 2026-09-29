@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
@@ -11,6 +9,7 @@ import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
 import 'package:flutter_id_card/shared/theme/app_typography.dart';
 import 'package:flutter_id_card/shared/widgets/approval_status_chip.dart';
+import 'package:flutter_id_card/shared/widgets/entry_photo.dart';
 import 'package:flutter_id_card/shared/widgets/glass/admin_page.dart';
 import 'package:flutter_id_card/shared/widgets/sync_status_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -248,9 +247,6 @@ class _EntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final String? path = entry.localPhotoPath;
-    final bool hasThumb =
-        path != null && path.isNotEmpty && File(path).existsSync();
     final bool rejected = entry.approvalStatus.needsOperatorAttention;
 
     return PressableSurface(
@@ -273,26 +269,13 @@ class _EntryTile extends StatelessWidget {
             children: <Widget>[
               Hero(
                 tag: 'entry-photo-${entry.id}',
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 48,
-                    height: 60, // 1.2:1.5
-                    child: hasThumb
-                        ? Image.file(
-                            File(path),
-                            fit: BoxFit.cover,
-                            cacheWidth: 160,
-                            cacheHeight: 200,
-                          )
-                        : Container(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            child: Icon(
-                              Icons.person_outline,
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
-                  ),
+                child: EntryPhoto(
+                  entry: entry,
+                  width: 48,
+                  height: 60, // 1.2:1.5
+                  shape: BoxShape.rectangle,
+                  radius: BorderRadius.circular(8),
+                  placeholderIcon: Icons.person_outline,
                 ),
               ),
               const SizedBox(width: 12),

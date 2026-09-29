@@ -8,8 +8,10 @@ import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/notifications/application/notification_providers.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
+import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
+import 'package:flutter_id_card/shared/widgets/entry_photo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -80,6 +82,87 @@ void main() {
           reason: '$label is in the tree but collapsed to nothing',
         );
       }
+    });
+  });
+
+  group('A synced photo survived a reinstall but was not shown', () {
+    StudentEntry withPhoto({String? localPath, String? thumb}) => StudentEntry(
+      id: 'p1',
+      schoolId: 'demo-school',
+      name: 'ATUL',
+      fatherName: 'FATHER',
+      studentClass: '10',
+      division: 'A',
+      rollNumber: '1',
+      bloodGroup: 'O+',
+      dob: DateTime(2012, 4, 3),
+      mobile: '9876543210',
+      address: 'SOMEWHERE',
+      localPhotoPath: localPath,
+      photoThumb: thumb,
+      createdAt: DateTime(2026, 9, 1),
+      updatedAt: DateTime(2026, 9, 1),
+    );
+
+    // A 1x1 JPEG is enough: the assertion is about which source is chosen,
+    // not about pixels.
+    const String tinyJpeg =
+        '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8U'
+        'HRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA'
+        '/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEA'
+        'AD8AKp//2Q==';
+
+    testWidgets('falls back to the synced thumbnail when the file is gone', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: EntryPhoto(
+              entry: withPhoto(
+                // The path a reinstall left dangling.
+                localPath: '/no/such/file/anywhere.jpg',
+                thumb: tinyJpeg,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Asserting on the image SOURCE, not merely that some Image exists.
+      // "An Image is present" would pass even if Image.file never resolved
+      // its error and the fallback never ran - a vacuous test.
+      final Iterable<Image> images = tester.widgetList<Image>(
+        find.byType(Image),
+      );
+      expect(
+        images.any((Image i) => i.image is MemoryImage),
+        isTrue,
+        reason:
+            'the synced thumbnail is what should be drawn once the local '
+            'file turns out to be gone',
+      );
+      expect(
+        find.byIcon(Icons.person),
+        findsNothing,
+        reason: 'showing a silhouette for a photo we hold is the bug',
+      );
+    });
+
+    testWidgets('shows a silhouette only when there is genuinely no photo', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(body: EntryPhoto(entry: withPhoto())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.person), findsOneWidget);
     });
   });
 

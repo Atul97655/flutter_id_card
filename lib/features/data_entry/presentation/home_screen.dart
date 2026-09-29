@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
@@ -16,6 +14,7 @@ import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_shadows.dart';
 import 'package:flutter_id_card/shared/theme/app_spacing.dart';
 import 'package:flutter_id_card/shared/theme/app_typography.dart';
+import 'package:flutter_id_card/shared/widgets/entry_photo.dart';
 import 'package:flutter_id_card/shared/widgets/glass/glass_controls.dart';
 import 'package:flutter_id_card/shared/widgets/glass/glass_scaffold.dart';
 import 'package:flutter_id_card/shared/widgets/glass/glass_surface.dart';
@@ -538,7 +537,7 @@ class _RecentRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Row(
           children: <Widget>[
-            _Avatar(entry: entry),
+            EntryPhoto(entry: entry),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
@@ -558,42 +557,6 @@ class _RecentRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// The student's face if the photo has reached this device, a neutral
-/// silhouette otherwise.
-///
-/// Reads `localPhotoPath` only. A card captured on another phone has its
-/// photo pulled down by the sync worker before it can appear here, so this
-/// staying local is deliberate - a list row must never start a network
-/// fetch.
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.entry});
-
-  final StudentEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final String? path = entry.localPhotoPath;
-
-    return Container(
-      width: 44,
-      height: 44,
-      clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
-        color: AppColors.mist,
-        shape: BoxShape.circle,
-      ),
-      child: path == null || path.isEmpty
-          ? const Icon(Icons.person, size: 24, color: AppColors.inkMuted)
-          : Image.file(
-              File(path),
-              fit: BoxFit.cover,
-              errorBuilder: (BuildContext c, Object e, StackTrace? s) =>
-                  const Icon(Icons.person, size: 24, color: AppColors.inkMuted),
-            ),
     );
   }
 }

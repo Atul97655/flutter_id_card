@@ -346,8 +346,11 @@ class _RoleTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.all(4),
+      // 56, not 48. At 48 the two tabs were 40pt tall next to 72pt input
+      // rows below them, which read as a strip of text rather than as the
+      // control that decides what the rest of the form means.
+      height: 56,
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: AppColors.royal.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -407,14 +410,14 @@ class _Tab extends StatelessWidget {
           children: <Widget>[
             Icon(
               icon,
-              size: 17,
+              size: 19,
               color: selected ? AppColors.royal : AppColors.inkMuted,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 7),
             Text(
               label,
               style: AppTypography.badge.copyWith(
-                fontSize: 13.5,
+                fontSize: 14.5,
                 color: selected ? AppColors.royal : AppColors.inkMuted,
               ),
             ),

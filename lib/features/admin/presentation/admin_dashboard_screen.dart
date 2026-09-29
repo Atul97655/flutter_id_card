@@ -471,29 +471,36 @@ class _StatGrid extends StatelessWidget {
       crossAxisSpacing: 12,
       childAspectRatio: 2.0,
       children: <Widget>[
+        // Every one of these opens the queue. They are counts of work, and a
+        // number describing work you cannot tap through to is just decoration
+        // - which is exactly how these four read on a device.
         _StatTile(
           label: 'Awaiting review',
           value: s.awaitingReview,
           color: StatusColors.pending,
           icon: Icons.pending_actions,
+          onTap: () => context.push(RequestsQueueScreen.routePath),
         ),
         _StatTile(
           label: 'Approved',
           value: s.approved,
           color: StatusColors.synced,
           icon: Icons.verified_outlined,
+          onTap: () => context.push(RequestsQueueScreen.routePath),
         ),
         _StatTile(
           label: 'Printed',
           value: s.printed,
           color: StatusColors.printed,
           icon: Icons.print_outlined,
+          onTap: () => context.push(RequestsQueueScreen.routePath),
         ),
         _StatTile(
           label: 'Ready to print',
           value: s.printable,
           color: const Color(0xFF00695C),
           icon: Icons.local_printshop_outlined,
+          onTap: () => context.push(RequestsQueueScreen.routePath),
         ),
       ],
     );
@@ -506,53 +513,58 @@ class _StatTile extends StatelessWidget {
     required this.value,
     required this.color,
     required this.icon,
+    this.onTap,
   });
 
   final String label;
   final int value;
   final Color color;
   final IconData icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
               ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Text(
-                    '$value',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: color,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      '$value',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
                     ),
-                  ),
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
