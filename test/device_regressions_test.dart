@@ -115,10 +115,10 @@ void main() {
           currentSessionProvider.overrideWithValue(teacher),
           myChatsProvider.overrideWith(
             (Ref ref) => Stream<List<Chat>>.value(<Chat>[
-              Chat(
+              const Chat(
                 id: 'c1',
                 title: 'DEMO PUBLIC SCHOOL',
-                members: const <String>['u1', 'admin'],
+                members: <String>['u1', 'admin'],
                 schoolId: 'demo-school',
               ),
             ]),
