@@ -3,6 +3,7 @@ import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/features/notifications/application/notification_providers.dart';
+import 'package:flutter_id_card/shared/app_version.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
@@ -126,9 +127,20 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Center(
-            child: Text(
-              session?.email ?? 'Signed out',
-              style: AppTypography.support,
+            child: Column(
+              children: <Widget>[
+                Text(
+                  session?.email ?? 'Signed out',
+                  style: AppTypography.support,
+                ),
+                const SizedBox(height: 2),
+                // So "have I actually got the new build?" is answerable by
+                // looking, instead of by guessing.
+                Text(
+                  kVersionLabel,
+                  style: AppTypography.support.copyWith(fontSize: 11.5),
+                ),
+              ],
             ),
           ),
         ],

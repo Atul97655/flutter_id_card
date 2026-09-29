@@ -4,6 +4,7 @@ import 'package:flutter_id_card/features/admin/presentation/requests_queue_scree
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
+import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_spacing.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
@@ -563,6 +564,16 @@ class _StatTile extends StatelessWidget {
                   ],
                 ),
               ),
+              // Making these tappable changed nothing anyone could SEE - an
+              // InkWell only shows itself once pressed, so a counter that now
+              // opens the queue still looked like a dead number. The chevron
+              // is the part that says otherwise.
+              if (onTap != null)
+                const Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: AppColors.inkMuted,
+                ),
             ],
           ),
         ),
