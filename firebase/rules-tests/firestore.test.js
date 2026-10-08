@@ -599,6 +599,39 @@ describe('Privilege escalation', () => {
     );
   });
 
+  it('a teacher CAN record which notifications they have seen', async () => {
+    // This is what makes a reinstall stop re-announcing work the operator
+    // already dealt with. It is their own badge state and nothing else reads
+    // it, so the worst they can do by writing nonsense is silence themselves.
+    await assertSucceeds(
+      setDoc(
+        doc(as(TEACHER_A), 'users', TEACHER_A),
+        { notificationsSeenIds: ['entry-1-approved-123'], returnedDismissedIds: ['entry-2'] },
+        { merge: true },
+      ),
+    );
+  });
+
+  it('but cannot smuggle a role change alongside the seen set', async () => {
+    await assertFails(
+      setDoc(
+        doc(as(TEACHER_A), 'users', TEACHER_A),
+        { notificationsSeenIds: ['x'], role: 'Admin' },
+        { merge: true },
+      ),
+    );
+  });
+
+  it('and cannot write another teacher seen set', async () => {
+    await assertFails(
+      setDoc(
+        doc(as(TEACHER_A), 'users', TEACHER_B),
+        { notificationsSeenIds: ['x'] },
+        { merge: true },
+      ),
+    );
+  });
+
   it('but cannot smuggle another field alongside it', async () => {
     await assertFails(
       setDoc(

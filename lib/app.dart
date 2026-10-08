@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_id_card/shared/providers/seen_marker_providers.dart';
 import 'package:flutter_id_card/shared/providers/sync_providers.dart';
 import 'package:flutter_id_card/shared/router/app_router.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
@@ -16,6 +17,12 @@ class IdCardApp extends ConsumerWidget {
     // Watched here, at the root, so it stays alive across every screen rather
     // than starting and stopping as the operator navigates.
     ref.watch(syncLifecycleProvider);
+
+    // Brings "I have already seen this" down from the account. Watched here
+    // rather than inside the notifications screen because the badge is drawn
+    // on the shell long before anyone opens that screen - and on a fresh
+    // install the whole point is that it is drawn empty.
+    ref.watch(seenMarkerPullProvider);
 
     return MaterialApp.router(
       title: 'ID entity',

@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
+import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/notifications/application/notification_providers.dart';
 import 'package:flutter_id_card/features/notifications/domain/app_notification.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/providers/seen_marker_providers.dart';
 import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
@@ -13,8 +18,15 @@ import 'package:intl/intl.dart';
 /// Everything that happened to this operator's work, newest first.
 ///
 /// Opening this screen is what clears the badge. The feed has no rows of its
-/// own to mark read - it is derived from entry statuses, chats and sync state -
-/// so "seen" is recorded as one timestamp, and anything older stops counting.
+/// own to mark read - it is derived from entry statuses, chats and sync state
+/// - so "seen" is recorded as the set of ids that were on screen, and
+/// anything in that set stops counting.
+///
+/// Ids, not a timestamp. The timestamp was stamped from the device clock and
+/// compared against times that come off the server, so a handset running a
+/// few minutes slow marked nothing as read and the badge was back on the next
+/// launch. The set is also mirrored onto the account, which is what makes a
+/// reinstall stop re-announcing work the operator dealt with weeks ago.
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -24,44 +36,71 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  /// The watermark as it was when this screen opened.
+  /// What had already been seen when this screen opened.
   ///
-  /// Kept so the list still shows what was new *on arrival*. Stamping the new
-  /// watermark and then reading it back would turn every row read under the
-  /// operator's eyes in the first frame, hiding the very thing they came for.
-  DateTime? _openedWith;
-  bool _stamped = false;
+  /// Kept so the list still shows what was new *on arrival*. Marking
+  /// everything seen and then reading it back would turn every row read under
+  /// the operator's eyes in the first frame, hiding the very thing they came
+  /// for.
+  Set<String>? _openedWith;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _markSeen());
+  /// The last set written, so a rebuild caused by our own write does not
+  /// write again. Without it the Drift stream and this callback would feed
+  /// each other for as long as the screen was open.
+  Set<String>? _lastStamped;
+
+  bool _stamping = false;
+
+  /// Records what is on screen as seen.
+  ///
+  /// Driven from build rather than from initState, because on arrival the
+  /// entries stream has usually not produced anything yet - stamping an empty
+  /// feed would mark nothing and leave the badge exactly as it was. Running
+  /// after every frame instead means the rows that appear a moment later are
+  /// caught too, which is the case that actually happens on a real device.
+  Future<void> _stamp(List<AppNotification> items) async {
+    if (_stamping) return;
+    final Set<String> ids = items.map((AppNotification n) => n.id).toSet();
+    if (_lastStamped != null && _setEquals(_lastStamped!, ids)) return;
+
+    _stamping = true;
+    try {
+      final AppFlagRepository flags = ref.read(appFlagRepositoryProvider);
+      _openedWith ??= await flags.readStringSet(
+        AppFlagRepository.notificationsSeenIdsKey,
+      );
+      if (!mounted) return;
+
+      _lastStamped = ids;
+      final SessionUser? session = ref.read(currentSessionProvider);
+      await ref
+          .read(seenMarkerServiceProvider)
+          .markNotificationsSeen(uid: session?.uid ?? '', visibleIds: ids);
+      if (mounted) setState(() {});
+    } finally {
+      _stamping = false;
+    }
   }
 
-  Future<void> _markSeen() async {
-    final AppFlagRepository flags = ref.read(appFlagRepositoryProvider);
-    final DateTime? previous = await flags.readDateTime(
-      AppFlagRepository.notificationsSeenAtKey,
-    );
-    if (!mounted) return;
-    setState(() {
-      _openedWith = previous;
-      _stamped = true;
-    });
-    await flags.markNotificationsSeen();
-  }
+  static bool _setEquals(Set<String> a, Set<String> b) =>
+      a.length == b.length && a.containsAll(b);
 
-  /// Before the stamp lands the provider's own answer is still the pre-open
-  /// one and is correct. Afterwards the provider says everything is read, so
-  /// the snapshot above takes over.
+  /// Before the first stamp lands the provider's own answer is still the
+  /// pre-open one and is correct. Afterwards the provider says everything is
+  /// read, so the snapshot above takes over.
   bool _isNew(AppNotification n) {
-    if (!_stamped) return n.unread;
-    return _openedWith == null || n.at.isAfter(_openedWith!);
+    final Set<String>? opened = _openedWith;
+    if (opened == null) return n.unread;
+    return !opened.contains(n.id);
   }
 
   @override
   Widget build(BuildContext context) {
     final List<AppNotification> items = ref.watch(notificationsProvider);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_stamp(items));
+    });
 
     return AdminPage(
       title: 'Notifications',

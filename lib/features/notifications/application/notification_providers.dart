@@ -7,13 +7,15 @@ import 'package:flutter_id_card/features/notifications/domain/app_notification.d
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/providers/seen_marker_providers.dart';
 import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// When the operator last opened the notifications screen.
 ///
-/// Null until they open it once, which correctly makes everything unread on a
-/// fresh install.
+/// Kept as a record of the last visit. The badge is no longer counted against
+/// it - see [notificationsProvider] - but the key is cheap to keep and
+/// dropping it would be a migration for no gain.
 final StreamProvider<DateTime?> notificationsSeenAtProvider =
     StreamProvider<DateTime?>((Ref ref) {
       return ref
@@ -47,6 +49,7 @@ notificationsProvider = Provider<List<AppNotification>>((Ref ref) {
       // updatedAt keeps a row from jumping to 1970 on a record that synced
       // before the review fields existed.
       at: e.reviewedAt ?? e.updatedAt,
+      reviewedAt: e.reviewedAt,
     );
     if (n != null) out.add(n);
 
@@ -75,7 +78,13 @@ notificationsProvider = Provider<List<AppNotification>>((Ref ref) {
       final bool isBroadcast = c.kind == ChatKind.broadcast;
       out.add(
         AppNotification(
-          id: 'chat-${c.id}',
+          // The last message's time is part of the id so a second message in
+          // a conversation the operator has already glanced at is new again.
+          // With a bare `chat-<id>`, reading the notification once silenced
+          // that conversation for good.
+          id: c.lastMessageAt == null
+              ? 'chat-${c.id}'
+              : 'chat-${c.id}-${c.lastMessageAt!.millisecondsSinceEpoch}',
           kind: isBroadcast
               ? NotificationKind.broadcast
               : NotificationKind.newMessage,
@@ -93,19 +102,26 @@ notificationsProvider = Provider<List<AppNotification>>((Ref ref) {
 
   out.sort((AppNotification a, AppNotification b) => b.at.compareTo(a.at));
 
-  // Unread is decided here, against the watermark, rather than by each source.
+  // Unread is decided here, against the set of ids already looked at, rather
+  // than by each source.
   //
   // The sources used to hardcode it, and a returned card hardcoded it to true
   // forever - so the bell carried a number nothing could clear and the app
-  // always looked like it was hiding something missed. A watermark is what
-  // makes "I have looked at these" expressible at all: the feed is derived
-  // from live state and has no rows of its own to mark read.
-  final DateTime? seenAt = ref.watch(notificationsSeenAtProvider).value;
+  // always looked like it was hiding something missed. Recording what has
+  // been looked at is what makes "I have seen these" expressible at all: the
+  // feed is derived from live state and has no rows of its own to mark read.
+  //
+  // It was a timestamp before this, and the timestamp was wrong in a way that
+  // only showed up on a real handset. It was stamped with the device clock
+  // while the feed's times come off the server, so a phone a few minutes slow
+  // produced notifications dated after the moment they were read - and the
+  // badge was back on the next launch, with nothing the operator could do
+  // about it. Ids carry no clock. They also survive a reinstall, because
+  // SeenMarkerService mirrors them onto the account.
+  final Set<String> seen =
+      ref.watch(notificationsSeenIdsProvider).value ?? const <String>{};
   return out
-      .map(
-        (AppNotification n) =>
-            n.copyWith(unread: seenAt == null || n.at.isAfter(seenAt)),
-      )
+      .map((AppNotification n) => n.copyWith(unread: !seen.contains(n.id)))
       .toList();
 });
 

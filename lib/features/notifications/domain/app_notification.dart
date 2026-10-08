@@ -32,7 +32,10 @@ enum NotificationKind {
 /// people to ignore the badge entirely.
 ///
 /// So: [unread] is "you have not looked at this yet" and is decided by the
-/// feed against a persisted watermark, not by this class. [actionRequired] is
+/// feed against the set of ids already looked at, not by this class. It was a
+/// timestamp watermark once; that compared a device clock against server
+/// times and so could be defeated by a handset running a few minutes slow,
+/// which brought the badge back on every launch. [actionRequired] is
 /// "this still needs you to do something", which stays true until the card is
 /// actually resubmitted - it drives the row's highlight, and nothing else.
 class AppNotification {
@@ -88,14 +91,30 @@ class AppNotification {
     required ApprovalStatus status,
     required String? reason,
     required DateTime at,
+    DateTime? reviewedAt,
   }) {
     final String name = studentName.trim().isEmpty ? 'A card' : studentName;
     final String route = '/submissions/$entryId';
 
+    // The decision's own timestamp, folded into the id.
+    //
+    // Unread is decided by id now, so an id has to change whenever there is
+    // genuinely something new to say. Without this suffix a card that was
+    // sent back, corrected, and sent back AGAIN would reuse the id of the
+    // first rejection, which the operator has already read - and the second
+    // rejection would arrive silently. `reviewedAt` moves only when the
+    // office actually decides something, which is exactly the event worth
+    // re-announcing. It is left out when absent rather than falling back to
+    // `updatedAt`, because `updatedAt` moves on every local edit and would
+    // re-announce old news every time the operator opened the form.
+    final String stamp = reviewedAt == null
+        ? ''
+        : '-${reviewedAt.millisecondsSinceEpoch}';
+
     return switch (status) {
       ApprovalStatus.pending => null,
       ApprovalStatus.approved => AppNotification(
-        id: 'entry-$entryId-approved',
+        id: 'entry-$entryId-approved$stamp',
         kind: NotificationKind.cardApproved,
         title: 'Card approved',
         body: '$name was approved by the office.',
@@ -103,7 +122,7 @@ class AppNotification {
         route: route,
       ),
       ApprovalStatus.rejected => AppNotification(
-        id: 'entry-$entryId-rejected',
+        id: 'entry-$entryId-rejected$stamp',
         kind: NotificationKind.cardRejected,
         title: 'Card sent back',
         body: reason == null || reason.trim().isEmpty
@@ -117,7 +136,7 @@ class AppNotification {
         actionRequired: true,
       ),
       ApprovalStatus.printed => AppNotification(
-        id: 'entry-$entryId-printed',
+        id: 'entry-$entryId-printed$stamp',
         kind: NotificationKind.cardPrinted,
         title: 'Card printed',
         body: "$name's card has been printed.",

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
@@ -6,7 +8,9 @@ import 'package:flutter_id_card/features/notifications/application/notification_
 import 'package:flutter_id_card/shared/app_version.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
+import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
+import 'package:flutter_id_card/shared/providers/seen_marker_providers.dart';
 import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_gradients.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
@@ -39,7 +43,28 @@ class ProfileScreen extends ConsumerWidget {
       0,
       (int sum, ApprovalStatus s) => sum + count(s),
     );
-    final int rejected = count(ApprovalStatus.rejected);
+
+    // Returned cards the operator has not already waved away.
+    //
+    // The banner used to be driven straight off the count, which made it
+    // permanent: it reappeared on every launch, and after a reinstall it
+    // reappeared for cards that had been dealt with months earlier. An alert
+    // nobody can silence is one people learn to look past, which costs more
+    // than the alert was ever worth. Dismissing is recorded per card and
+    // mirrored onto the account, so a card that comes back AFTER a dismissal
+    // is not in the set and raises the banner again - which is the only time
+    // it should.
+    final Set<String> dismissed =
+        ref.watch(returnedDismissedIdsProvider).value ?? const <String>{};
+    final List<String> returned =
+        (ref.watch(entriesProvider).value ?? const <StudentEntry>[])
+            .where(
+              (StudentEntry e) =>
+                  e.approvalStatus == ApprovalStatus.rejected &&
+                  !dismissed.contains(e.id),
+            )
+            .map((StudentEntry e) => e.id)
+            .toList();
 
     return GlassScaffold(
       backdrop: GlassBackdrop.calm,
@@ -102,8 +127,16 @@ class ProfileScreen extends ConsumerWidget {
             index: 2,
             child: _SubmissionsPanel(
               total: total,
-              rejected: rejected,
+              returned: returned,
               onOpenAll: () => context.push('/entries'),
+              onDismissReturned: () => unawaited(
+                ref
+                    .read(seenMarkerServiceProvider)
+                    .dismissReturnedCards(
+                      uid: session?.uid ?? '',
+                      entryIds: returned.toSet(),
+                    ),
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.gutter),
@@ -335,13 +368,21 @@ class _StatusCard extends StatelessWidget {
 class _SubmissionsPanel extends StatelessWidget {
   const _SubmissionsPanel({
     required this.total,
-    required this.rejected,
+    required this.returned,
     required this.onOpenAll,
+    required this.onDismissReturned,
   });
 
   final int total;
-  final int rejected;
+
+  /// Entry ids of cards the office has sent back and that the operator has
+  /// not dismissed. Ids rather than a count because dismissing has to record
+  /// exactly which cards were waved away - a count cannot say that, so a card
+  /// that came back later would be silenced along with the old ones.
+  final List<String> returned;
+
   final VoidCallback onOpenAll;
+  final VoidCallback onDismissReturned;
 
   @override
   Widget build(BuildContext context) {
@@ -376,7 +417,7 @@ class _SubmissionsPanel extends StatelessWidget {
           // Returned cards are the only thing on this screen that needs doing,
           // so they are stated as an instruction rather than counted quietly
           // alongside the others.
-          if (rejected > 0)
+          if (returned.isNotEmpty)
             GlassSurface(
               radius: AppRadius.fieldR,
               fill: AppColors.rejectedTint.withValues(alpha: 0.9),
@@ -399,9 +440,9 @@ class _SubmissionsPanel extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Text(
-                          rejected == 1
+                          returned.length == 1
                               ? '1 card came back'
-                              : '$rejected cards came back',
+                              : '${returned.length} cards came back',
                           style: AppTypography.section.copyWith(
                             color: AppColors.rejected,
                           ),
@@ -418,6 +459,26 @@ class _SubmissionsPanel extends StatelessWidget {
                     Icons.chevron_right,
                     size: 20,
                     color: AppColors.rejected,
+                  ),
+                  // The way out. Tapping the banner opens the list; this
+                  // closes it, and remembers. Both have to exist: a banner
+                  // with only one of them is either unreadable or
+                  // undismissable.
+                  Semantics(
+                    button: true,
+                    label: 'Dismiss returned cards',
+                    child: InkResponse(
+                      onTap: onDismissReturned,
+                      radius: 20,
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: AppSpacing.xs),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: AppColors.rejected,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),

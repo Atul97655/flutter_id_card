@@ -167,6 +167,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               sending: _sending,
               onSend: () => _send(chat, session),
               onAttach: () => _openTray(chat, session),
+              onIdCard: chat == null || session == null
+                  ? null
+                  : () => _sendIdCard(chat, session),
             )
           else
             const _ReadOnlyFooter(),
@@ -556,6 +559,7 @@ class _RoundAction extends StatelessWidget {
     required this.onTap,
     this.tooltip,
     this.rotate = 0,
+    this.emphasised = false,
   });
 
   final IconData icon;
@@ -565,10 +569,17 @@ class _RoundAction extends StatelessWidget {
   /// Radians. Only the paperclip uses this.
   final double rotate;
 
+  /// Carries a filled tint instead of a wash.
+  ///
+  /// Two identical grey circles side by side would read as one control with a
+  /// decoration, and the operator would go on using the paperclip. The ID
+  /// card button is the primary action on this bar and is drawn like it.
+  final bool emphasised;
+
   @override
   Widget build(BuildContext context) {
     Widget button = Material(
-      color: AppColors.chatDeep.withValues(alpha: 0.09),
+      color: AppColors.chatDeep.withValues(alpha: emphasised ? 0.16 : 0.09),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -579,7 +590,11 @@ class _RoundAction extends StatelessWidget {
           child: Center(
             child: Transform.rotate(
               angle: rotate,
-              child: Icon(icon, size: 19, color: AppColors.chatDeep),
+              child: Icon(
+                icon,
+                size: emphasised ? 21 : 19,
+                color: AppColors.chatDeep,
+              ),
             ),
           ),
         ),
@@ -1116,12 +1131,18 @@ class _Composer extends StatelessWidget {
     required this.sending,
     required this.onSend,
     required this.onAttach,
+    required this.onIdCard,
   });
 
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
   final VoidCallback onAttach;
+
+  /// Opens the ID-card picker directly. Null only while the conversation or
+  /// the session is still loading, which is also the only time sending one
+  /// could not work.
+  final VoidCallback? onIdCard;
 
   @override
   Widget build(BuildContext context) {
@@ -1153,6 +1174,22 @@ class _Composer extends StatelessWidget {
                 tooltip: 'Attach',
                 onTap: sending ? () {} : onAttach,
                 rotate: -0.72,
+              ),
+              const SizedBox(width: 2),
+              // The one attachment this app exists for, lifted out of the
+              // tray and onto the bar.
+              //
+              // It was reachable only through the paperclip, six rows down a
+              // sheet, behind Document and Photos and two rows that are
+              // greyed out - three taps and a read for the single thing a
+              // teacher opens this screen to do. Everything else in that tray
+              // is a file off the phone and belongs together; this is not a
+              // file, and it does not.
+              _RoundAction(
+                icon: Icons.badge_outlined,
+                tooltip: 'Send an ID card',
+                emphasised: true,
+                onTap: sending || onIdCard == null ? () {} : onIdCard!,
               ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(

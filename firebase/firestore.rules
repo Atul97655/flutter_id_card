@@ -151,12 +151,25 @@ service cloud.firestore {
         );
 
       // Admins may update anything. A user may update only their own
-      // lastLoginDate - nothing else, and specifically not role or schoolId.
+      // lastLoginDate and their own "already seen this" sets - nothing else,
+      // and specifically not role or schoolId.
+      //
+      // The seen sets are here rather than on the device because the device
+      // cannot keep them. Local storage goes with an uninstall, so a
+      // reinstall used to re-announce every approval and every returned card
+      // the operator had already dealt with. They are arrays of opaque
+      // notification ids: nothing reads them but the owner's own app, and the
+      // worst a malicious owner can do by writing nonsense into them is
+      // silence their own badge.
       allow update: if isAdmin()
         || (
           request.auth.uid == uid
           && request.resource.data.diff(resource.data)
-               .affectedKeys().hasOnly(['lastLoginDate'])
+               .affectedKeys().hasOnly([
+                 'lastLoginDate',
+                 'notificationsSeenIds',
+                 'returnedDismissedIds',
+               ])
         );
     }
 

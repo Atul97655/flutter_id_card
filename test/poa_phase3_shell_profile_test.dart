@@ -11,6 +11,7 @@ import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
+import 'package:flutter_id_card/shared/providers/seen_marker_providers.dart';
 import 'package:flutter_id_card/shared/services/local/app_database.dart';
 import 'package:flutter_id_card/shared/services/local/app_flag_repository.dart';
 import 'package:flutter_id_card/shared/theme/app_theme.dart';
@@ -133,13 +134,18 @@ void main() {
 
       expect(feed.first.id, 'entry-stuck-syncfail');
       expect(feed.first.kind, NotificationKind.syncFailed);
+      // The decision's own time is part of the id, so a second decision on
+      // the same card cannot reuse the id of the first.
       expect(
         feed.map((AppNotification n) => n.id),
-        contains('entry-new-rejected'),
+        contains(
+          'entry-new-rejected-'
+          '${DateTime(2026, 9, 9, 18).millisecondsSinceEpoch}',
+        ),
       );
       expect(
         feed.map((AppNotification n) => n.id),
-        contains('entry-old-approved'),
+        anyElement(startsWith('entry-old-approved-')),
       );
 
       // Rejected + failed upload both need action; the approval does not.
@@ -176,14 +182,47 @@ void main() {
         reason: 'before the screen is opened, both are news',
       );
 
+      final List<AppNotification> before = await _feed(entries: entries);
       final List<AppNotification> afterLooking = await _feed(
         entries: entries,
-        seenAt: DateTime(2026, 9, 11),
+        seen: before.map((AppNotification n) => n.id).toSet(),
       );
       expect(
         afterLooking.where((AppNotification n) => n.unread).length,
         0,
         reason: 'the badge must reach zero, or it is worse than no badge',
+      );
+    });
+
+    test('a slow device clock cannot bring the badge back', () async {
+      // The bug this pins. "Seen" used to be a timestamp taken from the
+      // handset, compared against times written by the server. A phone a few
+      // minutes behind produced notifications dated AFTER the moment they
+      // were read, so every launch showed the same unread count and no amount
+      // of opening the screen could clear it. Ids have no clock in them.
+      final List<StudentEntry> entries = <StudentEntry>[
+        _entry(
+          id: 'a',
+          name: 'ASHA K',
+          status: ApprovalStatus.approved,
+          // Comfortably in the future relative to any clock this test runs on.
+          reviewedAt: DateTime(2099),
+        ),
+      ];
+
+      final List<AppNotification> feed = await _feed(
+        entries: entries,
+        seen: (await _feed(
+          entries: entries,
+        )).map((AppNotification n) => n.id).toSet(),
+      );
+
+      expect(
+        feed.single.unread,
+        isFalse,
+        reason:
+            'a notification dated in the future must still be clearable - '
+            'that is the whole failure this replaced',
       );
     });
 
@@ -199,16 +238,20 @@ void main() {
             reviewedAt: DateTime(2026, 9, 10),
           ),
         ],
-        seenAt: DateTime(2026, 9, 11),
+        seen: <String>{
+          'entry-r-rejected-${DateTime(2026, 9, 10).millisecondsSinceEpoch}',
+        },
       );
 
       expect(feed.single.unread, isFalse);
       expect(feed.single.actionRequired, isTrue);
     });
 
-    test('but a NEWER event after that still counts', () async {
-      // The same card being sent back a second time must re-alert. A watermark
-      // that swallowed this would be no better than the stuck badge.
+    test('but a NEWER decision on the same card still counts', () async {
+      // The same card being sent back a second time must re-alert. A seen set
+      // that swallowed this would be no better than the stuck badge - the
+      // office would correct a card twice and the teacher would hear about it
+      // once.
       final List<AppNotification> feed = await _feed(
         entries: <StudentEntry>[
           _entry(
@@ -218,17 +261,20 @@ void main() {
             reviewedAt: DateTime(2026, 9, 12),
           ),
         ],
-        seenAt: DateTime(2026, 9, 11),
+        // The FIRST rejection, already read.
+        seen: <String>{
+          'entry-r-rejected-${DateTime(2026, 9, 10).millisecondsSinceEpoch}',
+        },
       );
 
       expect(feed.single.unread, isTrue);
     });
   });
 
-  group('The seen watermark', () {
+  group('The seen set', () {
     // Exercised against a real database rather than a stub: the whole point of
-    // the watermark is that it survives a restart, and an in-memory stand-in
-    // would prove nothing about that.
+    // this is that it survives a restart, and an in-memory stand-in would
+    // prove nothing about that.
     late AppDatabase db;
     late AppFlagRepository flags;
 
@@ -239,45 +285,65 @@ void main() {
 
     tearDown(() async => db.close());
 
-    test('starts unset, which correctly makes everything unread', () async {
+    test('starts empty, which correctly makes everything unread', () async {
       expect(
-        await flags.readDateTime(AppFlagRepository.notificationsSeenAtKey),
-        isNull,
+        await flags.readStringSet(AppFlagRepository.notificationsSeenIdsKey),
+        isEmpty,
       );
     });
 
     test('round-trips through storage', () async {
-      await flags.markNotificationsSeen();
-      final DateTime? back = await flags.readDateTime(
-        AppFlagRepository.notificationsSeenAtKey,
-      );
+      await flags.markNotificationsSeen(<String>{'a', 'b'});
 
-      expect(back, isNotNull);
       expect(
-        DateTime.now().difference(back!).inSeconds.abs(),
-        lessThan(5),
-        reason: 'the stamp is "now", and must survive the UTC round trip',
+        await flags.readStringSet(AppFlagRepository.notificationsSeenIdsKey),
+        <String>{'a', 'b'},
+      );
+      expect(
+        await flags.readDateTime(AppFlagRepository.notificationsSeenAtKey),
+        isNotNull,
+        reason: 'the visit time is still recorded, it just no longer decides',
       );
     });
 
-    test(
-      'a later stamp replaces the earlier one rather than adding a row',
-      () async {
-        await flags.writeDateTime(
-          AppFlagRepository.notificationsSeenAtKey,
-          DateTime.utc(2026, 1, 1),
-        );
-        await flags.writeDateTime(
-          AppFlagRepository.notificationsSeenAtKey,
-          DateTime.utc(2026, 6, 1),
-        );
+    test('replaces rather than accumulating', () async {
+      // This is what keeps the set the size of the feed instead of growing
+      // for the life of the account. Anything that has dropped out of the
+      // feed drops out of here with it.
+      await flags.markNotificationsSeen(<String>{'a', 'b'});
+      await flags.markNotificationsSeen(<String>{'b', 'c'});
 
-        expect(
-          await flags.readDateTime(AppFlagRepository.notificationsSeenAtKey),
-          DateTime.utc(2026, 6, 1),
-        );
-      },
-    );
+      expect(
+        await flags.readStringSet(AppFlagRepository.notificationsSeenIdsKey),
+        <String>{'b', 'c'},
+      );
+    });
+
+    test('adding keeps what is already there', () async {
+      // Dismissing a returned card must not un-dismiss the last one.
+      await flags.addToStringSet(
+        AppFlagRepository.returnedDismissedIdsKey,
+        <String>{'card-1'},
+      );
+      await flags.addToStringSet(
+        AppFlagRepository.returnedDismissedIdsKey,
+        <String>{'card-2'},
+      );
+
+      expect(
+        await flags.readStringSet(AppFlagRepository.returnedDismissedIdsKey),
+        <String>{'card-1', 'card-2'},
+      );
+    });
+
+    test('a value it did not write reads as empty rather than throwing', () {
+      // The notification feed runs on every launch. It must not be the thing
+      // that takes the app down because a row in a key-value table is not the
+      // shape it expected.
+      expect(AppFlagRepository.decodeSetForTest('not json'), isEmpty);
+      expect(AppFlagRepository.decodeSetForTest('{"a":1}'), isEmpty);
+      expect(AppFlagRepository.decodeSetForTest('[1,"a",null]'), <String>{'a'});
+    });
   });
 
   group('Notifications screen', () {
@@ -381,16 +447,16 @@ Future<void> _pumpNotifications(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        // A real database, because opening this screen writes the watermark
-        // and that write is half of what is being tested.
+        // A real database, because opening this screen records what it
+        // showed and that write is half of what is being tested.
         appDatabaseProvider.overrideWithValue(db),
         // ...but not its live stream. A Drift stream query leaves a periodic
         // timer alive, and the widget-test binding fails the test with "a
         // Timer is still pending even after the widget tree was disposed". The
-        // screen only reads this to decide which rows look new; the watermark
-        // it writes is asserted directly against the repository elsewhere.
-        notificationsSeenAtProvider.overrideWith(
-          (ref) => Stream<DateTime?>.value(null),
+        // screen only reads this to decide which rows look new; the set it
+        // writes is asserted directly against the repository elsewhere.
+        notificationsSeenIdsProvider.overrideWith(
+          (ref) => Stream<Set<String>>.value(const <String>{}),
         ),
         entriesProvider.overrideWith(
           (ref) => Stream<List<StudentEntry>>.value(entries),
@@ -413,23 +479,23 @@ Future<void> _pumpNotifications(
   await tester.pumpAndSettle();
 }
 
-/// The notification feed as the app would compute it, for a given watermark.
+/// The notification feed as the app would compute it, for a given seen set.
 ///
-/// The watermark provider is overridden rather than backed by a database: the
+/// The seen-ids provider is overridden rather than backed by a database: the
 /// feed's own logic is what is under test here, and a Drift stream query
 /// inside a widget test leaves a pending timer that the test binding rejects.
 /// The storage side is covered separately against a real database.
 Future<List<AppNotification>> _feed({
   required List<StudentEntry> entries,
-  DateTime? seenAt,
+  Set<String> seen = const <String>{},
 }) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
       entriesProvider.overrideWith(
         (Ref ref) => Stream<List<StudentEntry>>.value(entries),
       ),
-      notificationsSeenAtProvider.overrideWith(
-        (Ref ref) => Stream<DateTime?>.value(seenAt),
+      notificationsSeenIdsProvider.overrideWith(
+        (Ref ref) => Stream<Set<String>>.value(seen),
       ),
     ],
   );
@@ -442,9 +508,9 @@ Future<List<AppNotification>> _feed({
   // dependent on microtask ordering - the feed reads the streams' synchronous
   // `.value`, which is null until the first event lands.
   container.listen(entriesProvider, (_, _) {});
-  container.listen(notificationsSeenAtProvider, (_, _) {});
+  container.listen(notificationsSeenIdsProvider, (_, _) {});
   await container.read(entriesProvider.future);
-  await container.read(notificationsSeenAtProvider.future);
+  await container.read(notificationsSeenIdsProvider.future);
 
   return container.read(notificationsProvider);
 }

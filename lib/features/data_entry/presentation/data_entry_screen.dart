@@ -10,7 +10,7 @@ import 'package:flutter_id_card/features/data_entry/presentation/widgets/dynamic
 import 'package:flutter_id_card/features/onboarding/application/join_providers.dart';
 import 'package:flutter_id_card/features/onboarding/domain/join_models.dart';
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart'
-    show photoFileExists;
+    show PhotoCaptureScreen, photoFileExists;
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/student_field.dart';
@@ -36,11 +36,21 @@ import 'package:uuid/uuid.dart';
 /// the same build can present completely different forms. Nothing about which
 /// fields exist is hard-coded in this widget.
 class DataEntryScreen extends ConsumerStatefulWidget {
-  const DataEntryScreen({super.key, this.entryId});
+  const DataEntryScreen({super.key, this.entryId, this.returnsEntryId = false});
 
   /// Null for a new entry; an existing id when editing from the preview or the
   /// saved-entries list.
   final String? entryId;
+
+  /// Pop with the saved entry's id instead of walking on to the preview.
+  ///
+  /// Set when the form is opened from somewhere that is waiting for a card -
+  /// today, making one from inside a conversation. The normal route ends at a
+  /// receipt screen reached with `go`, which replaces the navigation stack;
+  /// doing that from a chat would close the chat, and the teacher would come
+  /// back from the home screen to find their message gone. Popping keeps the
+  /// caller exactly where it was.
+  final bool returnsEntryId;
 
   static const String routeName = 'dataEntry';
 
@@ -221,10 +231,22 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
   }
 
   Future<void> _capturePhoto() async {
-    final String? path = await context.push<String>(
-      '/photo',
-      extra: _photoPath,
-    );
+    // Two routes to the same screen, picked by how this form was opened.
+    //
+    // The router's `/photo` adds a go_router page. When this form is itself a
+    // plain pushed route - which is how it opens from a conversation - that
+    // mixes declarative pages and imperative routes in one navigator for no
+    // benefit. Pushing it the same way the form was pushed keeps the whole
+    // chat-originated flow in one kind of route, so there is nothing to
+    // reason about when it unwinds.
+    final String? path = widget.returnsEntryId
+        ? await Navigator.of(context).push<String>(
+            MaterialPageRoute<String>(
+              builder: (BuildContext c) =>
+                  PhotoCaptureScreen(existingPath: _photoPath),
+            ),
+          )
+        : await context.push<String>('/photo', extra: _photoPath);
     if (!mounted || path == null) return;
     setState(() {
       _photoPath = path;
@@ -351,7 +373,11 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
 
       if (!mounted) return;
       _dirty = false;
-      context.pushReplacement('/preview/${entry.id}');
+      if (widget.returnsEntryId) {
+        Navigator.of(context).pop(entry.id);
+      } else {
+        context.pushReplacement('/preview/${entry.id}');
+      }
     } on Object catch (e) {
       if (!mounted) return;
       _showError('Could not save: $e');
@@ -426,7 +452,12 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
         if (didPop) return;
         final bool leave = await _confirmDiscard();
         if (!leave || !context.mounted) return;
-        if (context.canPop()) {
+        // Navigator, not the router, when this form was pushed imperatively -
+        // `context.pop()` would unwind go_router's own stack and leave this
+        // route sitting on top of a screen the operator never asked for.
+        if (widget.returnsEntryId) {
+          Navigator.of(context).pop();
+        } else if (context.canPop()) {
           context.pop();
         } else {
           context.go('/home');
