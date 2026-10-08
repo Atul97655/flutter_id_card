@@ -49,10 +49,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _searching = false;
   bool _sending = false;
 
-  /// Ensures the read receipt write happens once per screen visit rather than
-  /// on every stream rebuild, which would be a Firestore write per keystroke
-  /// anyone else types.
-  bool _markedRead = false;
+  /// The newest message this screen has already acknowledged.
+  ///
+  /// Not a bool. A bool meant the receipt was written once per visit, so a
+  /// message that arrived WHILE the operator was reading the conversation was
+  /// never marked - they watched it come in, closed the chat, and the list
+  /// told them they had something unread. It cleared itself the next time
+  /// they opened the chat, which made it look random rather than broken.
+  ///
+  /// Keyed on the newest id so the work still happens once per actual change
+  /// rather than on every rebuild. `markRead` filters to genuinely unseen
+  /// messages and returns without a write when there are none, so the cost of
+  /// being wrong here is a local list scan, not a Firestore write per
+  /// keystroke anyone else types.
+  String? _readUpTo;
 
   @override
   void dispose() {
@@ -78,8 +88,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? ChatRepository.search(all, _search.text)
         : all;
 
-    if (!_markedRead && all.isNotEmpty && session != null) {
-      _markedRead = true;
+    if (all.isNotEmpty && session != null && all.first.id != _readUpTo) {
+      _readUpTo = all.first.id;
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _markRead(all, session),
       );

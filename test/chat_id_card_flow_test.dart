@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_id_card/features/auth/presentation/profile_screen.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/data_entry_screen.dart';
 import 'package:flutter_id_card/features/messaging/application/chat_providers.dart';
+import 'package:flutter_id_card/features/messaging/data/chat_repository.dart';
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/send_id_card_screen.dart';
@@ -309,6 +312,126 @@ void main() {
     });
   });
 
+  group('Read receipts', () {
+    testWidgets('a message that lands while you are reading is still marked', (
+      WidgetTester tester,
+    ) async {
+      // The receipt used to be written once per screen visit. A message that
+      // arrived WHILE the operator was looking at the conversation was never
+      // acknowledged - they watched it come in, closed the chat, and the list
+      // told them they had something unread. It cleared itself the next time
+      // they opened the chat, which made it look random rather than broken.
+      final _SpyChatRepository spy = _SpyChatRepository();
+      final StreamController<List<ChatMessage>> messages =
+          StreamController<List<ChatMessage>>();
+      addTearDown(messages.close);
+
+      ChatMessage msg(String id) => ChatMessage(
+        id: id,
+        chatId: 'c1',
+        senderId: 'admin',
+        senderName: 'Admin',
+        sentAt: DateTime(2026, 9, 29, 22, 23),
+        body: 'from the office',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentSessionProvider.overrideWithValue(teacher),
+            chatRepositoryProvider.overrideWithValue(spy),
+            myChatsProvider.overrideWith(
+              (Ref ref) => Stream<List<Chat>>.value(<Chat>[
+                const Chat(
+                  id: 'c1',
+                  title: 'DEMO PUBLIC SCHOOL',
+                  members: <String>['u1', 'admin'],
+                  schoolId: 'demo-school',
+                  unreadFor: <String>['u1'],
+                ),
+              ]),
+            ),
+            messagesProvider('c1').overrideWith((Ref ref) => messages.stream),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const ChatScreen(chatId: 'c1'),
+          ),
+        ),
+      );
+
+      messages.add(<ChatMessage>[msg('m1')]);
+      await tester.pumpAndSettle();
+      expect(spy.calls, 1, reason: 'opening the chat marks what is there');
+
+      // The admin writes again while the screen is still open. Newest first,
+      // which is the order the query returns.
+      messages.add(<ChatMessage>[msg('m2'), msg('m1')]);
+      await tester.pumpAndSettle();
+
+      expect(
+        spy.calls,
+        2,
+        reason:
+            'a message read under the operator\'s eyes must not leave the '
+            'conversation showing as unread',
+      );
+    });
+
+    testWidgets('an unchanged list does not write a receipt again', (
+      WidgetTester tester,
+    ) async {
+      // The other half. Re-marking on every rebuild would be a write per
+      // keystroke anyone else types.
+      final _SpyChatRepository spy = _SpyChatRepository();
+      final StreamController<List<ChatMessage>> messages =
+          StreamController<List<ChatMessage>>.broadcast();
+      addTearDown(messages.close);
+
+      final List<ChatMessage> one = <ChatMessage>[
+        ChatMessage(
+          id: 'm1',
+          chatId: 'c1',
+          senderId: 'admin',
+          senderName: 'Admin',
+          sentAt: DateTime(2026, 9, 29, 22, 23),
+          body: 'hello',
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentSessionProvider.overrideWithValue(teacher),
+            chatRepositoryProvider.overrideWithValue(spy),
+            myChatsProvider.overrideWith(
+              (Ref ref) => Stream<List<Chat>>.value(<Chat>[
+                const Chat(
+                  id: 'c1',
+                  title: 'DEMO PUBLIC SCHOOL',
+                  members: <String>['u1', 'admin'],
+                  schoolId: 'demo-school',
+                ),
+              ]),
+            ),
+            messagesProvider('c1').overrideWith((Ref ref) => messages.stream),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const ChatScreen(chatId: 'c1'),
+          ),
+        ),
+      );
+
+      messages.add(one);
+      await tester.pumpAndSettle();
+      messages.add(List<ChatMessage>.from(one));
+      await tester.pumpAndSettle();
+
+      expect(spy.calls, 1);
+    });
+  });
+
   group('The returned-cards banner', () {
     testWidgets('can be dismissed', (WidgetTester tester) async {
       // It used to be permanent: nothing could clear it, so it came back on
@@ -374,4 +497,18 @@ void main() {
       );
     });
   });
+}
+
+/// Counts read receipts instead of writing them.
+class _SpyChatRepository extends ChatRepository {
+  int calls = 0;
+
+  @override
+  Future<void> markRead({
+    required String chatId,
+    required String uid,
+    required List<ChatMessage> visible,
+  }) async {
+    calls++;
+  }
 }
