@@ -61,6 +61,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Future<void> _stamp(List<AppNotification> items) async {
     if (_stamping) return;
     final Set<String> ids = items.map((AppNotification n) => n.id).toSet();
+
+    // An empty feed marks nothing. This guard is load-bearing, not tidiness:
+    // the first frame of this screen runs before the entries stream has
+    // produced anything, so without it the screen would open by writing an
+    // empty set - wiping everything the operator had already seen - and then
+    // write the real one a frame later. Leave in that window and the badge
+    // comes back for rows that were read weeks ago. There is also nothing to
+    // record: a feed with no rows already counts zero.
+    if (ids.isEmpty) return;
+
     if (_lastStamped != null && _setEquals(_lastStamped!, ids)) return;
 
     _stamping = true;

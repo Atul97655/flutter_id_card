@@ -110,49 +110,72 @@ class _SendIdCardScreenState extends ConsumerState<SendIdCardScreen> {
       onBack: () => Navigator.of(context).maybePop(),
       child: Column(
         children: <Widget>[
+          // Slivers rather than a ListView with a children list. A school
+          // that has been running a while has hundreds of approved cards, and
+          // a children list builds every one of them before the first frame -
+          // which on the handsets this runs on is a visible stall every time
+          // the picker opens. The header block is one sliver; the rows stay
+          // lazy.
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              children: <Widget>[
-                _RecipientCard(label: widget.recipientLabel),
-                const SizedBox(height: 14),
+            child: CustomScrollView(
+              slivers: <Widget>[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate(<Widget>[
+                      _RecipientCard(label: widget.recipientLabel),
+                      const SizedBox(height: 14),
 
-                // Above the list, deliberately. Someone who gets here with
-                // nothing to send needs this, and someone who has cards to
-                // send loses nothing but one row of scroll.
-                _CreateCardTile(onTap: _createCard),
+                      // Above the list, deliberately. Someone who gets here
+                      // with nothing to send needs this, and someone who has
+                      // cards to send loses nothing but one row of scroll.
+                      _CreateCardTile(onTap: _createCard),
 
-                if (waiting.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 18),
-                  _SectionLabel(
-                    waiting.length == 1
-                        ? 'With the office'
-                        : 'With the office (${waiting.length})',
-                  ),
-                  const SizedBox(height: 8),
-                  for (final StudentEntry e in waiting)
-                    _WaitingRow(entry: e, isNew: e.id == _justCreatedId),
-                ],
+                      if (waiting.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 18),
+                        _SectionLabel(
+                          waiting.length == 1
+                              ? 'With the office'
+                              : 'With the office (${waiting.length})',
+                        ),
+                        const SizedBox(height: 8),
+                        for (final StudentEntry e in waiting)
+                          _WaitingRow(
+                            entry: e,
+                            isNew: e.id == _justCreatedId,
+                          ),
+                      ],
 
-                const SizedBox(height: 18),
-                _SectionLabel(
-                  sendable.isEmpty ? 'Approved cards' : 'Approved cards (${sendable.length})',
-                ),
-                const SizedBox(height: 8),
-
-                if (sendable.isEmpty)
-                  const _NothingToSend()
-                else
-                  for (int i = 0; i < sendable.length; i++)
-                    FadeSlideIn(
-                      index: i,
-                      child: _SendableRow(
-                        entry: sendable[i],
-                        selected: sendable[i].id == _selectedId,
-                        onTap: () =>
-                            setState(() => _selectedId = sendable[i].id),
+                      const SizedBox(height: 18),
+                      _SectionLabel(
+                        sendable.isEmpty
+                            ? 'Approved cards'
+                            : 'Approved cards (${sendable.length})',
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      if (sendable.isEmpty) const _NothingToSend(),
+                    ]),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((
+                      BuildContext c,
+                      int i,
+                    ) {
+                      final StudentEntry e = sendable[i];
+                      return FadeSlideIn(
+                        index: i,
+                        child: _SendableRow(
+                          entry: e,
+                          selected: e.id == _selectedId,
+                          onTap: () => setState(() => _selectedId = e.id),
+                        ),
+                      );
+                    }, childCount: sendable.length),
+                  ),
+                ),
               ],
             ),
           ),

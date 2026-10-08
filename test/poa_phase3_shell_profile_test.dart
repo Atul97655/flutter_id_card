@@ -365,6 +365,31 @@ void main() {
       await _pumpNotifications(tester, const <StudentEntry>[]);
       expect(find.text('Nothing new'), findsOneWidget);
     });
+
+    testWidgets('an empty feed does not wipe what was already seen', (
+      WidgetTester tester,
+    ) async {
+      // The screen records what it showed, replacing the stored set. Its
+      // first frame runs before the entries stream has produced anything, so
+      // without a guard it opens by writing an empty set - erasing everything
+      // the operator had already read - and writes the real one a frame
+      // later. Leave in that window and the badge comes back for rows dealt
+      // with weeks ago.
+      final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      final AppFlagRepository flags = AppFlagRepository(db);
+      await flags.writeStringSet(
+        AppFlagRepository.notificationsSeenIdsKey,
+        <String>{'entry-old-approved-1'},
+      );
+
+      await _pumpNotifications(tester, const <StudentEntry>[], db: db);
+
+      expect(
+        await flags.readStringSet(AppFlagRepository.notificationsSeenIdsKey),
+        <String>{'entry-old-approved-1'},
+      );
+    });
   });
 
   group('Photo zoom', () {
@@ -439,10 +464,13 @@ void main() {
 
 Future<void> _pumpNotifications(
   WidgetTester tester,
-  List<StudentEntry> entries,
-) async {
-  final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
-  addTearDown(db.close);
+  List<StudentEntry> entries, {
+  AppDatabase? db,
+}) async {
+  if (db == null) {
+    db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+  }
 
   await tester.pumpWidget(
     ProviderScope(
