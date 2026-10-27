@@ -29,11 +29,12 @@ void main() {
       await tester.pumpWidget(wrap(const JoinChoiceScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign in with my details'), findsOneWidget);
-      expect(find.text('Scan my school QR code'), findsOneWidget);
+      expect(find.text('I am a parent or student'), findsOneWidget);
+      expect(find.text('School staff: sign in'), findsOneWidget);
+      expect(find.text('Teacher: scan school QR code'), findsOneWidget);
     });
 
-    // The third case: a teacher holding neither. Naming who issues both is
+    // Staff holding neither credentials nor a code: naming who issues both is
     // what stops this screen producing a phone call to the office.
     testWidgets('says where accounts and codes come from', (
       WidgetTester tester,
@@ -41,8 +42,8 @@ void main() {
       await tester.pumpWidget(wrap(const JoinChoiceScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Ask your school office'), findsOneWidget);
-      expect(find.textContaining('issued by them'), findsOneWidget);
+      expect(find.textContaining('school office'), findsOneWidget);
+      expect(find.textContaining('issued by your'), findsOneWidget);
     });
 
     testWidgets('describes the job in one sentence', (
@@ -51,7 +52,7 @@ void main() {
       await tester.pumpWidget(wrap(const JoinChoiceScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('That is the whole job'), findsOneWidget);
+      expect(find.textContaining('ID card from your phone'), findsOneWidget);
     });
   });
 
