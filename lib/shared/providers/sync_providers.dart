@@ -40,7 +40,13 @@ final Provider<void> syncLifecycleProvider = Provider<void>((Ref ref) {
 
   // An admin has no schoolId - they sync every school instead of one, which is
   // what fills the dashboard and review queue.
-  if (!session.isAdmin && (schoolId == null || schoolId.isEmpty)) {
+  //
+  // A parent is the other exception: no school by design, and synced by who
+  // they are rather than which school they belong to.
+  final bool isParent = session.isParent;
+  if (!session.isAdmin &&
+      !isParent &&
+      (schoolId == null || schoolId.isEmpty)) {
     unawaited(service.stop());
     return;
   }
@@ -49,7 +55,7 @@ final Provider<void> syncLifecycleProvider = Provider<void>((Ref ref) {
   // scoped teacher whose sync query carries no scope is refused by the rules
   // for the entire result set - not filtered, refused - so this is the
   // difference between syncing and a permission error on every pass.
-  final JoinState? join = ref.watch(joinStateProvider).value;
+  final JoinState? join = isParent ? null : ref.watch(joinStateProvider).value;
 
   unawaited(
     service.start(
@@ -57,6 +63,7 @@ final Provider<void> syncLifecycleProvider = Provider<void>((Ref ref) {
       isAdmin: session.isAdmin,
       classLevel: join?.classLevel ?? '',
       division: join?.division ?? '',
+      parentUid: isParent ? session.uid : null,
     ),
   );
   ref.onDispose(() => unawaited(service.stop()));

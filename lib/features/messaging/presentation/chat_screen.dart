@@ -16,6 +16,7 @@ import 'package:flutter_id_card/features/messaging/data/chat_repository.dart';
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
 import 'package:flutter_id_card/features/messaging/presentation/send_id_card_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/widgets/attachment_tray.dart';
+import 'package:flutter_id_card/features/parent/presentation/school_picker_screen.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/theme/app_colors.dart';
@@ -287,6 +288,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (choice == null || !mounted) return;
 
     if (choice == AttachmentChoice.idCard) {
+      // A parent does not send a finished card into a chat - they make a new
+      // one: pick the school, fill its form, send it to the office.
+      if (session.isParent) {
+        await startParentIdCard(context);
+        return;
+      }
       await _sendIdCard(chat, session);
       return;
     }

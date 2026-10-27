@@ -4,6 +4,7 @@ import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/data_entry/application/entry_providers.dart';
 import 'package:flutter_id_card/features/notifications/application/notification_providers.dart';
 import 'package:flutter_id_card/features/onboarding/application/join_providers.dart';
+import 'package:flutter_id_card/features/parent/presentation/parent_home_screen.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
@@ -41,6 +42,10 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final SessionUser? session = ref.watch(currentSessionProvider);
+    // A parent has no school, so none of what follows (school card, section,
+    // class lists) applies to them.
+    if (session != null && session.isParent) return const ParentHomeScreen();
+
     final AsyncValue<SchoolConfig> config = ref.watch(schoolConfigProvider);
     final AsyncValue<Map<SyncStatus, int>> syncCounts = ref.watch(
       syncCountsProvider,

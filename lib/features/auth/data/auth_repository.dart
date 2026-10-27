@@ -82,10 +82,15 @@ class AuthRepository {
   ///
   /// `role` is pinned to Teacher for the same reason. Without it the first
   /// thing a stranger would write onto their own document is `Admin`.
+  ///
+  /// [role] is [UserRole.teacher] or [UserRole.parent]. The rules accept only
+  /// those two on a self-created profile, so passing anything else here would
+  /// fail at the write, not grant anything.
   Future<SessionUser> registerTeacher({
     required String email,
     required String password,
     required String displayName,
+    UserRole role = UserRole.teacher,
   }) async {
     if (!isBackendAvailable) {
       throw const AuthFailure(
@@ -128,7 +133,7 @@ class AuthRepository {
     try {
       await _db.collection('users').doc(fbUser.uid).set(<String, Object?>{
         'email': cleanEmail,
-        'role': UserRole.teacher.wireValue,
+        'role': role.wireValue,
         'displayName': name,
         'active': true,
         'createdAt': Timestamp.fromDate(DateTime.now()),
@@ -148,7 +153,7 @@ class AuthRepository {
     final SessionUser session = SessionUser(
       uid: fbUser.uid,
       email: cleanEmail,
-      role: UserRole.teacher,
+      role: role,
       displayName: name,
     );
     await _cacheSession(session);

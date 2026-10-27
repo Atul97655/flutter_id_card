@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/presentation/login_screen.dart';
+import 'package:flutter_id_card/features/onboarding/presentation/parent_register_screen.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/register_screen.dart';
 import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
@@ -73,6 +74,15 @@ class JoinChoiceScreen extends StatelessWidget {
                       colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
                     ),
                     onPressed: () => context.push(LoginScreen.routePath),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FadeSlideIn(
+                  index: 4,
+                  child: _SecondaryAction(
+                    icon: Icons.family_restroom,
+                    label: 'I am a parent or student',
+                    onTap: () => context.push(ParentRegisterScreen.routePath),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),

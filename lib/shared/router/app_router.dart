@@ -27,6 +27,7 @@ import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart
 import 'package:flutter_id_card/features/notifications/presentation/notifications_screen.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/awaiting_assignment_screen.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/join_choice_screen.dart';
+import 'package:flutter_id_card/features/onboarding/presentation/parent_register_screen.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/qr_scanner_screen.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/register_screen.dart';
 import 'package:flutter_id_card/features/photo_capture/presentation/photo_capture_screen.dart';
@@ -66,6 +67,7 @@ const Set<String> _publicRoutes = <String>{
   '/login',
   JoinChoiceScreen.routePath,
   RegisterScreen.routePath,
+  ParentRegisterScreen.routePath,
 };
 
 /// Routes a signed-in teacher may sit on while they still have no school.
@@ -130,6 +132,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       if (location == LoginScreen.routePath ||
           location == JoinChoiceScreen.routePath ||
           location == RegisterScreen.routePath ||
+          location == ParentRegisterScreen.routePath ||
           location == AwaitingAssignmentScreen.routePath) {
         return user.isAdmin ? '/admin' : HomeScreen.routePath;
       }
@@ -163,6 +166,12 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         name: RegisterScreen.routeName,
         pageBuilder: (BuildContext c, GoRouterState s) =>
             _page(s, const RegisterScreen()),
+      ),
+      GoRoute(
+        path: ParentRegisterScreen.routePath,
+        name: ParentRegisterScreen.routeName,
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const ParentRegisterScreen()),
       ),
       GoRoute(
         path: QrScannerScreen.routePath,

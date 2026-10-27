@@ -154,6 +154,10 @@ class SyncService {
   bool _running = false;
   bool _started = false;
 
+  /// Whether a parent's first full look at every school has happened. See
+  /// [_pullForParent] for why only the first pass looks everywhere.
+  bool _parentDiscovered = false;
+
   /// Begins periodic syncing and syncs immediately.
   ///
   /// Two modes, because the two roles need opposite things:
@@ -168,14 +172,21 @@ class SyncService {
   /// Also listens for connectivity changes: coming back online is the single
   /// best moment to drain the queue, far better than waiting out the poll
   /// interval while the operator watches a "Pending" badge.
+  ///
+  /// A third mode, for a parent: [parentUid] set. They have no school, so
+  /// there is no school to pull; instead the schools are mirrored (so the
+  /// picker and the form work offline) and only the entries they submitted
+  /// themselves come down - which is all the rules let them read.
   Future<void> start({
     String? schoolId,
     bool isAdmin = false,
     String classLevel = '',
     String division = '',
+    String? parentUid,
   }) async {
     if (_started) return;
     _started = true;
+    _parentDiscovered = false;
 
     _connectivitySub = _connectivity.onConnectivityChanged.listen((
       List<ConnectivityResult> results,
@@ -190,6 +201,7 @@ class SyncService {
             isAdmin: isAdmin,
             classLevel: classLevel,
             division: division,
+            parentUid: parentUid,
           ),
         );
       }
@@ -203,6 +215,7 @@ class SyncService {
           isAdmin: isAdmin,
           classLevel: classLevel,
           division: division,
+          parentUid: parentUid,
         ),
       ),
     );
@@ -212,6 +225,7 @@ class SyncService {
       isAdmin: isAdmin,
       classLevel: classLevel,
       division: division,
+      parentUid: parentUid,
     );
   }
 
@@ -248,6 +262,7 @@ class SyncService {
     bool isAdmin = false,
     String classLevel = '',
     String division = '',
+    String? parentUid,
   }) async {
     if (_running) return;
 
@@ -272,6 +287,8 @@ class SyncService {
 
       if (isAdmin) {
         await _pullEverythingForAdmin();
+      } else if (parentUid != null) {
+        await _pullForParent(parentUid);
       } else if (schoolId != null) {
         await _pullSchoolConfig(schoolId);
         await _pullSchoolEntries(
@@ -444,6 +461,7 @@ class SyncService {
     String schoolId, {
     String classLevel = '',
     String division = '',
+    String? submittedByUid,
   }) async {
     if (schoolId.isEmpty) return;
 
@@ -451,6 +469,12 @@ class SyncService {
         .collection('schools')
         .doc(schoolId)
         .collection('entries');
+
+    // A parent may read only the cards they submitted, so their query has to
+    // say so - the same reason a scoped teacher's carries its section below.
+    if (submittedByUid != null) {
+      query = query.where('submittedByUid', isEqualTo: submittedByUid);
+    }
 
     // A scoped teacher MUST put the scope on the query itself.
     //
@@ -485,6 +509,60 @@ class SyncService {
       incoming.add(_mergeRemote(remote, local));
     }
     if (incoming.isNotEmpty) await _students.saveAll(incoming);
+  }
+
+  /// A parent's pull: every school's settings, and their own cards.
+  ///
+  /// The schools come down so the picker and the chosen school's form work
+  /// without a connection. The cards come down so the office's decision
+  /// (approved, rejected and why) reaches the parent's phone.
+  ///
+  /// Entries are asked for school by school, because the rules let a parent
+  /// read only their own cards and a query across all schools would need a
+  /// collection-group rule and index. To keep the read cost down, only the
+  /// first pass after sign-in looks in every school - that recovers cards after
+  /// a reinstall. Later passes look only where this parent already has a card
+  /// on the device, which is the only place a decision can arrive.
+  Future<void> _pullForParent(String uid) async {
+    final QuerySnapshot<Map<String, Object?>> schoolDocs = await _db
+        .collection('schools')
+        .get();
+
+    final List<SchoolConfig> schools = <SchoolConfig>[];
+    for (final QueryDocumentSnapshot<Map<String, Object?>> doc
+        in schoolDocs.docs) {
+      final SchoolConfig remote = SchoolConfig.fromFirestoreMap(
+        doc.id,
+        doc.data(),
+      );
+      final SchoolConfig? existing = await _schools.find(doc.id);
+      schools.add(
+        existing?.localLogoPath == null
+            ? remote
+            : remote.copyWith(localLogoPath: existing!.localLogoPath),
+      );
+    }
+    if (schools.isNotEmpty) await _schools.saveAll(schools);
+
+    final Set<String> where;
+    if (_parentDiscovered) {
+      final List<StudentEntry> local = await _students.watchAll().first;
+      where = <String>{
+        for (final StudentEntry e in local)
+          if (e.submittedByUid == uid) e.schoolId,
+      };
+    } else {
+      where = <String>{
+        for (final QueryDocumentSnapshot<Map<String, Object?>> d
+            in schoolDocs.docs)
+          d.id,
+      };
+    }
+
+    for (final String schoolId in where) {
+      await _pullSchoolEntries(schoolId, submittedByUid: uid);
+    }
+    _parentDiscovered = true;
   }
 
   /// Mirrors every school and every entry into the local database.

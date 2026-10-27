@@ -9,7 +9,7 @@ rules_version = '2';
 // Deploy with:  firebase deploy --only firestore:rules
 //
 // Data model these rules assume:
-//   users/{uid}                      role: "Admin" | "Teacher" | "School",
+//   users/{uid}                      role: "Admin" | "Teacher" | "School" | "Parent",
 //                                    schoolId, active
 //   schools/{schoolId}               name, cardSizeId, enabledFields, colours...
 //   schools/{schoolId}/entries/{id}  one student record
@@ -56,6 +56,15 @@ service cloud.firestore {
     // lower privilege rather than accidentally granting admin.
     function isOperator() {
       return isActive() && userDoc().role != 'Admin';
+    }
+
+    // A parent or student using the app directly. Not tied to any school:
+    // they may read the school directory (to pick one), submit a card to any
+    // school, and read back only the cards they submitted themselves. They
+    // have no `schoolId`, so every `belongsToSchool` check below fails for
+    // them - which is what keeps them out of every school's own records.
+    function isParent() {
+      return isActive() && userDoc().role == 'Parent';
     }
 
     function operatorSchoolId() {
@@ -144,7 +153,7 @@ service cloud.firestore {
         || (
           isSignedIn()
           && request.auth.uid == uid
-          && request.resource.data.role == 'Teacher'
+          && request.resource.data.role in ['Teacher', 'Parent']
           && request.resource.data.get('active', true) == true
           && !('schoolId' in request.resource.data)
           && !('assignment' in request.resource.data)
@@ -177,7 +186,7 @@ service cloud.firestore {
 
     match /schools/{schoolId} {
       // An operator reads only their own school's settings; admins read all.
-      allow read: if isAdmin() || belongsToSchool(schoolId);
+      allow read: if isAdmin() || belongsToSchool(schoolId) || isParent();
 
       // Card size, field toggles and branding are admin-controlled. An
       // operator must not be able to switch a required field off.
@@ -215,7 +224,9 @@ service cloud.firestore {
         // was. See `inSectionScope` for why a scoped LIST needs matching
         // `where` clauses on the client query.
         allow read: if isAdmin()
-          || (belongsToSchool(schoolId) && inSectionScope(resource.data));
+          || (belongsToSchool(schoolId) && inSectionScope(resource.data))
+          || (isParent()
+              && resource.data.get('submittedByUid', '') == request.auth.uid);
 
         // The review decision is the admin's alone. An operator approving
         // their own submission would make the whole review step decorative,
@@ -256,6 +267,19 @@ service cloud.firestore {
               || !('approvalStatus' in request.resource.data)
               || request.resource.data.approvalStatus == 'pending');
 
+        // A parent submits for any school, but only as themselves and only
+        // into the review queue: the entry must name them as its author and
+        // start 'pending'. Both are required, not optional as they are for
+        // an operator, because `submittedByUid` is what lets them read it
+        // back. A parent cannot update or delete afterwards.
+        allow create: if isParent()
+          && request.resource.data.schoolId == schoolId
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && hasValidTextCapitalization()
+          && request.resource.data.get('submittedByUid', '') == request.auth.uid
+          && request.resource.data.get('approvalStatus', '') == 'pending';
+
         // Admins may change anything, including the review decision.
         // Operators may correct the student's details but never the review.
         // Both the before and after states are checked against the scope. A
@@ -268,6 +292,14 @@ service cloud.firestore {
                               && inSectionScope(request.resource.data)))
           && request.resource.data.schoolId == schoolId
           && hasValidTextCapitalization();
+
+        // The one edit a parent may make is attaching their photo's thumbnail
+        // to their own entry, which the upload does as a merge after the
+        // details land. Nothing else - not the details, not the review.
+        allow update: if isParent()
+          && resource.data.get('submittedByUid', '') == request.auth.uid
+          && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(['photoThumb']);
 
         // Deletion is admin-only: an operator deleting a synced record would
         // silently remove a student from the print run.
@@ -303,7 +335,9 @@ service cloud.firestore {
           }
 
           allow read: if isAdmin()
-            || (belongsToSchool(schoolId) && inSectionScope(parentEntry()));
+            || (belongsToSchool(schoolId) && inSectionScope(parentEntry()))
+            || (isParent()
+                && parentEntry().get('submittedByUid', '') == request.auth.uid);
 
           // The size cap is the point of writing this rule out rather than
           // reusing the entry rule. A document may hold just under 1 MiB, and
@@ -313,6 +347,16 @@ service cloud.firestore {
           // leaves headroom above what the encoder actually produces (tens of
           // KB) while still refusing anything pathological.
           allow create, update: if (isAdmin() || belongsToSchool(schoolId))
+            && request.resource.data.data is string
+            && request.resource.data.data.size() < 800000;
+
+          // A parent attaches the photo to their own entry, once, and cannot
+          // replace it. The upload writes the photo BEFORE the entry (so an
+          // entry never advertises a photo that has not landed), so the entry
+          // may not exist yet; if it does, it must be theirs.
+          allow create: if isParent()
+            && (!exists(/databases/$(database)/documents/schools/$(schoolId)/entries/$(entryId))
+                || parentEntry().get('submittedByUid', '') == request.auth.uid)
             && request.resource.data.data is string
             && request.resource.data.data.size() < 800000;
 

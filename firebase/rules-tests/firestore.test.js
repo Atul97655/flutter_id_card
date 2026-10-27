@@ -146,6 +146,105 @@ describe('Entries as a collection group', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Parents and students using the app directly, with no school of their own.
+// ---------------------------------------------------------------------------
+describe('Parent role', () => {
+  const PARENT = 'uid-parent';
+  const OTHER_PARENT = 'uid-parent-2';
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users', PARENT), { role: 'Parent', active: true });
+      await setDoc(doc(db, 'users', OTHER_PARENT), { role: 'Parent', active: true });
+      await setDoc(doc(db, 'schools', SCHOOL_A, 'entries', 'p-entry'), {
+        schoolId: SCHOOL_A, name: 'CHILD', approvalStatus: 'pending',
+        submittedByUid: PARENT,
+      });
+    });
+  });
+
+  const newEntry = (over = {}) => ({
+    schoolId: SCHOOL_A, name: 'CHILD TWO', approvalStatus: 'pending',
+    submittedByUid: PARENT, ...over,
+  });
+
+  it('can self-register as a Parent, with no school', async () => {
+    await assertSucceeds(
+      setDoc(doc(as('uid-new'), 'users', 'uid-new'), { role: 'Parent', active: true }),
+    );
+  });
+
+  it('cannot self-register as Admin or with a schoolId', async () => {
+    await assertFails(
+      setDoc(doc(as('uid-new'), 'users', 'uid-new'), { role: 'Admin', active: true }),
+    );
+    await assertFails(
+      setDoc(doc(as('uid-new'), 'users', 'uid-new'), {
+        role: 'Parent', active: true, schoolId: SCHOOL_A,
+      }),
+    );
+  });
+
+  it('can read the school directory', async () => {
+    await assertSucceeds(getDoc(doc(as(PARENT), 'schools', SCHOOL_B)));
+  });
+
+  it('can submit a pending entry to any school as themselves', async () => {
+    await assertSucceeds(
+      setDoc(doc(as(PARENT), 'schools', SCHOOL_B, 'entries', 'new1'),
+        newEntry({ schoolId: SCHOOL_B })),
+    );
+  });
+
+  it('cannot submit as someone else, pre-approved, or in lowercase', async () => {
+    const col = (id) => doc(as(PARENT), 'schools', SCHOOL_A, 'entries', id);
+    await assertFails(setDoc(col('x1'), newEntry({ submittedByUid: OTHER_PARENT })));
+    await assertFails(setDoc(col('x2'), newEntry({ approvalStatus: 'approved' })));
+    await assertFails(setDoc(col('x3'), newEntry({ name: 'child' })));
+    await assertFails(setDoc(col('x4'), newEntry({ schoolId: SCHOOL_B })));
+  });
+
+  it('reads back their own entry but not another parent\'s or a school\'s', async () => {
+    await assertSucceeds(getDoc(doc(as(PARENT), 'schools', SCHOOL_A, 'entries', 'p-entry')));
+    await assertFails(getDoc(doc(as(OTHER_PARENT), 'schools', SCHOOL_A, 'entries', 'p-entry')));
+    await assertFails(getDoc(doc(as(PARENT), 'schools', SCHOOL_A, 'entries', 'entry-a')));
+  });
+
+  it('cannot list a school\'s entries or use the collection group', async () => {
+    await assertFails(getDocs(collection(as(PARENT), 'schools', SCHOOL_A, 'entries')));
+    await assertFails(getDocs(collectionGroup(as(PARENT), 'entries')));
+  });
+
+  it('can add only a photoThumb to their entry, never approve it', async () => {
+    const ref = doc(as(PARENT), 'schools', SCHOOL_A, 'entries', 'p-entry');
+    await assertSucceeds(updateDoc(ref, { photoThumb: 'abc' }));
+    await assertFails(updateDoc(ref, { approvalStatus: 'approved' }));
+    await assertFails(updateDoc(ref, { name: 'OTHER' }));
+    await assertFails(deleteDoc(ref));
+  });
+
+  it('can attach a photo to their own entry, not to someone else\'s', async () => {
+    await assertSucceeds(setDoc(
+      doc(as(PARENT), 'schools', SCHOOL_A, 'entries', 'p-entry', 'media', 'photo'),
+      { data: 'abc' }));
+    await assertFails(setDoc(
+      doc(as(PARENT), 'schools', SCHOOL_A, 'entries', 'entry-a', 'media', 'photo'),
+      { data: 'abc' }));
+  });
+
+  it('can write the photo before the entry exists (upload order)', async () => {
+    await assertSucceeds(setDoc(
+      doc(as(PARENT), 'schools', SCHOOL_A, 'entries', 'not-yet', 'media', 'photo'),
+      { data: 'abc' }));
+  });
+
+  it('cannot read another user profile', async () => {
+    await assertFails(getDoc(doc(as(PARENT), 'users', TEACHER_A)));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The student's photo, carried inside Firestore because Cloud Storage is not
 // provisioned on this project.
 // ---------------------------------------------------------------------------
