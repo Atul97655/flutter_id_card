@@ -18,7 +18,7 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { useStore } from '@/lib/store';
 import { sendBroadcast } from '@/lib/data';
-import { readCount, recipientCount, type Chat } from '@/lib/types';
+import { isOperator, readCount, recipientCount, type Chat } from '@/lib/types';
 import { formatDate } from '@/lib/dates';
 
 type Mode = 'everyone' | 'schools' | 'people';
@@ -44,9 +44,17 @@ export default function BroadcastPage() {
   const [sent, setSent] = useState<{ chatId: string; recipients: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  /** Only active operators. A disabled account cannot read it anyway. */
+  /**
+   * Only active school staff. A disabled account cannot read it anyway.
+   *
+   * `isOperator`, not "not an Admin". Parent accounts are not an Admin
+   * either, and the moment that role existed an announcement addressed to
+   * "everyone" would have gone to every parent in the project - people who
+   * were never meant to receive the office's internal notices, and who
+   * cannot be un-sent to.
+   */
   const operators = useMemo(
-    () => users.filter((u) => u.role !== 'Admin' && u.active),
+    () => users.filter((u) => isOperator(u.role) && u.active),
     [users],
   );
 

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import type { ManagedUser, StudentEntry } from '@/lib/types';
-import { sectionLabel } from '@/lib/types';
+import { isOperator, sectionLabel } from '@/lib/types';
 import { MOTION, Panel, PanelHeader, staggerDelay } from '@/components/ui/primitives';
 
 /**
@@ -61,7 +61,7 @@ export function SubmissionsBreakdown({
     // has submitted nothing is the single most useful row on this panel, and
     // counting only what exists would leave them off it entirely.
     for (const u of users) {
-      if (u.role === 'Admin') continue;
+      if (!isOperator(u.role)) continue;
       if (u.assignment && !counts.has(u.uid)) counts.set(u.uid, 0);
     }
 

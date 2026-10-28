@@ -19,6 +19,7 @@ import { assignSection, clearSection } from '@/lib/joins';
 import { useAuth } from '@/lib/auth-context';
 import { formatDate } from '@/lib/dates';
 import {
+  isOperator,
   isScoped,
   sectionLabel,
   type ManagedUser,
@@ -46,7 +47,7 @@ export default function AccountsPage() {
   const operators = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return users
-      .filter((u) => u.role !== 'Admin')
+      .filter((u) => isOperator(u.role))
       .filter(
         (u) =>
           !needle ||

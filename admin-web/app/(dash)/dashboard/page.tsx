@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/primitives';
 import { useAuth } from '@/lib/auth-context';
 import { useSchoolName, useStore } from '@/lib/store';
-import { hasPhoto, isPrintable, type StudentEntry } from '@/lib/types';
+import { hasPhoto, isOperator, isPrintable, type StudentEntry } from '@/lib/types';
 import { EntryPhoto } from '@/components/ui/entry-photo';
 
 export default function DashboardPage() {
@@ -61,7 +61,7 @@ export default function DashboardPage() {
     return { pending, approved, rejected, printed, readyToPrint, missingPhoto };
   }, [entries]);
 
-  const operators = users.filter((u) => u.role !== 'Admin');
+  const operators = users.filter((u) => isOperator(u.role));
   const activeOperators = operators.filter((u) => u.active).length;
 
   const recent = useMemo(

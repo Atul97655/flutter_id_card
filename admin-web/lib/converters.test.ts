@@ -285,6 +285,20 @@ describe('teacher assignments', () => {
   // The failure direction that matters: unreadable means unscoped, which
   // means the whole school - the access the teacher already had. Reading it
   // the other way would look like data loss to them.
+  it('keeps a Parent account labelled as a parent', () => {
+    // It fell through to 'School' before the role existed, so the office saw
+    // a parent's email listed as a school login - not a near-miss, a false
+    // statement about whose account it is. It also put them in the operator
+    // list and, worse, in the recipient list for an announcement meant for
+    // school offices.
+    expect(toManagedUser(snap('p1', { role: 'Parent' })).role).toBe('Parent');
+    expect(isOperator('Parent')).toBe(false);
+  });
+
+  it('still falls back to School for anything unrecognised', () => {
+    expect(toManagedUser(snap('x1', { role: 'Wizard' })).role).toBe('School');
+  });
+
   it('a missing assignment is unscoped, not locked out', () => {
     const u = toManagedUser(snap('u1', { role: 'Teacher', schoolId: 'sjs' }));
 

@@ -48,10 +48,23 @@ export const isPrintable = (s: ApprovalStatus): boolean =>
   s === 'approved' || s === 'printed';
 
 /** `UserRole.wireValue` in Dart - note the capitalisation, the rules match on it. */
-export type UserRole = 'Admin' | 'Teacher' | 'School';
+export type UserRole = 'Admin' | 'Teacher' | 'School' | 'Parent';
 
-/** Anything that is not an Admin is an operator, scoped to one school. */
-export const isOperator = (r: UserRole): boolean => r !== 'Admin';
+/**
+ * School staff: somebody who enters cards on a school's behalf.
+ *
+ * Not simply "not an Admin" any more. A Parent is not an Admin either, but
+ * they belong to no school and do not work for one - they submit a card for
+ * their own child. Counting them as an operator put them in the office's
+ * operator list, in its operator totals, and - the one that actually
+ * mattered - in the recipient list for an announcement meant for school
+ * offices.
+ */
+export const isOperator = (r: UserRole): boolean =>
+  r !== 'Admin' && r !== 'Parent';
+
+/** A parent or student using the phone app directly. Belongs to no school. */
+export const isParent = (r: UserRole): boolean => r === 'Parent';
 
 export type ChatKind = 'direct' | 'broadcast';
 export type MessageKind = 'text' | 'image' | 'document';

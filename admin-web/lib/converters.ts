@@ -72,6 +72,11 @@ const role = (v: unknown): UserRole => {
   const raw = str(v).trim().toLowerCase();
   if (raw === 'admin') return 'Admin';
   if (raw === 'teacher') return 'Teacher';
+  // Without this a parent account fell through to 'School' and the office
+  // saw it labelled as a school login - not a near-miss, a false statement
+  // about who the account belongs to. 'School' remains the fallback for
+  // anything genuinely unrecognised, which keeps the least-privilege rule.
+  if (raw === 'parent') return 'Parent';
   return 'School';
 };
 
