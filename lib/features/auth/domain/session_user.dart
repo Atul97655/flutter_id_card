@@ -13,7 +13,12 @@ enum UserRole {
   /// a school account is the office, a teacher account is one person in it.
   teacher('Teacher'),
 
-  school('School');
+  school('School'),
+
+  /// A parent or student using the app directly. Belongs to no school: they
+  /// pick one each time they make a card, and see only the cards they
+  /// submitted themselves. The Firestore rules enforce the same scope.
+  parent('Parent');
 
   const UserRole(this.wireValue);
 
@@ -63,9 +68,15 @@ class SessionUser {
 
   bool get isAdmin => role == UserRole.admin;
 
+  bool get isParent => role == UserRole.parent;
+
   /// The school an operator's work is filed under. Admins pick a school
   /// explicitly in the dashboard, so this is only meaningful for operators.
-  bool get canEnterData => schoolId != null && schoolId!.isNotEmpty;
+  ///
+  /// A parent has no school of their own but can enter data straight away:
+  /// they choose the school per card, so there is nothing to wait for.
+  bool get canEnterData =>
+      isParent || (schoolId != null && schoolId!.isNotEmpty);
 
   Map<String, Object?> toJson() => <String, Object?>{
     'uid': uid,

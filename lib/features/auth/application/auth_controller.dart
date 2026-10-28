@@ -56,6 +56,25 @@ class AuthController extends AsyncNotifier<SessionUser?> {
     );
   }
 
+  /// Creates a parent/student account and signs into it.
+  ///
+  /// Unlike a teacher, a parent needs no approval: the account can submit
+  /// cards to any school straight away, and read back only its own.
+  Future<bool> registerParent({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    return _attempt(
+      () => _repo.registerTeacher(
+        email: email,
+        password: password,
+        displayName: displayName,
+        role: UserRole.parent,
+      ),
+    );
+  }
+
   /// Debug-only local session so the data-entry, photo and print pipeline can
   /// be exercised before Firebase credentials are wired up. Guarded at the call
   /// site by `kDebugMode`; entries created under it are never synced.
@@ -166,7 +185,11 @@ class ActiveSchoolController extends Notifier<String?> {
     // Follows the session for operators; admins override it explicitly.
     final SessionUser? session = ref.watch(currentSessionProvider);
     if (session == null) return null;
-    return session.isAdmin ? _adminSelection : session.schoolId;
+    // A parent has no school of their own, so like an admin they choose one
+    // explicitly - in their case, in the school picker.
+    return (session.isAdmin || session.isParent)
+        ? _adminSelection
+        : session.schoolId;
   }
 
   String? _adminSelection;

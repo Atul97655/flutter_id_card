@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/presentation/login_screen.dart';
+import 'package:flutter_id_card/features/onboarding/presentation/parent_register_screen.dart';
 import 'package:flutter_id_card/features/onboarding/presentation/register_screen.dart';
 import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
@@ -54,8 +55,8 @@ class JoinChoiceScreen extends StatelessWidget {
                 FadeSlideIn(
                   index: 2,
                   child: Text(
-                    'Capture a student photo, fill the details, send it to '
-                    'the office. That is the whole job.',
+                    "Make your child's school ID card from your phone: pick "
+                    'the school, add a photo and details, and send.',
                     textAlign: TextAlign.center,
                     style: AppTypography.body.copyWith(
                       fontSize: 14.5,
@@ -66,13 +67,24 @@ class JoinChoiceScreen extends StatelessWidget {
                 const SizedBox(height: 34),
                 FadeSlideIn(
                   index: 3,
+                  // Parents and students are who the app is for, so theirs is
+                  // the one big primary door.
                   child: GlassButton(
-                    label: 'Sign in with my details',
-                    icon: Icons.login_rounded,
+                    label: 'I am a parent or student',
+                    icon: Icons.family_restroom,
                     gradient: const LinearGradient(
                       colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
                     ),
-                    onPressed: () => context.push(LoginScreen.routePath),
+                    onPressed: () => context.push(ParentRegisterScreen.routePath),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FadeSlideIn(
+                  index: 4,
+                  child: _SecondaryAction(
+                    icon: Icons.login_rounded,
+                    label: 'School staff: sign in',
+                    onTap: () => context.push(LoginScreen.routePath),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -80,7 +92,7 @@ class JoinChoiceScreen extends StatelessWidget {
                   index: 4,
                   child: _SecondaryAction(
                     icon: Icons.qr_code_scanner,
-                    label: 'Scan my school QR code',
+                    label: 'Teacher: scan school QR code',
                     // Registration, not the camera. A scan writes a join
                     // request keyed by the teacher's own auth uid, and there
                     // is no uid until there is an account - the register
@@ -96,8 +108,8 @@ class JoinChoiceScreen extends StatelessWidget {
                 FadeSlideIn(
                   index: 5,
                   child: Text(
-                    'Do not have either? Ask your school office — accounts '
-                    'and QR codes are issued by them.',
+                    'School staff: accounts and QR codes are issued by your '
+                    'school office.',
                     textAlign: TextAlign.center,
                     style: AppTypography.support.copyWith(
                       fontSize: 12.5,
@@ -169,9 +181,15 @@ class _SecondaryAction extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 20, color: AppColors.chatDeep),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            label,
-            style: AppTypography.button.copyWith(color: AppColors.chatDeep),
+          // Flexible so a long label (or a large system font) shortens
+          // instead of overflowing the pill.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.button.copyWith(color: AppColors.chatDeep),
+            ),
           ),
         ],
       ),
