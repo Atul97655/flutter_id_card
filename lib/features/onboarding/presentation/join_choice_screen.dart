@@ -181,9 +181,15 @@ class _SecondaryAction extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 20, color: AppColors.chatDeep),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            label,
-            style: AppTypography.button.copyWith(color: AppColors.chatDeep),
+          // Flexible so a long label (or a large system font) shortens
+          // instead of overflowing the pill.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.button.copyWith(color: AppColors.chatDeep),
+            ),
           ),
         ],
       ),
