@@ -180,7 +180,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               onAttach: () => _openTray(chat, session),
               onIdCard: chat == null || session == null
                   ? null
-                  : () => _sendIdCard(chat, session),
+                  : () => _startIdCard(chat, session),
             )
           else
             const _ReadOnlyFooter(),
@@ -288,16 +288,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (choice == null || !mounted) return;
 
     if (choice == AttachmentChoice.idCard) {
-      // A parent does not send a finished card into a chat - they make a new
-      // one: pick the school, fill its form, send it to the office.
-      if (session.isParent) {
-        await startParentIdCard(context);
-        return;
-      }
-      await _sendIdCard(chat, session);
+      await _startIdCard(chat, session);
       return;
     }
     await _attach(chat, session);
+  }
+
+  /// The single place that decides what "ID card" means for this person.
+  ///
+  /// There are two ways into it - the tray's ID Card row and the button on
+  /// the composer bar - and they must not disagree. They did, briefly: the
+  /// parent flow and the composer button were written against this file at
+  /// the same time, touched different lines, and merged without a conflict.
+  /// The result was a parent who went through the tray making a new card and
+  /// a parent who tapped the button landing in the teacher's picker, whose
+  /// form asks the local database for an active school and refuses with "No
+  /// school is selected for this session" - a parent has none by design.
+  ///
+  /// Two callers, one decision. A third way in later gets the right
+  /// behaviour for free.
+  Future<void> _startIdCard(Chat chat, SessionUser session) async {
+    // A parent does not send a finished card into a chat - they make a new
+    // one: pick the school, fill its form, send it to the office.
+    if (session.isParent) {
+      await startParentIdCard(context);
+      return;
+    }
+    await _sendIdCard(chat, session);
   }
 
   /// Renders an approved card and sends it into the conversation.

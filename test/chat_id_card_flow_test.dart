@@ -11,6 +11,7 @@ import 'package:flutter_id_card/features/messaging/data/chat_repository.dart';
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/send_id_card_screen.dart';
+import 'package:flutter_id_card/features/parent/presentation/school_picker_screen.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
@@ -309,6 +310,109 @@ void main() {
       );
       expect(field.width, greaterThan(60), reason: 'the field was squeezed out');
       expect(field.right, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('A parent in a conversation', () {
+    const SessionUser parent = SessionUser(
+      uid: 'p1',
+      email: 'parent@example.com',
+      role: UserRole.parent,
+      displayName: 'A PARENT',
+    );
+
+    Widget wrapAs(SessionUser who) {
+      return ProviderScope(
+        overrides: [
+          currentSessionProvider.overrideWithValue(who),
+          entriesProvider.overrideWith(
+            (Ref ref) => Stream<List<StudentEntry>>.value(
+              const <StudentEntry>[],
+            ),
+          ),
+          myChatsProvider.overrideWith(
+            (Ref ref) => Stream<List<Chat>>.value(<Chat>[
+              Chat(
+                id: 'c1',
+                title: 'DEMO PUBLIC SCHOOL',
+                members: <String>[who.uid, 'admin'],
+              ),
+            ]),
+          ),
+          messagesProvider('c1').overrideWith(
+            (Ref ref) => Stream<List<ChatMessage>>.value(<ChatMessage>[
+              ChatMessage(
+                id: 'm1',
+                chatId: 'c1',
+                senderId: 'admin',
+                senderName: 'Admin',
+                sentAt: DateTime(2026, 9, 29, 22, 23),
+                body: 'Hello',
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const ChatScreen(chatId: 'c1'),
+        ),
+      );
+    }
+
+    testWidgets('gets the parent flow from the composer button, not the '
+        'teacher picker', (WidgetTester tester) async {
+      // Two ways into "ID card" landed in this file independently - the
+      // parent flow through the tray, the button on the composer bar - and
+      // they merged without a conflict because they touched different lines.
+      // For a while they disagreed: the tray made a new card, the button
+      // opened the teacher's picker, whose form asks the local database for
+      // an active school and refuses with "No school is selected for this
+      // session". A parent has no school by design, so that path could not
+      // have worked for them at all.
+      tester.view.physicalSize = const Size(400, 860);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(wrapAs(parent));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Send an ID card'));
+      // Pumped rather than settled: the picker opens on a spinner while the
+      // school list loads, and a spinner never settles.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(
+        find.byType(SchoolPickerScreen),
+        findsOneWidget,
+        reason: 'a parent picks a school and fills its form',
+      );
+      expect(
+        find.byType(SendIdCardScreen),
+        findsNothing,
+        reason:
+            'the teacher picker needs an active school, which a parent '
+            'never has',
+      );
+    });
+
+    testWidgets('and a teacher still gets the teacher picker', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 860);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(wrapAs(teacher));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Send an ID card'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SendIdCardScreen), findsOneWidget);
+      expect(find.byType(SchoolPickerScreen), findsNothing);
     });
   });
 

@@ -14,11 +14,11 @@
 library;
 
 /// Matches `version:` in pubspec.yaml, before the `+`.
-const String kAppVersion = '1.3.0';
+const String kAppVersion = '1.4.0';
 
 /// Matches the number after the `+`. This is the Android versionCode, and it
 /// MUST increase on every build handed to anyone, or the install is a no-op.
-const int kBuildNumber = 6;
+const int kBuildNumber = 7;
 
 /// What the Profile screen shows.
 const String kVersionLabel = 'v$kAppVersion ($kBuildNumber)';
