@@ -37,7 +37,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _identifier = TextEditingController();
   final TextEditingController _password = TextEditingController();
 
-  bool _isAdminTab = false;
   bool _obscure = true;
   List<String> _knownSchools = const <String>[];
 
@@ -72,30 +71,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final AuthController controller = ref.read(authControllerProvider.notifier);
-    final bool ok = _isAdminTab
-        ? await controller.signInAsAdmin(
-            email: _identifier.text,
-            password: _password.text,
-          )
-        : await controller.signInAsSchool(
-            schoolCode: _identifier.text,
-            password: _password.text,
-          );
+    final bool ok = await controller.signInAsSchool(
+      schoolCode: _identifier.text,
+      password: _password.text,
+    );
 
     if (!mounted || !ok) return;
-    context.go(_isAdminTab ? '/admin' : '/home');
-  }
-
-  void _switchTab(bool admin) {
-    if (_isAdminTab == admin) return;
-    setState(() {
-      _isAdminTab = admin;
-      _identifier.text = admin
-          ? ''
-          : (_knownSchools.isEmpty ? '' : _knownSchools.first);
-      _password.clear();
-    });
-    ref.read(authControllerProvider.notifier).clearError();
+    context.go('/home');
   }
 
   @override
@@ -153,23 +135,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          _RoleTabs(
-                            isAdmin: _isAdminTab,
-                            enabled: !busy,
-                            onChanged: _switchTab,
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          // The field swaps shape between the two tabs - an
-                          // email box for an admin, a school picker for an
-                          // operator. Without a transition the whole form jumps
-                          // by the height difference the instant a tab is
-                          // tapped.
-                          SmoothSwitcher(
-                            child: KeyedSubtree(
-                              key: ValueKey<bool>(_isAdminTab),
-                              child: _identifierField(busy),
-                            ),
-                          ),
+                          // One way in, so no tabs. The School / Admin
+                          // switch went with the admin section: the office is
+                          // run from the web panel, and an Admin tab here
+                          // offered a door into rooms that no longer exist.
+                          _identifierField(busy),
                           const SizedBox(height: AppSpacing.md),
                           GlassTextField(
                             label: 'Password',
@@ -204,11 +174,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           GlassButton(
-                            label: busy
-                                ? 'Signing in...'
-                                : (_isAdminTab
-                                      ? 'Sign in as Admin'
-                                      : 'Sign in'),
+                            label: busy ? 'Signing in...' : 'Sign in',
                             icon: Icons.login_rounded,
                             trailingIcon: busy ? null : Icons.arrow_forward,
                             busy: busy,
@@ -243,25 +209,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _identifierField(bool busy) {
-    if (_isAdminTab) {
-      return GlassTextField(
-        label: 'Admin Email',
-        icon: Icons.alternate_email,
-        controller: _identifier,
-        enabled: !busy,
-        placeholder: 'admin@example.com',
-        keyboardType: TextInputType.emailAddress,
-        textInputAction: TextInputAction.next,
-        validator: (String? v) {
-          if (v == null || v.trim().isEmpty) return 'Enter your admin email';
-          if (!v.contains('@')) return 'Enter a valid email address';
-          return null;
-        },
-      );
-    }
-
-    // School tab. Free text so a first-time device can sign in, with a menu of
-    // codes that have worked on this device before.
+    // Free text so a first-time device can sign in, with a menu of codes that
+    // have worked on this device before.
     return GlassTextField(
       label: 'School Name / Code',
       icon: Icons.school_outlined,
@@ -296,9 +245,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _startOfflineSession() async {
     await ref
         .read(authControllerProvider.notifier)
-        .startOfflineTestSession(schoolId: 'demo-school', asAdmin: _isAdminTab);
+        .startOfflineTestSession(schoolId: 'demo-school');
     if (!mounted) return;
-    context.go(_isAdminTab ? '/admin' : '/home');
+    context.go('/home');
   }
 
   String _messageFor(Object? error) {
@@ -323,108 +272,6 @@ class _Mark extends StatelessWidget {
         boxShadow: AppShadows.lifted,
       ),
       child: const Center(child: AppLogo(size: 68)),
-    );
-  }
-}
-
-/// The School / Admin switch.
-///
-/// A glass pill with a sliding indicator rather than a SegmentedButton: the
-/// Material segmented control draws its own outline and fill, which on a
-/// translucent panel reads as a second, competing surface.
-class _RoleTabs extends StatelessWidget {
-  const _RoleTabs({
-    required this.isAdmin,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool isAdmin;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      // 64. 48 was a strip of text; 56 was still shallow next to the 72pt
-      // input rows under it. This is the control that decides what the whole
-      // form means, so it gets to look like one.
-      height: 64,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: AppColors.royal.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: _Tab(
-              label: 'School',
-              icon: Icons.school_outlined,
-              selected: !isAdmin,
-              onTap: enabled ? () => onChanged(false) : null,
-            ),
-          ),
-          Expanded(
-            child: _Tab(
-              label: 'Admin',
-              icon: Icons.admin_panel_settings_outlined,
-              selected: isAdmin,
-              onTap: enabled ? () => onChanged(true) : null,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Tab extends StatelessWidget {
-  const _Tab({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppMotion.fast,
-        curve: AppMotion.decelerate,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.card : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          boxShadow: selected ? AppShadows.subtle : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(
-              icon,
-              size: 20,
-              color: selected ? AppColors.royal : AppColors.inkMuted,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: AppTypography.badge.copyWith(
-                fontSize: 15.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                color: selected ? AppColors.royal : AppColors.inkMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

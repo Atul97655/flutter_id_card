@@ -1,5 +1,4 @@
 import 'package:drift/native.dart';
-import 'package:flutter_id_card/features/admin/data/csv_export_service.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';
 import 'package:flutter_id_card/shared/models/sync_status.dart';
@@ -12,70 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'schema_version.dart';
 
 void main() {
-  group('Phase 4: CSV Export Service', () {
-    test('buildCsvContent starts with UTF-8 BOM and headers', () {
-      final String csv = CsvExportService.buildCsvContent(<StudentEntry>[]);
-      expect(csv.startsWith('\uFEFF'), isTrue);
-      expect(
-        csv,
-        contains(
-          'Name,Father\'s Name,Class,Division,Blood Group,Date of Birth,Mobile,Address,Approval Status,Sync Status,Created At',
-        ),
-      );
-    });
-
-    test('buildCsvContent properly serializes student entry rows', () {
-      final StudentEntry entry = StudentEntry(
-        id: 's-1',
-        schoolId: 'sch-1',
-        name: 'John Doe',
-        fatherName: 'Robert Doe',
-        studentClass: '10',
-        division: 'A',
-        bloodGroup: 'O+',
-        dob: DateTime(2010, 5, 15),
-        mobile: '9876543210',
-        address: '123 Main St, Springfield',
-        approvalStatus: ApprovalStatus.approved,
-        syncStatus: SyncStatus.synced,
-        createdAt: DateTime(2026, 1, 1, 10, 0),
-        updatedAt: DateTime(2026, 1, 1, 10, 0),
-      );
-
-      final String csv = CsvExportService.buildCsvContent(<StudentEntry>[
-        entry,
-      ]);
-      expect(csv, contains('John Doe'));
-      expect(csv, contains('Robert Doe'));
-      expect(csv, contains('10,A,O+'));
-      expect(csv, contains('"123 Main St, Springfield"'));
-      expect(csv, contains('APPROVED'));
-      expect(csv, contains('SYNCED'));
-    });
-
-    test('RFC 4180 escaping handles quotes, commas, and newlines', () {
-      expect(CsvExportService.escapeField('Normal Text'), 'Normal Text');
-      expect(CsvExportService.escapeField('Doe, John'), '"Doe, John"');
-      expect(CsvExportService.escapeField('Quote "Here"'), '"Quote ""Here"""');
-      expect(
-        CsvExportService.escapeField('Line 1\nLine 2'),
-        '"Line 1\nLine 2"',
-      );
-    });
-
-    test('sanitiseFilename strips forbidden characters and cleans spaces', () {
-      expect(
-        CsvExportService.sanitiseFilename('School / Name : * Test ?'),
-        'School_Name_Test',
-      );
-      expect(CsvExportService.sanitiseFilename('   '), 'Export');
-      expect(
-        CsvExportService.sanitiseFilename('St. Mary\'s High'),
-        'St._Mary\'s_High',
-      );
-    });
-  });
-
   group('Phase 4: Schema v5 & Audit Repository', () {
     late AppDatabase db;
     late AuditRepository auditRepo;

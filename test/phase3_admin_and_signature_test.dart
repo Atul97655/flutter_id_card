@@ -1,9 +1,6 @@
 import 'dart:convert';
 
 import 'package:drift/native.dart';
-import 'package:flutter_id_card/features/auth/data/auth_repository.dart';
-import 'package:flutter_id_card/features/auth/domain/managed_user.dart';
-import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/card_render/domain/card_template.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
@@ -13,7 +10,6 @@ import 'package:flutter_id_card/shared/services/local/app_database.dart';
 import 'package:flutter_id_card/shared/services/local/school_repository.dart';
 import 'package:flutter_id_card/shared/services/local/student_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -210,70 +206,5 @@ void main() {
     );
   });
 
-  group('Phase 3: User Management & Access Control', () {
-    test('ManagedUser serializes and deserializes accurately', () {
-      final DateTime now = DateTime.now();
-      final ManagedUser user = ManagedUser(
-        uid: 'user-123',
-        email: 'test@schools.idcardx.app',
-        role: UserRole.school,
-        schoolId: 'test_school',
-        displayName: 'Test Operator',
-        active: true,
-        createdAt: now,
-      );
 
-      final Map<String, Object?> json = user.toJson();
-      final ManagedUser restored = ManagedUser.fromJson(json);
-
-      expect(restored.uid, 'user-123');
-      expect(restored.email, 'test@schools.idcardx.app');
-      expect(restored.role, UserRole.school);
-      expect(restored.schoolId, 'test_school');
-      expect(restored.displayName, 'Test Operator');
-      expect(restored.active, isTrue);
-    });
-
-    test('AuthRepository creates user and toggles active access', () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final AuthRepository authRepo = AuthRepository();
-
-      await authRepo.createUserAccount(
-        email: 'opschool',
-        password: 'password123',
-        role: UserRole.school,
-        schoolId: 'opschool',
-        displayName: 'Operator One',
-      );
-
-      final List<ManagedUser> users = await authRepo.watchUsers().first;
-      expect(
-        users.any((ManagedUser u) => u.displayName == 'Operator One'),
-        isTrue,
-      );
-
-      final ManagedUser created = users.firstWhere(
-        (ManagedUser u) => u.displayName == 'Operator One',
-      );
-      expect(created.active, isTrue);
-
-      // Disable access
-      await authRepo.toggleUserActive(created.uid, false);
-      final List<ManagedUser> updatedUsers = await authRepo.watchUsers().first;
-      final ManagedUser disabled = updatedUsers.firstWhere(
-        (ManagedUser u) => u.uid == created.uid,
-      );
-      expect(disabled.active, isFalse);
-
-      // Re-enable access
-      await authRepo.toggleUserActive(created.uid, true);
-      final List<ManagedUser> reenabledUsers = await authRepo
-          .watchUsers()
-          .first;
-      final ManagedUser reenabled = reenabledUsers.firstWhere(
-        (ManagedUser u) => u.uid == created.uid,
-      );
-      expect(reenabled.active, isTrue);
-    });
-  });
 }

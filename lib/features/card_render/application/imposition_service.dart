@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter_id_card/features/admin/domain/imposition.dart';
 import 'package:flutter_id_card/features/card_render/application/id_card_renderer.dart';
 import 'package:flutter_id_card/features/card_render/domain/card_template.dart';
+import 'package:flutter_id_card/features/card_render/domain/imposition.dart';
 import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/models/student_entry.dart';

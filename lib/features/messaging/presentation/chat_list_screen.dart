@@ -1,12 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_id_card/features/admin/application/admin_providers.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/messaging/application/chat_providers.dart';
 import 'package:flutter_id_card/features/messaging/domain/chat_models.dart';
-import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
 import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_gradients.dart';
@@ -32,19 +28,16 @@ class ChatListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final SessionUser? session = ref.watch(currentSessionProvider);
     final AsyncValue<List<Chat>> chats = ref.watch(myChatsProvider);
-    final bool isAdmin = session?.isAdmin ?? false;
 
     return GlassScaffold(
       backdrop: GlassBackdrop.chat,
-      header: GlassHeader(
+      header: const GlassHeader(
         title: 'Messages',
-        subtitle: isAdmin ? 'Every school you talk to' : 'The admin office',
+        subtitle: 'The admin office',
       ),
-      floatingActionButton: isAdmin
-          ? _NewChatButton(
-              onTap: () => _startConversation(context, ref, session!),
-            )
-          : null,
+      // No "new conversation" button. Starting one was the admin's, and the
+      // admin works from the web panel now. An operator has exactly one
+      // conversation - with the office - and the office opens it.
       child: SmoothSwitcher(
         alignment: Alignment.center,
         child: !FirebaseBootstrap.instance.isReady
@@ -66,15 +59,13 @@ class ChatListScreen extends ConsumerWidget {
                   ),
                 ),
                 data: (List<Chat> list) => list.isEmpty
-                    ? _EmptyState(isAdmin: isAdmin)
+                    ? const _EmptyState()
                     : ListView.separated(
                         key: ValueKey<int>(list.length),
                         padding: const EdgeInsets.fromLTRB(
                           AppSpacing.gutter,
                           0,
                           AppSpacing.gutter,
-                          // Clears both the floating navigation bar and the
-                          // admin's New button.
                           AppSpacing.navClearance + AppSpacing.xl,
                         ),
                         itemCount: list.length,
@@ -92,130 +83,6 @@ class ChatListScreen extends ConsumerWidget {
                             ),
                       ),
               ),
-      ),
-    );
-  }
-
-  /// Admin picks a school; the conversation is created with both parties as
-  /// members so the security rules admit them both.
-  Future<void> _startConversation(
-    BuildContext context,
-    WidgetRef ref,
-    SessionUser admin,
-  ) async {
-    final List<SchoolConfig> schools =
-        ref.read(allSchoolsProvider).value ?? const <SchoolConfig>[];
-
-    if (schools.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No schools yet - add one before starting a chat.'),
-        ),
-      );
-      return;
-    }
-
-    final SchoolConfig? school = await showModalBottomSheet<SchoolConfig>(
-      context: context,
-      builder: (BuildContext ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: <Widget>[
-            const ListTile(
-              title: Text(
-                'Start a conversation with',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            const Divider(height: 1),
-            for (final SchoolConfig s in schools)
-              ListTile(
-                leading: const Icon(Icons.school_outlined),
-                title: Text(s.name),
-                subtitle: Text(s.id),
-                onTap: () => Navigator.of(ctx).pop(s),
-              ),
-          ],
-        ),
-      ),
-    );
-
-    if (school == null || !context.mounted) return;
-
-    // Look the school's operators up so they are actual members of the chat.
-    // Without this the conversation exists but is invisible to the very person
-    // it is addressed to, because the security rules gate reads on membership.
-    final List<String> operators = await ref
-        .read(authRepositoryProvider)
-        .operatorUidsForSchool(school.id);
-
-    final Chat chat = await ref
-        .read(chatRepositoryProvider)
-        .createChat(
-          title: school.name,
-          members: <String>{admin.uid, ...operators}.toList(),
-          schoolId: school.id,
-        );
-
-    if (!context.mounted) return;
-
-    // Say so plainly rather than letting the admin type into a void.
-    if (operators.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No operator account is linked to ${school.name} yet, so nobody '
-            'will see this conversation until one signs in.',
-          ),
-          duration: const Duration(seconds: 6),
-        ),
-      );
-    }
-
-    unawaited(context.push('/messages/${chat.id}'));
-  }
-}
-
-/// The action that starts a conversation.
-///
-/// A gradient pill rather than a Material FAB: the FAB brings its own
-/// elevation and circle, both of which fight the glass, and this carries a
-/// word because "which button starts a chat" is not obvious from a plus sign.
-class _NewChatButton extends StatelessWidget {
-  const _NewChatButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      // Lifted clear of the floating navigation bar underneath it.
-      padding: const EdgeInsets.only(bottom: AppSpacing.navClearance - 28),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: <Color>[AppColors.chatAccent, AppColors.chatDeep],
-            ),
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            boxShadow: AppShadows.glow(AppColors.chatDeep),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                Icons.add_comment_outlined,
-                size: 19,
-                color: AppColors.onDark,
-              ),
-              SizedBox(width: AppSpacing.sm),
-              Text('New', style: AppTypography.button),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -384,19 +251,16 @@ class _Placeholder extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.isAdmin});
-
-  final bool isAdmin;
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return _Placeholder(
+    return const _Placeholder(
       icon: Icons.forum_outlined,
       title: 'No conversations yet',
-      body: isAdmin
-          ? 'Start one with a school using the button below.'
-          : 'The admin office will start a conversation when they need to '
-                'reach you.',
+      body:
+          'The admin office will start a conversation when they need to '
+          'reach you.',
     );
   }
 }

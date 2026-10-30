@@ -1,4 +1,4 @@
-import 'package:flutter_id_card/features/admin/domain/imposition.dart';
+import 'package:flutter_id_card/features/card_render/domain/imposition.dart';
 import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_test/flutter_test.dart';
 

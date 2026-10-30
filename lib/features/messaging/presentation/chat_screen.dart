@@ -96,10 +96,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
     }
 
-    final bool canPost =
-        chat == null ||
-        chat.kind != ChatKind.broadcast ||
-        (session?.isAdmin ?? false);
+    // An announcement is read-only here. Only the office posts them, and the
+    // office posts them from the web panel.
+    final bool canPost = chat == null || chat.kind != ChatKind.broadcast;
 
     return GlassScaffold(
       backdrop: GlassBackdrop.chat,

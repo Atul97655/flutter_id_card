@@ -38,15 +38,10 @@ final Provider<void> syncLifecycleProvider = Provider<void>((Ref ref) {
 
   final String? schoolId = session.schoolId;
 
-  // An admin has no schoolId - they sync every school instead of one, which is
-  // what fills the dashboard and review queue.
-  //
-  // A parent is the other exception: no school by design, and synced by who
-  // they are rather than which school they belong to.
+  // A parent is the exception: no school by design, and synced by who they
+  // are rather than which school they belong to.
   final bool isParent = session.isParent;
-  if (!session.isAdmin &&
-      !isParent &&
-      (schoolId == null || schoolId.isEmpty)) {
+  if (!isParent && (schoolId == null || schoolId.isEmpty)) {
     unawaited(service.stop());
     return;
   }
@@ -60,7 +55,6 @@ final Provider<void> syncLifecycleProvider = Provider<void>((Ref ref) {
   unawaited(
     service.start(
       schoolId: schoolId,
-      isAdmin: session.isAdmin,
       classLevel: join?.classLevel ?? '',
       division: join?.division ?? '',
       parentUid: isParent ? session.uid : null,

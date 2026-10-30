@@ -276,34 +276,12 @@ void main() {
     });
   });
 
-  group('Admin pull', () {
-    test('mirrors every school and entry into the local database', () async {
-      await firestore.collection('schools').doc('school-a').set(
-        <String, Object?>{'name': 'SCHOOL A'},
-      );
-      await firestore.collection('schools').doc('school-b').set(
-        <String, Object?>{'name': 'SCHOOL B'},
-      );
-      await firestore
-          .collection('schools')
-          .doc('school-b')
-          .collection('entries')
-          .doc('remote-1')
-          .set(<String, Object?>{
-            'schoolId': 'school-b',
-            'name': 'REMOTE STUDENT',
-            'approvalStatus': 'pending',
-          });
-
-      await sync.syncNow(isAdmin: true);
-
-      expect(await schools.find('school-a'), isNotNull);
-      expect(await schools.find('school-b'), isNotNull);
-      final StudentEntry? pulled = await students.findById('remote-1');
-      expect(pulled, isNotNull);
-      expect(pulled!.name, 'REMOTE STUDENT');
-    });
-
+  group('Pulling entries down', () {
+    // These were written against the admin pull, which could reach every
+    // school at once. That mode is gone with the admin section, but the merge
+    // rule they actually cover - never overwrite a row that has not uploaded
+    // yet - runs on the operator pull just the same, and is the one piece of
+    // this worker that can silently destroy a decision if it is wrong.
     test(
       'does NOT clobber a local approval that has not uploaded yet',
       () async {
@@ -328,7 +306,7 @@ void main() {
         await students.approve('e1', reviewerUid: 'admin-1');
         expect((await students.findById('e1'))!.syncStatus, SyncStatus.pending);
 
-        await sync.syncNow(isAdmin: true);
+        await sync.syncNow(schoolId: 'school-a');
 
         expect(
           (await students.findById('e1'))!.approvalStatus,
@@ -356,7 +334,7 @@ void main() {
             'reviewedBy': 'other-admin',
           });
 
-      await sync.syncNow(isAdmin: true);
+      await sync.syncNow(schoolId: 'school-a');
 
       expect(
         (await students.findById('e1'))!.approvalStatus,

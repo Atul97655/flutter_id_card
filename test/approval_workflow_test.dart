@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_id_card/features/admin/domain/imposition.dart';
 import 'package:flutter_id_card/features/card_render/application/id_card_renderer.dart';
 import 'package:flutter_id_card/features/card_render/application/imposition_service.dart';
 import 'package:flutter_id_card/features/card_render/domain/card_template.dart';
+import 'package:flutter_id_card/features/card_render/domain/imposition.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';

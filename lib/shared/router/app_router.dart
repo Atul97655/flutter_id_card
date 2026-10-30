@@ -1,14 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_id_card/features/admin/presentation/admin_dashboard_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/admin_users_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/audit_log_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/export_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/print_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/reports_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/requests_queue_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/school_detail_screen.dart';
-import 'package:flutter_id_card/features/admin/presentation/school_settings_screen.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/features/auth/presentation/login_screen.dart';
@@ -21,7 +12,6 @@ import 'package:flutter_id_card/features/data_entry/presentation/request_detail_
 import 'package:flutter_id_card/features/data_entry/presentation/saved_entries_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/submission_success_screen.dart';
 import 'package:flutter_id_card/features/data_entry/presentation/sync_status_screen.dart';
-import 'package:flutter_id_card/features/messaging/presentation/broadcast_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_list_screen.dart';
 import 'package:flutter_id_card/features/messaging/presentation/chat_screen.dart';
 import 'package:flutter_id_card/features/notifications/presentation/notifications_screen.dart';
@@ -117,13 +107,24 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             : JoinChoiceScreen.routePath;
       }
 
+      // An admin has no business in this app at all.
+      //
+      // The office works from the web panel: that is where schools are
+      // created, cards are reviewed and announcements go out, and none of it
+      // exists here any more. An admin account that reached the shell would
+      // find a home screen with no school, an empty card list and a chat with
+      // itself - a convincing imitation of a broken app. Signing out is the
+      // honest answer, and `AuthController.signIn` explains why before it
+      // gets here. This is the backstop for a session cached from an older
+      // build, which would otherwise come back on launch.
+      if (user.isAdmin) {
+        return LoginScreen.routePath;
+      }
+
       // A signed-in operator with no school has not been approved yet. The
       // matching rule is what actually withholds the data; this keeps them
       // off screens that would render as empty and look broken.
-      //
-      // Admins are exempt - they have no schoolId by design, because they
-      // work across all of them.
-      if (!user.isAdmin && !user.canEnterData) {
+      if (!user.canEnterData) {
         return _unassignedRoutes.contains(location)
             ? null
             : AwaitingAssignmentScreen.routePath;
@@ -134,11 +135,6 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
           location == RegisterScreen.routePath ||
           location == ParentRegisterScreen.routePath ||
           location == AwaitingAssignmentScreen.routePath) {
-        return user.isAdmin ? '/admin' : HomeScreen.routePath;
-      }
-      // Admin-only areas. The matching server-side rule is what actually
-      // protects the data; this just keeps the UI honest.
-      if (location.startsWith('/admin') && !user.isAdmin) {
         return HomeScreen.routePath;
       }
       return null;
@@ -284,84 +280,6 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             _page(s, CardPreviewScreen(entryId: s.pathParameters['id'] ?? '')),
       ),
 
-      // --- admin (role-gated by the redirect above) ---------------------
-      GoRoute(
-        path: '/admin',
-        pageBuilder: (BuildContext c, GoRouterState s) =>
-            _page(s, const AdminDashboardScreen()),
-        routes: <RouteBase>[
-          GoRoute(
-            path: 'users',
-            pageBuilder: (BuildContext c, GoRouterState s) =>
-                _page(s, const AdminUsersScreen()),
-          ),
-          GoRoute(
-            // Literal 'new' is declared before the ':schoolId' pattern so it is
-            // matched as the create route rather than as a school whose id
-            // happens to be "new".
-            path: 'schools/new',
-            pageBuilder: (BuildContext c, GoRouterState s) =>
-                _page(s, const SchoolSettingsScreen()),
-          ),
-          GoRoute(
-            path: 'schools/:schoolId',
-            pageBuilder: (BuildContext c, GoRouterState s) => _page(
-              s,
-              SchoolDetailScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
-            ),
-            routes: <RouteBase>[
-              GoRoute(
-                path: 'settings',
-                pageBuilder: (BuildContext c, GoRouterState s) => _page(
-                  s,
-                  SchoolSettingsScreen(schoolId: s.pathParameters['schoolId']),
-                ),
-              ),
-              GoRoute(
-                path: 'print',
-                pageBuilder: (BuildContext c, GoRouterState s) => _page(
-                  s,
-                  PrintScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
-                ),
-              ),
-              GoRoute(
-                path: 'export',
-                pageBuilder: (BuildContext c, GoRouterState s) => _page(
-                  s,
-                  ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'requests',
-            pageBuilder: (BuildContext c, GoRouterState s) =>
-                _page(s, const RequestsQueueScreen()),
-          ),
-          GoRoute(
-            path: 'broadcast',
-            pageBuilder: (BuildContext c, GoRouterState s) =>
-                _page(s, const BroadcastScreen()),
-          ),
-          GoRoute(
-            path: 'audit',
-            pageBuilder: (BuildContext c, GoRouterState s) =>
-                _page(s, const AuditLogScreen()),
-          ),
-          GoRoute(
-            path: 'reports',
-            pageBuilder: (BuildContext c, GoRouterState s) =>
-                _page(s, const ReportsScreen()),
-          ),
-          GoRoute(
-            path: 'export/:schoolId',
-            pageBuilder: (BuildContext c, GoRouterState s) => _page(
-              s,
-              ExportScreen(schoolId: s.pathParameters['schoolId'] ?? ''),
-            ),
-          ),
-        ],
-      ),
     ],
     // A 404 in a shipped app is a bug, not a user error, so it says what it
     // knows and offers the one way out rather than dead-ending.

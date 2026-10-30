@@ -77,7 +77,6 @@ class HomeScreen extends ConsumerWidget {
             _Header(
               section: section,
               unread: unreadNotifications,
-              isAdmin: session?.isAdmin ?? false,
             ),
             const OfflineBanner(),
             Expanded(
@@ -164,12 +163,10 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.section,
     required this.unread,
-    required this.isAdmin,
   });
 
   final String section;
   final int unread;
-  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -229,15 +226,6 @@ class _Header extends StatelessWidget {
                     : '$unread need your attention',
                 onTap: () => context.push('/notifications'),
               ),
-              if (isAdmin) ...<Widget>[
-                const SizedBox(width: AppSpacing.sm),
-                GlassIconButton(
-                  icon: Icons.admin_panel_settings_outlined,
-                  onDark: true,
-                  tooltip: 'Admin panel',
-                  onTap: () => context.push('/admin'),
-                ),
-              ],
             ],
           ),
         ),

@@ -160,26 +160,26 @@ class SyncService {
 
   /// Begins periodic syncing and syncs immediately.
   ///
-  /// Two modes, because the two roles need opposite things:
+  /// Two modes, because the two kinds of account need opposite things:
   ///
   ///   * **Operator** ([schoolId] set): pulls just their own school's settings
   ///     and pushes the entries they captured.
-  ///   * **Admin** ([isAdmin] true): pulls *every* school and *every* entry
-  ///     down so the dashboard, review queue and print screens have data to
-  ///     work with, and pushes review decisions back up. An admin captures
-  ///     nothing themselves, so the upload queue is normally just approvals.
+  ///   * **Parent** ([parentUid] set): they have no school, so there is no
+  ///     school to pull; instead the schools are mirrored (so the picker and
+  ///     the form work offline) and only the entries they submitted
+  ///     themselves come down - which is all the rules let them read.
+  ///
+  /// There was a third, for an admin, which pulled every school and every
+  /// entry to feed the dashboard and review queue. Those screens are the web
+  /// panel's now, no admin can sign into this app, and a sync mode nothing
+  /// can select is worse than none: it still has to be read, understood and
+  /// kept working by whoever comes next.
   ///
   /// Also listens for connectivity changes: coming back online is the single
   /// best moment to drain the queue, far better than waiting out the poll
   /// interval while the operator watches a "Pending" badge.
-  ///
-  /// A third mode, for a parent: [parentUid] set. They have no school, so
-  /// there is no school to pull; instead the schools are mirrored (so the
-  /// picker and the form work offline) and only the entries they submitted
-  /// themselves come down - which is all the rules let them read.
   Future<void> start({
     String? schoolId,
-    bool isAdmin = false,
     String classLevel = '',
     String division = '',
     String? parentUid,
@@ -198,7 +198,6 @@ class SyncService {
         unawaited(
           syncNow(
             schoolId: schoolId,
-            isAdmin: isAdmin,
             classLevel: classLevel,
             division: division,
             parentUid: parentUid,
@@ -212,7 +211,6 @@ class SyncService {
       (_) => unawaited(
         syncNow(
           schoolId: schoolId,
-          isAdmin: isAdmin,
           classLevel: classLevel,
           division: division,
           parentUid: parentUid,
@@ -222,7 +220,6 @@ class SyncService {
 
     await syncNow(
       schoolId: schoolId,
-      isAdmin: isAdmin,
       classLevel: classLevel,
       division: division,
       parentUid: parentUid,
@@ -259,7 +256,6 @@ class SyncService {
   /// half of one would be refused by the rules for the whole result set.
   Future<void> syncNow({
     String? schoolId,
-    bool isAdmin = false,
     String classLevel = '',
     String division = '',
     String? parentUid,
@@ -285,9 +281,7 @@ class SyncService {
       );
       await _pullPanelConfig();
 
-      if (isAdmin) {
-        await _pullEverythingForAdmin();
-      } else if (parentUid != null) {
+      if (parentUid != null) {
         await _pullForParent(parentUid);
       } else if (schoolId != null) {
         await _pullSchoolConfig(schoolId);
@@ -312,12 +306,11 @@ class SyncService {
         await _auditRepo.log(
           action: 'sync_pass',
           entityType: 'sync',
-          entityId: schoolId ?? (isAdmin ? 'admin' : 'all'),
-          actorUid: isAdmin ? 'admin' : (schoolId ?? 'sync_worker'),
+          entityId: schoolId ?? parentUid ?? 'all',
+          actorUid: schoolId ?? parentUid ?? 'sync_worker',
           details: <String, Object?>{
             'uploaded': uploaded,
             'stillPending': stillPending.length,
-            'isAdmin': isAdmin,
             'schoolId': schoolId,
           },
         );
@@ -563,67 +556,6 @@ class SyncService {
       await _pullSchoolEntries(schoolId, submittedByUid: uid);
     }
     _parentDiscovered = true;
-  }
-
-  /// Mirrors every school and every entry into the local database.
-  ///
-  /// The admin panel reads exclusively from local storage, exactly like the
-  /// operator side, so the dashboard and review queue keep working on the
-  /// office's flaky connection instead of showing spinners over dead network
-  /// calls. This is the job that fills it.
-  ///
-  /// Locally-modified rows are protected: an entry still waiting to upload
-  /// (typically an approval the admin just made) is **not** overwritten by the
-  /// server copy, which would silently discard the decision.
-  Future<void> _pullEverythingForAdmin() async {
-    final QuerySnapshot<Map<String, Object?>> schoolDocs = await _db
-        .collection('schools')
-        .get();
-
-    final List<SchoolConfig> schools = <SchoolConfig>[];
-    for (final QueryDocumentSnapshot<Map<String, Object?>> doc
-        in schoolDocs.docs) {
-      final SchoolConfig remote = SchoolConfig.fromFirestoreMap(
-        doc.id,
-        doc.data(),
-      );
-      final SchoolConfig? existing = await _schools.find(doc.id);
-      schools.add(
-        existing?.localLogoPath == null
-            ? remote
-            : remote.copyWith(localLogoPath: existing!.localLogoPath),
-      );
-    }
-    if (schools.isNotEmpty) await _schools.saveAll(schools);
-
-    // Entries, school by school. A collectionGroup query would be one round
-    // trip instead of N, but it needs its own composite index and its own
-    // security rule; with a handful of schools the simple form is not worth
-    // that operational cost.
-    for (final QueryDocumentSnapshot<Map<String, Object?>> doc
-        in schoolDocs.docs) {
-      final QuerySnapshot<Map<String, Object?>> entryDocs = await _db
-          .collection('schools')
-          .doc(doc.id)
-          .collection('entries')
-          .get();
-
-      final List<StudentEntry> incoming = <StudentEntry>[];
-      for (final QueryDocumentSnapshot<Map<String, Object?>> e
-          in entryDocs.docs) {
-        final StudentEntry remote = StudentEntry.fromFirestoreMap(
-          e.id,
-          e.data(),
-        );
-        final StudentEntry? local = await _students.findById(e.id);
-
-        // Never clobber work that has not uploaded yet.
-        if (local != null && local.syncStatus.needsUpload) continue;
-
-        incoming.add(_mergeRemote(remote, local));
-      }
-      if (incoming.isNotEmpty) await _students.saveAll(incoming);
-    }
   }
 
   // ------------------------------------------------------------------

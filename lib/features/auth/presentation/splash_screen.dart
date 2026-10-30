@@ -65,7 +65,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // flow they will never use - made a restored admin session look broken.
     context.go(switch (user) {
       null => '/login',
-      final SessionUser u when u.isAdmin => '/admin',
       _ => '/home',
     });
   }

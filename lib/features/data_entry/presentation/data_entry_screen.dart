@@ -277,7 +277,6 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
 
     final SessionUser? session = ref.read(currentSessionProvider);
     if (session != null &&
-        session.role != UserRole.admin &&
         session.schoolId != null) {
       if (session.schoolId != schoolId) {
         _showError(

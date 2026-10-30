@@ -3,11 +3,9 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_id_card/features/auth/domain/managed_user.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 /// Domain part of the synthetic email addresses used for school logins.
 ///
@@ -34,16 +32,6 @@ class AuthRepository {
 
   static const String _sessionCacheKey = 'cached_session_user';
   static const String _knownSchoolsKey = 'known_school_codes';
-  static const String _cachedUsersKey = 'cached_managed_users';
-
-  StreamController<List<ManagedUser>>? _usersController;
-  StreamSubscription<QuerySnapshot<Map<String, Object?>>>? _firestoreUsersSub;
-
-  void dispose() {
-    _firestoreUsersSub?.cancel();
-    _firestoreUsersSub = null;
-    _usersController?.close();
-  }
 
   FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
   FirebaseFirestore get _db => _firestoreOverride ?? FirebaseFirestore.instance;
@@ -194,20 +182,6 @@ class AuthRepository {
     return user;
   }
 
-  Future<SessionUser> signInAsAdmin({
-    required String email,
-    required String password,
-  }) {
-    if (email.trim().isEmpty) {
-      throw const AuthFailure('Enter your admin email');
-    }
-    return _signIn(
-      email: email.trim().toLowerCase(),
-      password: password,
-      expectedRole: UserRole.admin,
-    );
-  }
-
   Future<SessionUser> _signIn({
     required String email,
     required String password,
@@ -240,23 +214,33 @@ class AuthRepository {
 
     final SessionUser session = await _loadProfile(fbUser);
 
-    // Compared by privilege class, not exact role. The operator tab accepts
-    // both School and Teacher accounts - they are the same data scope, and an
-    // exact-equality check here would lock every Teacher account out of the
-    // only tab it is allowed to use.
-    final bool roleMatches = expectedRole == UserRole.admin
-        ? session.role == UserRole.admin
-        : session.role.isOperator;
-
-    if (!roleMatches) {
+    // An admin is turned away here, with their reason, rather than let in to
+    // a version of the app that no longer has anything for them.
+    //
+    // The whole office side - schools, the review queue, exports, reports,
+    // announcements - is the web panel's now, and none of those screens
+    // exist in this build. Signing an admin in would put them on a home
+    // screen with no school and an empty card list, which reads as an app
+    // that has lost their data rather than one they are on the wrong device
+    // for. Signing out again matters as much as the message: a cached admin
+    // session would otherwise come back on every launch.
+    if (session.role == UserRole.admin) {
       await _auth.signOut();
-      throw AuthFailure(
-        expectedRole == UserRole.admin
-            ? 'This account is not an admin account.'
-            : 'This is an admin account - use the Admin tab to sign in.',
+      await _clearCachedSession();
+      throw const AuthFailure(
+        'This is an admin account. The office is managed from the web panel '
+        '- open it in a browser instead.',
       );
     }
-    if (expectedRole != UserRole.admin && !session.canEnterData) {
+
+    // Compared by privilege class, not exact role. Sign-in accepts both
+    // School and Teacher accounts - they are the same data scope, and an
+    // exact-equality check here would lock every Teacher account out.
+    if (!session.role.isOperator) {
+      await _auth.signOut();
+      throw const AuthFailure('This account cannot sign in here.');
+    }
+    if (!session.canEnterData) {
       await _auth.signOut();
       throw const AuthFailure(
         'This account has no school assigned. Ask your administrator to set '
@@ -348,6 +332,16 @@ class AuthRepository {
     if (fbUser == null) return null;
 
     final SessionUser? cached = await _readCachedSession();
+
+    // An admin signed in on an older build still has a valid Firebase
+    // credential and a cached profile on this device. Restoring it would walk
+    // straight past the refusal in `_signIn`, because that only runs when
+    // somebody types a password. This is where an upgrade actually lands.
+    if (cached != null && cached.role == UserRole.admin) {
+      await signOut();
+      return null;
+    }
+
     if (cached != null && cached.uid == fbUser.uid) {
       // Refresh in the background so a role change lands on the next frame
       // without making the operator wait for it now.
@@ -357,6 +351,10 @@ class AuthRepository {
 
     try {
       final SessionUser fresh = await _loadProfile(fbUser);
+      if (fresh.role == UserRole.admin) {
+        await signOut();
+        return null;
+      }
       await _cacheSession(fresh);
       return fresh;
     } on AuthFailure {
@@ -454,6 +452,17 @@ class AuthRepository {
     await prefs.setString(_sessionCacheKey, jsonEncode(user.toJson()));
   }
 
+  /// Drops the cached session.
+  ///
+  /// Used when an account is refused at sign-in. Without it the refusal is
+  /// only skin deep: a session cached by an older build - one where admins
+  /// did sign in here - would be restored on the next launch and walk
+  /// straight past the check that just turned it away.
+  Future<void> _clearCachedSession() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sessionCacheKey);
+  }
+
   Future<SessionUser?> _readCachedSession() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? raw = prefs.getString(_sessionCacheKey);
@@ -521,191 +530,14 @@ class AuthRepository {
   }
 
   // ------------------------------------------------------------------
-  // Admin User Management (Accounts & Access Control)
-  // ------------------------------------------------------------------
-
-  Future<List<ManagedUser>> _getOrSeedUsers() async {
-    List<ManagedUser> cached = await _readCachedUsers();
-    if (cached.isEmpty) {
-      final List<ManagedUser> seeds = <ManagedUser>[
-        const ManagedUser(
-          uid: 'admin-seed',
-          email: 'admin@idcardx.app',
-          role: UserRole.admin,
-          displayName: 'System Admin',
-          active: true,
-        ),
-        const ManagedUser(
-          uid: 'school-seed',
-          email: 'shc@schools.idcardx.app',
-          role: UserRole.school,
-          schoolId: 'demo-school',
-          displayName: 'Sacred Heart Convent',
-          active: true,
-        ),
-      ];
-      await _cacheUsers(seeds);
-      cached = seeds;
-    }
-    return cached;
-  }
-
-  /// Watches all registered user accounts.
-  Stream<List<ManagedUser>> watchUsers() {
-    _usersController ??= StreamController<List<ManagedUser>>.broadcast(
-      onListen: () {
-        _getOrSeedUsers().then((List<ManagedUser> u) {
-          if (!(_usersController?.isClosed ?? true)) {
-            _usersController?.add(u);
-          }
-        });
-        if (isBackendAvailable && _firestoreUsersSub == null) {
-          _firestoreUsersSub = _db
-              .collection(kUsersCollection)
-              .snapshots()
-              .listen(
-                (QuerySnapshot<Map<String, Object?>> snap) {
-                  if (snap.docs.isEmpty) return;
-                  final List<ManagedUser> list = snap.docs.map((
-                    QueryDocumentSnapshot<Map<String, Object?>> d,
-                  ) {
-                    return ManagedUser.fromFirestore(d.id, d.data());
-                  }).toList();
-                  if (!(_usersController?.isClosed ?? true)) {
-                    _usersController?.add(list);
-                  }
-                  unawaited_(_cacheUsers(list));
-                },
-                onError: (Object _) {
-                  // Swallow offline / stream errors gracefully
-                },
-              );
-        }
-      },
-    );
-
-    // Also push current data immediately
-    _getOrSeedUsers().then((List<ManagedUser> u) {
-      if (!(_usersController?.isClosed ?? true)) {
-        _usersController?.add(u);
-      }
-    });
-
-    return _usersController!.stream;
-  }
-
-  Future<void> createUserAccount({
-    required String email,
-    required String password,
-    required UserRole role,
-    required String? schoolId,
-    required String displayName,
-  }) async {
-    if (email.trim().isEmpty) {
-      throw const AuthFailure('Email or school login ID is required');
-    }
-    if (password.trim().length < 6) {
-      throw const AuthFailure('Password must be at least 6 characters');
-    }
-    if (role == UserRole.school &&
-        (schoolId == null || schoolId.trim().isEmpty)) {
-      throw const AuthFailure('Select a school for this operator');
-    }
-
-    final String normalizedEmail = schoolCodeToEmail(email);
-    final String uid = const Uuid().v4();
-    final DateTime now = DateTime.now();
-
-    final ManagedUser newUser = ManagedUser(
-      uid: uid,
-      email: normalizedEmail,
-      role: role,
-      schoolId: schoolId,
-      displayName: displayName.trim().isEmpty
-          ? normalizedEmail
-          : displayName.trim(),
-      active: true,
-      createdAt: now,
-    );
-
-    if (isBackendAvailable) {
-      try {
-        await _db
-            .collection(kUsersCollection)
-            .doc(uid)
-            .set(newUser.toFirestoreMap())
-            .timeout(const Duration(seconds: 3));
-      } on Object {
-        // Offline or network timeout - account is preserved locally in cache
-      }
-    }
-
-    // Always update local cache
-    final List<ManagedUser> current = await _readCachedUsers();
-    final List<ManagedUser> updated = <ManagedUser>[
-      newUser,
-      ...current.where((ManagedUser u) => u.email != normalizedEmail),
-    ];
-    await _cacheUsers(updated);
-    if (!(_usersController?.isClosed ?? true)) {
-      _usersController?.add(updated);
-    }
-  }
-
-  Future<void> toggleUserActive(String uid, bool active) async {
-    if (isBackendAvailable) {
-      try {
-        await _db
-            .collection(kUsersCollection)
-            .doc(uid)
-            .update(<String, Object?>{'active': active})
-            .timeout(const Duration(seconds: 3));
-      } on Object {
-        // Offline or network timeout - status updated in local cache
-      }
-    }
-
-    final List<ManagedUser> current = await _readCachedUsers();
-    final List<ManagedUser> updated = current.map((ManagedUser u) {
-      if (u.uid == uid) return u.copyWith(active: active);
-      return u;
-    }).toList();
-    await _cacheUsers(updated);
-    if (!(_usersController?.isClosed ?? true)) {
-      _usersController?.add(updated);
-    }
-  }
-
-  Future<void> _cacheUsers(List<ManagedUser> users) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String raw = jsonEncode(
-      users.map((ManagedUser u) => u.toJson()).toList(),
-    );
-    await prefs.setString(_cachedUsersKey, raw);
-  }
-
-  Future<List<ManagedUser>> _readCachedUsers() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? raw = prefs.getString(_cachedUsersKey);
-    if (raw == null || raw.isEmpty) return const <ManagedUser>[];
-    try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is! List<Object?>) return const <ManagedUser>[];
-      return decoded
-          .whereType<Map<String, Object?>>()
-          .map(ManagedUser.fromJson)
-          .toList();
-    } on FormatException {
-      return const <ManagedUser>[];
-    }
-  }
-
-  // ------------------------------------------------------------------
 
   String _describeAuthError(FirebaseAuthException e, UserRole role) {
-    final String subject = role == UserRole.admin
-        ? 'admin email'
-        : 'school code';
+    // Teacher and parent accounts sign in with an address; a school signs in
+    // with its code. Naming the wrong one in the error is a small thing that
+    // sends somebody hunting for a credential they were never issued.
+    final String subject = role == UserRole.school
+        ? 'school code'
+        : 'email address';
     return switch (e.code) {
       'invalid-email' => 'That $subject is not valid.',
       'user-disabled' => 'This account has been disabled.',

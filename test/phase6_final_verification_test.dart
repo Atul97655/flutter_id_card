@@ -1,7 +1,5 @@
 import 'package:drift/native.dart';
-import 'package:flutter_id_card/features/admin/data/csv_export_service.dart';
-import 'package:flutter_id_card/features/admin/data/reports_service.dart';
-import 'package:flutter_id_card/features/admin/domain/imposition.dart';
+import 'package:flutter_id_card/features/card_render/domain/imposition.dart';
 import 'package:flutter_id_card/shared/models/approval_status.dart';
 import 'package:flutter_id_card/shared/models/card_size.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
@@ -112,7 +110,6 @@ void main() {
     late StudentRepository studentRepo;
     late PrintBatchRepository printBatchRepo;
     late AuditRepository auditRepo;
-    late ReportsService reportsService;
 
     setUp(() async {
       db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -120,11 +117,6 @@ void main() {
       studentRepo = StudentRepository(db);
       printBatchRepo = PrintBatchRepository(db);
       auditRepo = AuditRepository(db);
-      reportsService = ReportsService(
-        students: studentRepo,
-        schools: schoolRepo,
-        printBatches: printBatchRepo,
-      );
     });
 
     tearDown(() async {
@@ -223,39 +215,38 @@ void main() {
         details: <String, Object?>{'sheetType': 'a4', 'cardCount': 2},
       );
 
-      // 5. Export CSV
-      final List<StudentEntry> toExport = await studentRepo.listBySchool(
-        'sch-final',
-      );
-      final String csv = CsvExportService.buildCsvContent(toExport);
-      expect(csv.startsWith('\uFEFF'), isTrue); // UTF-8 BOM
-      expect(csv, contains('AARAV SHARMA'));
-      expect(csv, contains('PRIYA PATEL'));
-
-      await auditRepo.log(
-        action: 'export_csv',
-        entityType: 'school',
-        entityId: 'sch-final',
-        actorUid: 'admin-1',
-        details: <String, Object?>{'rows': 2},
-      );
-
-      // 6. Verify Audit Logs
+      // 5. Verify Audit Logs
+      //
+      // CSV export and the reports aggregation used to be steps here. Both
+      // were the admin panel's, and the panel is the web app now - the
+      // services they called no longer exist in this build.
       final List<AuditEntry> logs = await auditRepo.watchRecent().first;
-      expect(logs.length, 3);
+      expect(logs.length, 2);
       expect(
         logs.map((AuditEntry l) => l.action),
-        containsAll(<String>['bulk_approve', 'print_batch', 'export_csv']),
+        containsAll(<String>['bulk_approve', 'print_batch']),
       );
 
-      // 7. Verify Reports Service Aggregation
-      final SystemReport report = await reportsService.generateReport();
-      expect(report.totalSchools, 1);
-      expect(report.totalStudents, 2);
-      expect(report.totalApproved, 2);
-      expect(report.totalPrintable, 2);
-      expect(report.totalCardsPrinted, 2);
-      expect(report.overallApprovalPercentage, 100.0);
+      // 6. The records those steps read from are still correct, which is the
+      // part this app is responsible for.
+      final List<StudentEntry> finalRows = await studentRepo.listBySchool(
+        'sch-final',
+      );
+      expect(finalRows.length, 2);
+      expect(
+        finalRows.map((StudentEntry e) => e.name),
+        containsAll(<String>['AARAV SHARMA', 'PRIYA PATEL']),
+      );
+      // Approved, not printed: creating a print BATCH records that a sheet
+      // was generated, it does not advance the cards. Marking them printed is
+      // a separate decision the office makes after the sheet comes off the
+      // printer.
+      expect(
+        finalRows.every(
+          (StudentEntry e) => e.approvalStatus == ApprovalStatus.approved,
+        ),
+        isTrue,
+      );
     });
   });
 }

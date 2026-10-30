@@ -1,5 +1,4 @@
 import 'package:flutter_id_card/features/auth/data/auth_repository.dart';
-import 'package:flutter_id_card/features/auth/domain/managed_user.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
 import 'package:flutter_id_card/shared/models/school_config.dart';
 import 'package:flutter_id_card/shared/providers/core_providers.dart';
@@ -25,15 +24,6 @@ class AuthController extends AsyncNotifier<SessionUser?> {
   }) async {
     return _attempt(
       () => _repo.signInAsSchool(schoolCode: schoolCode, password: password),
-    );
-  }
-
-  Future<bool> signInAsAdmin({
-    required String email,
-    required String password,
-  }) async {
-    return _attempt(
-      () => _repo.signInAsAdmin(email: email, password: password),
     );
   }
 
@@ -92,10 +82,7 @@ class AuthController extends AsyncNotifier<SessionUser?> {
   /// (`div_badge_vertical`), the one built around per-division colours - the
   /// most visually distinctive of the five shipped templates. Type a Division
   /// of A/B/C/D/E/F on a new entry to see its accent colour switch live.
-  Future<void> startOfflineTestSession({
-    required String schoolId,
-    bool asAdmin = false,
-  }) async {
+  Future<void> startOfflineTestSession({required String schoolId}) async {
     final SchoolRepository schools = ref.read(schoolRepositoryProvider);
     await schools.save(
       SchoolConfig(
@@ -127,11 +114,11 @@ class AuthController extends AsyncNotifier<SessionUser?> {
 
     state = AsyncValue<SessionUser?>.data(
       SessionUser(
-        uid: asAdmin ? 'offline-admin-test' : 'offline-test',
-        email: asAdmin ? 'admin@idcardx.app' : 'offline@test.local',
-        role: asAdmin ? UserRole.admin : UserRole.school,
-        schoolId: asAdmin ? null : schoolId,
-        displayName: asAdmin ? 'System Admin (Offline)' : 'Offline Test',
+        uid: 'offline-test',
+        email: 'offline@test.local',
+        role: UserRole.school,
+        schoolId: schoolId,
+        displayName: 'Offline Test',
         isOfflineTestSession: true,
       ),
     );
@@ -182,27 +169,18 @@ final NotifierProvider<ActiveSchoolController, String?> activeSchoolIdProvider =
 class ActiveSchoolController extends Notifier<String?> {
   @override
   String? build() {
-    // Follows the session for operators; admins override it explicitly.
+    // Follows the session for operators, who belong to exactly one school.
     final SessionUser? session = ref.watch(currentSessionProvider);
     if (session == null) return null;
-    // A parent has no school of their own, so like an admin they choose one
-    // explicitly - in their case, in the school picker.
-    return (session.isAdmin || session.isParent)
-        ? _adminSelection
-        : session.schoolId;
+    // A parent has no school of their own, so they choose one explicitly -
+    // in the school picker, before filling that school's form.
+    return session.isParent ? _explicitSelection : session.schoolId;
   }
 
-  String? _adminSelection;
+  String? _explicitSelection;
 
   void select(String? schoolId) {
-    _adminSelection = schoolId;
+    _explicitSelection = schoolId;
     state = schoolId;
   }
 }
-
-/// Stream of all managed users for Admin user management.
-final StreamProvider<List<ManagedUser>> allUsersProvider =
-    StreamProvider<List<ManagedUser>>((Ref ref) {
-      final AuthRepository repo = ref.watch(authRepositoryProvider);
-      return repo.watchUsers();
-    });
