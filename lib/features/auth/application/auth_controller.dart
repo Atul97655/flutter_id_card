@@ -27,6 +27,16 @@ class AuthController extends AsyncNotifier<SessionUser?> {
     );
   }
 
+  /// Completes a sign-in that happened by emailed code.
+  ///
+  /// The code check and the token exchange are `OtpRepository`'s; this is
+  /// the step that turns a Firebase credential into this app's session, and
+  /// it goes through the same door every other sign-in does so the admin
+  /// refusal cannot be walked around by arriving a different way.
+  Future<bool> completeCodeSignIn() async {
+    return _attempt(_repo.sessionAfterTokenSignIn);
+  }
+
   /// Creates a teacher account and signs into it.
   ///
   /// The account it produces can read nothing. Access begins when the office

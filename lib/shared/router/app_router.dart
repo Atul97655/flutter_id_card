@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/features/auth/presentation/email_code_screens.dart';
 import 'package:flutter_id_card/features/auth/presentation/login_screen.dart';
 import 'package:flutter_id_card/features/auth/presentation/profile_screen.dart';
 import 'package:flutter_id_card/features/auth/presentation/splash_screen.dart';
@@ -55,6 +56,12 @@ Page<void> _page(GoRouterState state, Widget child) =>
 const Set<String> _publicRoutes = <String>{
   '/',
   '/login',
+  // Both halves of code sign-in. The second one matters: a person sitting on
+  // the code screen is not signed in yet, and without it the redirect would
+  // bounce them to the join screen the moment they arrived - taking the
+  // address they just typed with it.
+  EmailCodeRequestScreen.routePath,
+  EmailCodeEntryScreen.routePath,
   JoinChoiceScreen.routePath,
   RegisterScreen.routePath,
   ParentRegisterScreen.routePath,
@@ -130,7 +137,14 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             : AwaitingAssignmentScreen.routePath;
       }
 
+      // Signed in, but still standing on a door. This is what carries
+      // somebody out of the code screens the instant verification succeeds -
+      // those screens deliberately do not navigate themselves, because where
+      // a person belongs after signing in depends on their account, and this
+      // is the one place that knows.
       if (location == LoginScreen.routePath ||
+          location == EmailCodeRequestScreen.routePath ||
+          location == EmailCodeEntryScreen.routePath ||
           location == JoinChoiceScreen.routePath ||
           location == RegisterScreen.routePath ||
           location == ParentRegisterScreen.routePath ||
@@ -150,6 +164,18 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         name: LoginScreen.routeName,
         pageBuilder: (BuildContext c, GoRouterState s) =>
             _page(s, const LoginScreen()),
+      ),
+      GoRoute(
+        path: EmailCodeRequestScreen.routePath,
+        name: EmailCodeRequestScreen.routeName,
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const EmailCodeRequestScreen()),
+      ),
+      GoRoute(
+        path: EmailCodeEntryScreen.routePath,
+        name: EmailCodeEntryScreen.routeName,
+        pageBuilder: (BuildContext c, GoRouterState s) =>
+            _page(s, const EmailCodeEntryScreen()),
       ),
       GoRoute(
         path: JoinChoiceScreen.routePath,

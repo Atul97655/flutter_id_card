@@ -683,6 +683,46 @@ describe('Review workflow', () => {
 // ---------------------------------------------------------------------------
 // Privilege escalation.
 // ---------------------------------------------------------------------------
+describe('One-time sign-in codes', () => {
+  // The storage security for OTP sign-in is entirely this rule. The Cloud
+  // Functions use the Admin SDK and bypass rules; everything else must be
+  // shut out, because the documents hold a hashed code, its salt, and the
+  // guess counter that makes a six-digit secret safe at all.
+
+  it('a signed-in user cannot read a code document', async () => {
+    await assertFails(getDoc(doc(as(TEACHER_A), 'otps', 'any-hash')));
+  });
+
+  it('not even an admin can read one', async () => {
+    // Deliberately stricter than the rest of this file. An admin has no
+    // business holding somebody else's sign-in code, and the panel never
+    // needs to.
+    await assertFails(getDoc(doc(as(ADMIN), 'otps', 'any-hash')));
+  });
+
+  it('a signed-out visitor cannot read one', async () => {
+    await assertFails(getDoc(doc(anon(), 'otps', 'any-hash')));
+  });
+
+  it('nobody can write one, which is what protects the attempt counter',
+    async () => {
+      // A writable counter turns the five-guess cap into a suggestion: reset
+      // it between guesses and a six-digit code falls in minutes.
+      await assertFails(
+        setDoc(doc(as(TEACHER_A), 'otps', 'any-hash'), { attempts: 0 }),
+      );
+      await assertFails(
+        setDoc(doc(as(ADMIN), 'otps', 'any-hash'), { attempts: 0 }),
+      );
+      await assertFails(setDoc(doc(anon(), 'otps', 'any-hash'), { attempts: 0 }));
+    });
+
+  it('and nobody can delete one', async () => {
+    await assertFails(deleteDoc(doc(as(TEACHER_A), 'otps', 'any-hash')));
+    await assertFails(deleteDoc(doc(as(ADMIN), 'otps', 'any-hash')));
+  });
+});
+
 describe('Privilege escalation', () => {
   it('a teacher CAN stamp their own last login', async () => {
     // The login path writes this on every sign-in with set(merge:true), which

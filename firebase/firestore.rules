@@ -118,6 +118,24 @@ service cloud.firestore {
 
     // --- users -------------------------------------------------------
 
+    // --- one-time sign-in codes --------------------------------------
+    //
+    // Nobody. Not the owner of the address, not an admin, not a signed-in
+    // user of any kind.
+    //
+    // The documents here hold a hashed code, its salt, how many guesses it
+    // has left and how many sends the address has spent. Every one of those
+    // is only worth anything while the client cannot touch it: a readable
+    // hash turns a six-digit secret into an offline crack, and a writable
+    // attempt counter turns the five-guess cap into a suggestion.
+    //
+    // The Cloud Functions that do the work use the Admin SDK, which bypasses
+    // these rules entirely - so denying everything here costs the feature
+    // nothing and is the whole of its storage security.
+    match /otps/{otpId} {
+      allow read, write: if false;
+    }
+
     match /users/{uid} {
       // You can read your own profile; admins can read anyone's.
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());

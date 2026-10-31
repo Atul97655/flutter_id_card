@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_id_card/features/auth/application/auth_controller.dart';
 import 'package:flutter_id_card/features/auth/domain/session_user.dart';
+import 'package:flutter_id_card/features/auth/presentation/email_code_screens.dart';
 import 'package:flutter_id_card/shared/services/firebase/firebase_bootstrap.dart';
 import 'package:flutter_id_card/shared/theme/app_colors.dart';
 import 'package:flutter_id_card/shared/theme/app_motion.dart';
@@ -179,6 +180,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             trailingIcon: busy ? null : Icons.arrow_forward,
                             busy: busy,
                             onPressed: busy ? null : _submit,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          // The other door. Added rather than replacing the
+                          // password: a school signs in with a code and a
+                          // password and may have no mailbox of its own, so
+                          // making email the only way in would lock some of
+                          // them out of their own app.
+                          Center(
+                            child: TextButton.icon(
+                              onPressed: busy
+                                  ? null
+                                  : () => context.push(
+                                      EmailCodeRequestScreen.routePath,
+                                    ),
+                              icon: const Icon(Icons.mail_outline, size: 18),
+                              label: const Text('Sign in with a code instead'),
+                            ),
                           ),
                         ],
                       ),

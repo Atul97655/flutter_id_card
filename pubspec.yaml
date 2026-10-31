@@ -3,7 +3,7 @@ description: "School ID Card Management System - offline-first data entry, photo
 publish_to: 'none'
 
 # version+build. Android versionCode comes from the build number (the part after '+').
-version: 1.4.0+7
+version: 1.5.0+8
 
 environment:
   sdk: ^3.13.1
@@ -30,6 +30,9 @@ dependencies:
   cloud_firestore: ^6.9.0
   firebase_storage: ^13.5.0
   firebase_messaging: ^16.6.0
+  # Calls sendOtp / verifyOtp. Callables rather than HTTP endpoints, so
+  # the SDK carries the App Check and auth context for free.
+  cloud_functions: ^6.0.0
 
   # --- Print pipeline ---------------------------------------------------
   # `pdf` lets us specify page geometry in real millimetres, which is the

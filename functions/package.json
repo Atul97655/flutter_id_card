@@ -1,0 +1,28 @@
+{
+  "name": "id-entity-functions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Email OTP sign-in for ID entity. Callable functions only - no HTTP endpoints, so there is nothing to rate-limit at the edge or authenticate by hand.",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

@@ -253,6 +253,37 @@ class AuthRepository {
     return session;
   }
 
+  /// Builds the session for somebody who has just signed in by some route
+  /// other than a password - today, an emailed code.
+  ///
+  /// Shares the admin refusal with `_signIn`, because a route that skipped it
+  /// would be a way back into the app for exactly the accounts that were
+  /// shut out. It does NOT share the "no school assigned" check: a teacher
+  /// waiting on the office has no school yet, and refusing them here would
+  /// be worse than what the router already does, which is show them the
+  /// waiting screen with a Check again button.
+  Future<SessionUser> sessionAfterTokenSignIn() async {
+    final User? fbUser = _auth.currentUser;
+    if (fbUser == null) {
+      throw const AuthFailure('Sign-in did not complete. Try again.');
+    }
+
+    final SessionUser session = await _loadProfile(fbUser);
+
+    if (session.role == UserRole.admin) {
+      await _auth.signOut();
+      await _clearCachedSession();
+      throw const AuthFailure(
+        'This is an admin account. The office is managed from the web panel '
+        '- open it in a browser instead.',
+      );
+    }
+
+    await _cacheSession(session);
+    unawaited_(_touchLastLogin(session.uid));
+    return session;
+  }
+
   /// Reads the role document. Primary lookup is by UID, which is what the
   /// security rules key off. The email fallback exists because Firestore
   /// documents created by hand in the console get an auto-ID instead of the

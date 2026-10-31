@@ -189,6 +189,7 @@ class GlassTextField extends StatefulWidget {
     this.trailing,
     this.textInputAction,
     this.onSubmitted,
+    this.onChanged,
   });
 
   final String label;
@@ -221,6 +222,14 @@ class GlassTextField extends StatefulWidget {
   final Widget? trailing;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
+
+  /// Fires on every keystroke, after the formatters have had their say.
+  ///
+  /// Added for the sign-in code field, which clears a stale error as soon as
+  /// the person starts correcting it and submits itself on the sixth digit.
+  /// Listening to the controller from outside would do neither: it fires
+  /// before formatting, and it cannot tell a programmatic change from typing.
+  final ValueChanged<String>? onChanged;
 
   @override
   State<GlassTextField> createState() => _GlassTextFieldState();
@@ -333,6 +342,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
         minLines: widget.minLines,
         textInputAction: widget.textInputAction,
         onFieldSubmitted: widget.onSubmitted,
+        onChanged: widget.onChanged,
         onTap: widget.onTap,
         style: AppTypography.input,
         cursorColor: AppColors.royal,
